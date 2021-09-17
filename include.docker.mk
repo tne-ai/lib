@@ -66,7 +66,7 @@ docker_flags ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
 				--build-arg "PIP=$(PIP)" \
 				--build-arg "PIP_ONLY=$(PIP_ONLY)" \
 				--build-arg "STDIN_OPEN=$(STDIN_OPEN)" \
-				--build-arg "TTY=$(TTY)" 
+				--build-arg "TTY=$(TTY)"
 
 # Guess the name of the main container is called main
 DOCKER_COMPOSE_MAIN ?= main
@@ -224,7 +224,7 @@ exec: stop
 		$(docker_run) -t $(cmd) \
 	; fi
 
-## shell: start and new container and run the interactive shell 
+## shell: start and new container and run the interactive shell
 # https://gist.github.com/mitchwongho/11266726
 # Need entrypoint to make sure we get something interactive
 .PHONY: shell
