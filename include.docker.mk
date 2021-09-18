@@ -20,8 +20,6 @@ SRC_DIR ?= $(CURDIR)/data
 # volumes ?= -v "$$(readlink -f "./data"):$(DEST_DIR)"
 volumes ?= --mount "type=bind,source=$(SRC_DIR),target=$(DEST_DIR)"
 flags ?=
-# need the right UID for correct volume permissions
-LOCAL_USER_ID ?= $(shell echo $$UID)
 
 Dockerfile ?= Dockerfile
 #
@@ -55,6 +53,36 @@ PIP_ONLY ?=
 STDIN_OPEN ?= true
 TTY ?= true
 
+# need the right UID for correct volume permissions
+# currently breaks px4 with invalide user id
+#LOCAL_USER_ID ?= $(shell echo $$UID)
+HOST_UID=$(shell id -u)
+HOST_GID=$(shell id -g)
+# get the IP container address
+CONTAINER_IP=$$(docker container inspect -f '{{ $$net := index .NetworkSettings.Networks "$(name)_default" }}{{ $$net.IPAddress }}' $(name)_main_1)
+HOST_IP=$(shell ipconfig getifaddr en0)
+# more complex
+#HOST_IP=$(shell ifconfig en0 | grep "inet " | cut -d ' ' -f 2)
+EXPORTS ?= export HOST_UID="$(HOST_UID)" HOST_GID="$(HOST_GID)" HOST_IP="$(HOST_IP)"
+
+## xhost: Run docker with xhost on
+# https://github.com/moby/moby/issues/35886
+# Cannot use single quotes in the -f filter because $(name) is itself a shell
+# command so use backslashes instead
+# In the IP setting not there should be no space between the two handlebars
+# https://lmiller1990.github.io/electic/posts/20201119_cypress_and_x11_in_docker.html
+# http://mamykin.com/posts/running-x-apps-on-mac-with-docker/
+# https://stackoverflow.com/questions/38686932/how-to-forward-docker-for-mac-to-x11
+# not sure which ones to add so add all of them
+# Note that ifconfig and HOSTNAME point to the same DNS so you don't need both
+# but do both in case that is incorrect
+.PHONY: xhost
+xhost:
+	@echo "On MacOS install XQuartz and enable Preferences > Security > Allow connects from network clients"
+	xhost "+$$HOSTNAME"
+	xhost "+$(ifconfig getifaddre en0)"
+	xhose "+localhost"
+
 # these are only for docker build
 # For docker compose you need an .env file instead
 DOCKER_ENV_FILE ?= docker-compose.env
@@ -72,10 +100,12 @@ docker_flags ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
 DOCKER_COMPOSE_MAIN ?= main
 
 ## docker: build and push the images
+		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
 .PHONY: docker
 docker:
+	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
-		LOCAL_USER_ID=$(LOCAL_USER_ID) docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull && \
+		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull && \
 		docker compose --env-file "${DOCKER_ENV_FILE}" push; \
 	else \
 		docker build --pull \
@@ -88,10 +118,12 @@ docker:
 	fi
 
 ## docker-lint: run the linter against the docker file
+		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
 .PHONY: docker-lint
 docker-lint: $(Dockerfile)
+	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -r $((DOCKER_COMPOSE_YML)) ]]; then \
-		LOCAL_USER_ID=$(LOCAL_USER_ID) docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" config; \
+		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" config; \
 	else \
 		dockerfilelint $(Dockerfile); \
 	fi
@@ -107,6 +139,7 @@ docker-test:
 .PHONY: push
 push:
 	# need to push and pull to make sure the entire cluster has the right images
+	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose -f "$(DOCKER_COMPOSE_YML)" push; \
 	else \
@@ -118,8 +151,10 @@ push:
 ## no-cache: build docker image with no cache
 .PHONY: no-cache
 no-cache: $(Dockerfile)
+	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -e $(DOCKER_COMPOSE_YML) ]]; then \
-		LOCAL_USER_ID=$(LOCAL_USER_ID) docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" build \
+		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
+		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" build \
 			--build-arg NB_USER=$(DOCKER_USER); \
 	else \
 		docker build --pull --no-cache \
@@ -141,6 +176,7 @@ for_containers = bash -c 'for container in $$(docker ps -qa --filter name="$$0")
 # the first $0 is assumed to be flags to docker run then come the arguments
 # And that the last digit is separate by a dash to an underscore
 docker_run = bash -c ' \
+	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	last=$$(docker ps --format "{{.Names}}" | rev | tr - _ | cut -d "_" -f 1 | sort -r | head -n1) && \
 	docker run $$0 \
 		--name $(container)_$$((last+1)) \
@@ -152,8 +188,9 @@ docker_run = bash -c ' \
 ## stop: halts all running containers (deprecated)
 .PHONY: stop
 stop:
+	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		LOCAL_USER_ID=$(LOCAL_USER_ID) docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" down \
+		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" down \
 	; else \
 		$(for_containers) $(container) stop > /dev/null && \
 		$(for_containers) $(container) "rm -v" > /dev/null \
@@ -162,8 +199,9 @@ stop:
 ## pull: pulls the latest image
 .PHONY: pull
 pull:
+	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		LOCAL_USER_ID=$(LOCAL_USER_ID) docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" pull; \
+		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" pull; \
 	else \
 		docker pull $(image); \
 	fi
@@ -201,11 +239,13 @@ pull:
 
 ## run: Run the docker container in the background (for web apps like Jupyter)
 # we show the log after 5 second so you can see things like the security token
-# needs
+# needs. the Host IP has to be passed in as it changes dynamically 
+# and the .env file is static
 .PHONY: run
 run: stop
+	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		LOCAL_USER_ID=$(LOCAL_USER_ID) docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up -d  && \
+		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up -d  && \
 		sleep 5 && \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" logs \
 	; else \
@@ -218,19 +258,29 @@ run: stop
 #
 .PHONY: exec
 exec: stop
+	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		LOCAL_USER_ID=$(LOCAL_USER_ID) docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up \
+		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
+		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up \
 	; else \
 		$(docker_run) -t $(cmd) \
 	; fi
 
-## shell: start and new container and run the interactive shell
 # https://gist.github.com/mitchwongho/11266726
 # Need entrypoint to make sure we get something interactive
+# LOCAL_USER_ID=$(LOCAL_USER_ID) \
+# The need for the host IP is to allow X-Windows support
+# which allows openGL acceleration to the outer system
+# For security there is a cookie stored in .Xauthority and the hostname has to
+# resolve to the HOST IP. The cookie is opaque, but you can see the hostname
+# on a Mac this is usually the HOSTNAME 
+	#export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
+## shell: start and new container and run the interactive shell
 .PHONY: shell
 shell:
+	$(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		LOCAL_USER_ID=$(LOCAL_USER_ID) docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" run "$(DOCKER_COMPOSE_MAIN)" /bin/bash; \
+		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" run "$(DOCKER_COMPOSE_MAIN)" /bin/bash; \
 	else \
 		docker pull $(image); \
 		docker run -it \
@@ -241,8 +291,9 @@ shell:
 ## resume: keep running an existing container
 .PHONY: resume
 resume:
+	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		LOCAL_USER_ID=$(LOCAL_USER_ID) docker compose --env-file "$(DOCKER_ENV_FILE)" start; \
+		docker compose --env-file "$(DOCKER_ENV_FILE)" start; \
 	else \
 		docker start -ai $(container); \
 	fi
