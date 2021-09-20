@@ -99,26 +99,24 @@ docker_flags ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
 # Guess the name of the main container is called main
 DOCKER_COMPOSE_MAIN ?= main
 
-## docker: build and push the images
-		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
-.PHONY: docker
-docker:
+## build: build images (push separately)
+		# LOCAL_USER_ID=$(LOCAL_USER_ID) 
+.PHONY: build
+build:
 	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
-		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull && \
-		docker compose --env-file "${DOCKER_ENV_FILE}" push; \
+		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull; \
 	else \
 		docker build --pull \
 					$(docker_flags) \
 					 -f "$(Dockerfile)" \
 					 -t "$(image)" \
 					 $(build_path) && \
-		docker tag $(image) $(image):$$(git rev-parse HEAD) && \
-		docker push $(image) ;\
+		docker tag $(image) $(image):$$(git rev-parse HEAD);  \
 	fi
 
 ## docker-lint: run the linter against the docker file
-		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
+		# LOCAL_USER_ID=$(LOCAL_USER_ID) 
 .PHONY: docker-lint
 docker-lint: $(Dockerfile)
 	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
@@ -141,7 +139,7 @@ push:
 	# need to push and pull to make sure the entire cluster has the right images
 	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		docker compose -f "$(DOCKER_COMPOSE_YML)" push; \
+		docker compose --env "$(DOCKER_ENV_FILE)"-f "$(DOCKER_COMPOSE_YML)" push; \
 	else \
 		docker push $(image); \
 	fi
