@@ -293,8 +293,14 @@ if eval "[[ ! -v $lib_name ]]"; then
 			# echo ubuntu
 			# echo $(linux_version)
 			case $(linux_version) in
+			21.10)
+				echo impish
+				;;
+			21.04)
+				echo hirsute
+				;;
 			20.10*)
-				echo grovvy
+				echo groovy
 				;;
 			20.04*)
 				echo focal
@@ -364,6 +370,15 @@ if eval "[[ ! -v $lib_name ]]"; then
 			# echo debian
 			# https://en.wikipedia.org/wiki/Debian_version_history
 			case $(linux_version) in
+			13*)
+				echo trixie
+				;;
+			12*)
+				echo bookworm
+				;;
+			11*)
+				echo bullseye
+				;;
 			10*)
 				echo buster
 				;;
