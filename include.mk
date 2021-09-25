@@ -44,18 +44,23 @@ readme:
 .PHONY: pre-commit
 pre-commit:
 	@echo this does not work on WSL so you need to run pre-commit install manually
-	[[ -e .pre-commit-config.yaml ]] && $(RUN) pre-commit autoupdate || true
-	[[ -e .pre-commit-config.yaml ]] && $(RUN) pre-commit run --all-files || true
-
+	if [[ ! -e .pre-commit-config.yaml ]]; then \
+		@echo "no .pre-commit-config.yaml found copy from ./lib"; \
+	else \
+		$(RUN) pre-commit autoupdate || true && \
+		$(RUN) pre-commit run --all-files || true \
+	; fi
 
 ## pre-commit-install: Install precommit (get prebuilt .pre-commit-config.yaml from @richtong/lib)
 .PHONY: pre-commit-install
 pre-commit-install:
-	if [[ -e .pre-commit-config.yaml ]]; then \
+	if [[ ! -e .pre-commit-config.yaml ]]; then \
+		echo "copy appropriate .pre-commit-config.yaml from ./lib" \
+	; else \
 		$(RUN) pre-commit install || true && \
-		mkdir -p .github/workflows \
+		mkdir -p .github/workflows && \
+		echo "copy the appropriate ./lib/workflows in .github/workflows" \
 	; fi
-	@echo "copy the appropriate workflows from lib"
 
 ## git-lfs: installs git lfs
 .PHONY: git-lfs

@@ -100,7 +100,7 @@ docker_flags ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
 DOCKER_COMPOSE_MAIN ?= main
 
 ## build: build images (push separately)
-		# LOCAL_USER_ID=$(LOCAL_USER_ID) 
+		# LOCAL_USER_ID=$(LOCAL_USER_ID)
 .PHONY: build
 build:
 	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
@@ -116,7 +116,7 @@ build:
 	fi
 
 ## docker-lint: run the linter against the docker file
-		# LOCAL_USER_ID=$(LOCAL_USER_ID) 
+		# LOCAL_USER_ID=$(LOCAL_USER_ID)
 .PHONY: docker-lint
 docker-lint: $(Dockerfile)
 	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
@@ -237,7 +237,7 @@ pull:
 
 ## run: Run the docker container in the background (for web apps like Jupyter)
 # we show the log after 5 second so you can see things like the security token
-# needs. the Host IP has to be passed in as it changes dynamically 
+# needs. the Host IP has to be passed in as it changes dynamically
 # and the .env file is static
 .PHONY: run
 run: stop
@@ -271,7 +271,7 @@ exec: stop
 # which allows openGL acceleration to the outer system
 # For security there is a cookie stored in .Xauthority and the hostname has to
 # resolve to the HOST IP. The cookie is opaque, but you can see the hostname
-# on a Mac this is usually the HOSTNAME 
+# on a Mac this is usually the HOSTNAME
 	#export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 ## shell: start and new container and run the interactive shell
 .PHONY: shell
