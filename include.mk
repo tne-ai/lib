@@ -45,7 +45,7 @@ readme:
 pre-commit:
 	@echo this does not work on WSL so you need to run pre-commit install manually
 	if [[ ! -e .pre-commit-config.yaml ]]; then \
-		@echo "no .pre-commit-config.yaml found copy from ./lib"; \
+		echo "no .pre-commit-config.yaml found copy from ./lib"; \
 	else \
 		$(RUN) pre-commit autoupdate || true && \
 		$(RUN) pre-commit run --all-files || true \

@@ -154,6 +154,7 @@ vi:
 	cd $(ED_DIR) && $(RUN) "$$VISUAL" $(ED)
 
 # https://www.technologyscout.net/2017/11/how-to-install-dependencies-from-a-requirements-txt-file-with-conda/
+## install: install into python environment set by $(ENV)
 .PHONY: install
 install: $(INSTALL_REQ)
 	@echo PIP=$(PIP)
