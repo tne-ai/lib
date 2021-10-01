@@ -42,3 +42,16 @@ MACOS_VERSION ?= $(shell sw_vers -productVersion)
 .PHONY: npm-install
 npm-install:
 	npm install $(NPM)
+
+## npm-install-g: Install Node command line packages globally (unless asdf detected)
+.PHONY: npm-install-g
+npm-install-g:
+	npm install -g $(NPM_GLOBAL) && \
+	if command -v asdf > /dev/null; then \
+		asdf reshim nodejs; \
+	fi
+
+## node-asdf: Install local node version
+.PHONY: node-asdf
+node-asdf:
+	asdf local nodejs latest

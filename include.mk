@@ -90,3 +90,10 @@ else
 	git branch -M main
 	git push -u origin main
 endif
+
+##
+## direnv: creates a new environemnt with direnv and asdf
+.PHONY: direnv
+direnv:
+	touch .envrc
+	direnv allow .envrc
