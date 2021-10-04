@@ -7,7 +7,7 @@ TAG ?= v1
 # https://www.gnu.org/software/make/manual/make.html#Flavors
 # Use simple expansion for most and not ?= since default is /bin/bash
 # which is bash v3 for MacOS
-SHELL := /usr/bin/env bash
+SHELL ?= /usr/bin/env bash
 GIT_ORG ?= richtong
 SUBMODULE_HOME ?= "$(HOME)/ws/git/src"
 NEW_REPO ?=
@@ -91,9 +91,16 @@ else
 	git push -u origin main
 endif
 
-##
 ## direnv: creates a new environemnt with direnv and asdf
 .PHONY: direnv
 direnv:
 	touch .envrc
 	direnv allow .envrc
+
+## brew-install: install brew packages
+# quote needed in case BREW is not set
+.PHONY: brew-install
+brew-install:
+	if [[ -n "$(BREW)" ]]; then \
+		brew install $(BREW) \
+	; fi
