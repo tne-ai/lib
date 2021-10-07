@@ -27,7 +27,7 @@ DOC ?= doc
 LIB ?= lib
 name ?= $$(basename $(PWD))
 # put a python file here or the module name
-MAIN ?= $(name)
+MAIN ?= $(name).py
 #MAIN ?= ScrapeAllAndSend.py
 MAIN_PATH ?= $(PWD)
 
@@ -109,7 +109,7 @@ main:
 ## pdb: run locally with python to test components from main
 .PHONY: pdb
 pdb:
-	$(ACTIVATE) && python -m pdb $(MODULE) $(FLAGS)
+	$(RUN) python -m pdb $(MODULE) $(FLAGS)
 
 ## debug: run with debug model on for main
 .PHONY: debug
