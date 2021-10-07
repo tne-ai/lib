@@ -1,5 +1,5 @@
 ##
-## Python Commands
+## Python Commands (cloned from https://github.com/richtong/libi/include.python.mk)
 ## -------------------
 # Configure by setting PIP for pip packages and optionally name
 # requires include.mk
@@ -200,13 +200,16 @@ ifneq ($(strip $(PIP_DEV)),)
 	$(INSTALL_DEV) $(PIP_DEV) || true
 endif
 ifneq ($(strip $(PIP_ONLY)),)
+# pipenv means you never need naked pip install
+ifeq($(ENV),pipenv)
+	$(INSTALL) $(PIP_ONLY) || true
+else
 	$(RUN) pip install $(PIP_ONLY) || true
+endif
 endif
 ifeq ($(ENV),pipenv)
 	pipenv lock
 	pipenv update
-endif
-
 endif
 
 ## export: export configuration to requirements.txt or environment.yml
