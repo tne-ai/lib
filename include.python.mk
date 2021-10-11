@@ -14,22 +14,24 @@
 #
 FLAGS ?=
 SHELL := /usr/bin/env bash
-# does not work the excluded directories are still listed
-# https://www.theunixschool.com/2012/07/find-command-15-examples-to-exclude.html
-# exclude := -type d \( -name extern -o -name .git \) -prune -o
-# https://stackoverflow.com/questions/4210042/how-to-exclude-a-directory-in-find-command
-exclude := -not \( -path "./extern/*" -o -path "./.git/*" \)
-all_py := $$(find restart -name "*.py" $(exclude) )
-all_yaml := $$(find restart -name "*.yaml" $(exclude))
+# does not work the EXCLUDEd directories are still listed
+# https://www.theunixschool.com/2012/07/find-command-15-examples-to-EXCLUDE.html
+# EXCLUDE := -type d \( -name extern -o -name .git \) -prune -o
+# https://stackoverflow.com/questions/4210042/how-to-EXCLUDE-a-directory-in-find-command
+EXCLUDE := -not \( -path "./extern/*" -o -path "./.git/*" \)
+ALL_PY := $$(find restart -name "*.py" $(EXCLUDE) )
+ALL_YAML := $$(find restart -name "*.yaml" $(EXCLUDE))
 # gitpod needs three digits
 PYTHON ?= 3.9
 DOC ?= doc
 LIB ?= lib
-name ?= $$(basename $(PWD))
+NAME ?= $$(basename $(PWD))
 # put a python file here or the module name
 MAIN ?= $(name).py
 #MAIN ?= ScrapeAllAndSend.py
 MAIN_PATH ?= $(PWD)
+
+TEST_PYPI_USERNAME ?= richtong
 
 # this is not yet a module so no name
 IS_MODULE ?= False
@@ -226,7 +228,7 @@ endif
 ## doc: make the documentation for the Python project (uses pipenv)
 .PHONY: doc
 doc:
-	for file in $(all_py); \
+	for file in $(ALL_PY); \
 		do $(RUN) pdoc --force --html --output $(DOC) $$file; \
 	done
 
@@ -234,7 +236,7 @@ doc:
 .PHONY: doc-debug
 doc-debug:
 	@echo browse to http://localhost:8080 and CTRL-C when done
-	for file in $(all_py); \
+	for file in $(ALL_PY); \
 		do pipenv run pdoc --http : $(DOC) $$file; \
 	done
 
@@ -254,11 +256,6 @@ package:
 .PHONY: pypi
 pypi: package
 	$(RUN) twine upload dist/*
-
-## pypi-test: build package and push to test python package index
-.PHONY: pypi-test
-pypi-test: package
-	$(RUN) twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 
 ## pipenv: Run interactive commands in Pipenv environment
 .PHONY: pipenv
@@ -285,26 +282,26 @@ conda-clean:
 conda:
 	@echo "run conda activate $(name) in you shell"
 
-# Note we are using setup.cfg for all the mypy and flake excludes and config
+# Note we are using setup.cfg for all the mypy and flake EXCLUDEs and config
 ## lint : code check (conda)
 .PHONY: lint
 lint:
 	$(RUN) flake8 || true
-ifdef all_py
+ifdef ALL_PY
 	$(RUN) seed-isort-config ||true
 	$(RUN) mypy || true
-	$(RUN) bandit $(all_py) || true
-	$(RUN) pydocstyle --convention=google $(all_py) || true
+	$(RUN) bandit $(ALL_PY) || true
+	$(RUN) pydocstyle --convention=google $(ALL_PY) || true
 endif
-ifdef all_yaml
+ifdef ALL_YAML
 	echo $$PWD
-	$(RUN) yamllint $(all_yaml) || true
+	$(RUN) yamllint $(ALL_YAML) || true
 endif
 
-# Flake8 does not handle streamlit correctly so exclude it
+# Flake8 does not handle streamlit correctly so EXCLUDE it
 # Nor does pydocstyle
 # If the web can pass then you can use these lines
-# pipenv run flake8 --exclude $(STREAMLIT)
+# pipenv run flake8 --EXCLUDE $(STREAMLIT)
 #	pipenv run mypy $(NO_STREAMLIT)
 #	pipenv run pydocstyle --convention=google --match='(?!$(STREAMLIT))'
 #
@@ -346,3 +343,23 @@ pipenv-clean:
 .PHONY: python-asdf
 python-asdf:
 	asdf local python latest
+
+## test-pypi: build and upload PyPi PIP package distribution to test
+# https://twine.readthedocs.io/en/latest/
+.PHONY: test-pypi
+test-pypi: dist
+	$(RUN) python -m twine upload -u __token__ \
+		-p "pypi-$$TEST_PYPI_API_TOKEN" \
+		--repository testpypi dist/*
+	$(RUN) python -m pip install --index-url https://test.pypi.org/simple --no-deps $(NAME)
+
+## dist: build PyPi PIP packages
+dist: setup.cfg
+	@echo "Put token into TEST_PYPI_API_TOKEN"
+	@echo "from https://test.pypi.org/manage/account/#api-token"
+	$(RUN) python -m build
+
+## pypi-test: build package and push to test python package index (obooslete)
+#.PHONY: pypi-test
+#pypi-test: package
+#    $(RUN) twine upload --repository-url https://test.pypi.org/legacy/ dist/*
