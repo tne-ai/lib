@@ -30,7 +30,7 @@ NAME ?= $$(basename $(PWD))
 # put a python file here or the module name
 MAIN ?= $(name).py
 #MAIN ?= ScrapeAllAndSend.py
-MAIN_PATH ?= $(PWD)
+MAIN_PATH ?= .
 
 TEST_PYPI_USERNAME ?= richtong
 
@@ -123,10 +123,19 @@ debug:
 # https://docs.github.com/en/actions/guides/building-and-testing-python
 # https://pytest-cov.readthedocs.io/en/latest/config.html
 # https://docs.pytest.org/en/stable/usage.html
-## test: unit test
+## test: unit test for Python non-PIP packages
 .PHONY: test
 test:
 	pytest --doctest-modules "--cov=$(MAIN_PATH)"
+
+## test-pip: test pip installed packages
+# assumes the direcotry layout of ./src/$(NAME) for package
+# and ./tests for the pytest files
+# -e or --editable means create the package in place
+.PHONY: test-pip
+test-pip:
+	pip install -e .
+	pytest ./tests
 
 ## test-ci: product junit for consumption by ci server
 # --doctest-modules --cove measure for a particular path
@@ -344,7 +353,8 @@ test-pypi: dist
 	$(RUN) twine upload -u __token__ \
 		-p "pypi-$$TEST_PYPI_API_TOKEN" \
 		--repository testpypi dist/*
-	$(RUN) python -m pip install --index-url https://test.pypi.org/simple --no-deps $(NAME)
+
+	#$(RUN) python -m pip install --upgrade --index-url https://test.pypi.org/simple --no-deps $(NAME)
 
 ## dist: build PyPi PIP packages
 dist: setup.py
@@ -365,8 +375,3 @@ pypi: dist
 		-u __token__ \
 		-p "pypi-$$PYPI_API_TOKEN" \
 		dist/*
-
-## pypi-test: build package and push to test python package index (obooslete)
-#.PHONY: pypi-test
-#pypi-test: package
-#    $(RUN) twine upload --repository-url https://test.pypi.org/legacy/ dist/*
