@@ -23,6 +23,7 @@ ALL_PY := $$(find restart -name "*.py" $(EXCLUDE) )
 ALL_YAML := $$(find restart -name "*.yaml" $(EXCLUDE))
 # gitpod needs three digits
 PYTHON ?= 3.9
+PYTHON_MINOR ?= $(PYTHON).7
 DOC ?= doc
 LIB ?= lib
 NAME ?= $$(basename $(PWD))
@@ -247,16 +248,6 @@ format:
 	$(RUN) isort --profile=black -w 79 .
 	$(RUN) black -l 79 *.py
 
-## pipenv-package: build package
-.PHONY: package
-package:
-	$(RUN) python setup.py sdist bdist_wheel
-
-## pypi: build package and push to the python package index
-.PHONY: pypi
-pypi: package
-	$(RUN) twine upload dist/*
-
 ## pipenv: Run interactive commands in Pipenv environment
 .PHONY: pipenv
 pipenv:
@@ -339,25 +330,41 @@ pipenv-clean:
 	rm Pipfile* || true
 	touch Pipfile
 
-## Install local python vrsion with asdf
+## python-asdf: Install local python vrsion with asdf
+# note asdf needs fully qualified including minor release
 .PHONY: python-asdf
 python-asdf:
-	asdf local python latest
+	asdf local python "$(PYTHON_MINOR)"
+
 
 ## test-pypi: build and upload PyPi PIP package distribution to test
 # https://twine.readthedocs.io/en/latest/
 .PHONY: test-pypi
 test-pypi: dist
-	$(RUN) python -m twine upload -u __token__ \
+	$(RUN) twine upload -u __token__ \
 		-p "pypi-$$TEST_PYPI_API_TOKEN" \
 		--repository testpypi dist/*
 	$(RUN) python -m pip install --index-url https://test.pypi.org/simple --no-deps $(NAME)
 
 ## dist: build PyPi PIP packages
-dist: setup.cfg
+dist: setup.py
 	@echo "Put token into TEST_PYPI_API_TOKEN"
 	@echo "from https://test.pypi.org/manage/account/#api-token"
 	$(RUN) python -m build
+
+
+## pypi: build package
+#.PHONY: package
+#package:
+	#$(RUN) python setup.py sdist bdist_wheel
+
+## pypi: build package and push to the python package index
+.PHONY: pypi
+pypi: dist
+	$(RUN) twine upload \
+		-u __token__ \
+		-p "pypi-$$PYPI_API_TOKEN" \
+		dist/*
 
 ## pypi-test: build package and push to test python package index (obooslete)
 #.PHONY: pypi-test
