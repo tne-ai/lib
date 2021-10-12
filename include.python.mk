@@ -132,10 +132,19 @@ test:
 # assumes the direcotry layout of ./src/$(NAME) for package
 # and ./tests for the pytest files
 # -e or --editable means create the package in place
+#  however the -e does work for pytest
+# https://stackoverflow.com/questions/49028611/pytest-cannot-find-module
+# you need a __init__.py so that pytest finds the modules
+# or do this with python -m pytest which adds this
+# https://stackoverflow.com/questions/42724305/pytest-cannot-find-package-when-i-put-tests-in-a-separate-directory
+# this is because pytest looks up from the parent to the first directory
+# that does nt have an __init__.py to find modules
 .PHONY: test-pip
 test-pip:
+	@echo pip install -e for adhoc testing
 	pip install -e .
-	pytest ./tests
+	@echo fix to PYTHONPATH for pytest
+	PYTHONPATH="src" pytest ./tests
 
 ## test-ci: product junit for consumption by ci server
 # --doctest-modules --cove measure for a particular path
