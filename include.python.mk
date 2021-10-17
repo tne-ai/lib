@@ -37,9 +37,9 @@ TEST_PYPI_USERNAME ?= richtong
 # this is not yet a module so no name
 IS_MODULE ?= False
 ifeq ($(IS_MODULE),True)
-MODULE ?= -m $(MAIN)
+	MODULE ?= -m $(MAIN)
 else
-MODULE ?= $(MAIN)
+	MODULE ?= $(MAIN)
 endif
 
 STREAMLIT ?= $(MAIN)
@@ -101,8 +101,6 @@ else ifeq ($(ENV),none)
 	INSTALL_DEV := pip install
 	INSTALL_REQ :=
 endif
-
-
 
 ## main: run the main program
 .PHONY: main
@@ -176,6 +174,7 @@ vi:
 
 # https://www.technologyscout.net/2017/11/how-to-install-dependencies-from-a-requirements-txt-file-with-conda/
 ## pip-install: install into python environment set by $(ENV)
+# https://stackoverflow.com/questions/9008649/gnu-make-conditional-function-if-inside-a-user-defined-function-always-ev
 .PHONY: pip-install
 pip-install: $(INSTALL_REQ)
 	@echo PIP=$(PIP)
@@ -187,50 +186,45 @@ pip-install: $(INSTALL_REQ)
 	@echo INSTALL_REQ=$(INSTALL_REQ)
 
 ifeq ($(ENV),conda)
-	conda env list | grep ^$(name) || conda create -y --name $(name)
-	conda config --env --add channels conda-forge
-	conda config --env --set channel_priority strict
-	conda install --name $(name) -y python=$(PYTHON)
-ifneq ($(strip $(PIP_ONLY)),)
-	$(RUN) pip install $(PIP_ONLY) || true
-endif
-	conda install --name $(name) -y $(PIP_DEV)
-	conda install --name $(name) -y $(PIP)
-	[[ -r environment.yml ]] && conda env update --name $(name) -f environment.yml || true
-	# echo $$SHELL
-	[[ -r requirements.txt ]] && \
-		grep -v "^#" requirements.txt | \
-	        (while read requirement; do \
-				echo "processing $$requirement"; \
-				if ! conda install --name $(name) -y "$$requirement"; then \
-					$(ACTIVATE) && \
-					pip install "$$requirement"; \
-					echo "installed $$requirement";\
-	            fi; \
-	        done) \
-		|| true
-	# https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#setting-environment-variables
-	conda env config vars set PYTHONNOUSERSITE=true --name $(name)
-	@echo WARNING -- we do not parse the PYthon User site in ~/.
+		conda env list | grep ^$(name) || conda create -y --name $(name)
+		conda config --env --add channels conda-forge
+		conda config --env --set channel_priority strict
+		conda install --name $(name) -y python=$(PYTHON)
+
+		# using conditional in function form if first is not null, then insert
+		# second, else the third if it is there
+		$(if $(strip $(PIP_ONLY)),$(RUN) pip install $(PIP_ONLY) || true)
+
+		conda install --name $(name) -y $(PIP_DEV)
+		conda install --name $(name) -y $(PIP)
+		[[ -r environment.yml ]] && conda env update --name $(name) -f environment.yml || true
+		# echo $$SHELL
+		[[ -r requirements.txt ]] && \
+			grep -v "^#" requirements.txt | \
+				(while read requirement; do \
+					echo "processing $$requirement"; \
+					if ! conda install --name $(name) -y "$$requirement"; then \
+						$(ACTIVATE) && \
+						pip install "$$requirement"; \
+						echo "installed $$requirement";\
+					fi; \
+				done) \
+			|| true
+		# https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#setting-environment-variables
+		conda env config vars set PYTHONNOUSERSITE=true --name $(name)
+		@echo WARNING -- we do not parse the PYthon User site in ~/.
 else
-	# https://stackoverflow.com/questions/38801796/makefile-set-if-variable-is-empty
-ifneq ($(strip $(PIP)),)
-	$(INSTALL) $(PIP) || true
-endif
-ifneq ($(strip $(PIP_DEV)),)
-	$(INSTALL_DEV) $(PIP_DEV) || true
-endif
-ifneq ($(strip $(PIP_ONLY)),)
-# pipenv means you never need naked pip install
-ifeq($(ENV),pipenv)
-	$(INSTALL) $(PIP_ONLY) || true
-else
-	$(RUN) pip install $(PIP_ONLY) || true
-endif
-endif
-ifeq ($(ENV),pipenv)
-	pipenv lock
-	pipenv update
+		# now handle pip and pipenv together
+		# https://stackoverflow.com/questions/38801796/makefile-set-if-variable-is-empty
+		$(if $(strip $(PIP)), $(INSTALL) $(PIP))
+
+		$(if $(strip $(PIP_DEV)), $(INSTALL_DEV) $(PIP_DEV))
+
+		# if PIP_ONLY run use regular pip if not pipenv
+		$(if $(strip $(PIP_ONLY))$(findstring pipenv, $(ENV)), $(INSTALL) $(PIP_ONLY), $(RUN) pip install $(PIP_ONLY))
+
+		$(if $(findstring pipenv, $(ENV)), pipenv lock && pipenv update)
+
 endif
 
 ## export: export configuration to requirements.txt or environment.yml
@@ -324,6 +318,8 @@ pipenv-lint: lint
 # This fail if we don't have brew
 # Note when you delete the Pipfile, it will search recursively upward
 # looking for one, so on clean recreate one
+# we do not explicitly clean anymore so subdirectories of a pipenv can add
+# their dependencies
 .PHONY: pipenv-python
 pipenv-python: pipenv-clean
 	@echo currently using python $(PYTHON) override changing PYTHON make flag
@@ -342,9 +338,14 @@ pipenv-python: pipenv-clean
 # Same with the remove if the files are not there
 # Then add a dummy pipenv so that you do not move up recursively
 # And create an environment in the current directory
+# we normally do not remove the Pipfile just the environment
 .PHONY: pipenv-clean
 pipenv-clean:
 	pipenv --rm || true
+
+## pipenv-rm-pipfile: Remove the Pipfile and reinstall all packages
+.PHONY: pipenv-rm-pipfile
+pipenv-rm-pipfile:
 	rm Pipfile* || true
 	touch Pipfile
 
