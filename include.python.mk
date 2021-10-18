@@ -331,7 +331,7 @@ pipenv-python: pipenv-clean
 	@echo pipenv sometimes corrupts after python $(PYTHON) install so reinstall if needed
 	pipenv --version || brew reinstall pipenv
 
-	PIPENV_IGNORE_VIRTUALENVS=1 pipenv install --python /usr/local/opt/python@$(PYTHON)/bin/python3
+	PIPENV_IGNORE_VIRTUALENVS=1 pipenv install --python $(PYTHON)
 	pipenv clean
 	@echo use .env to ensure we can see all packages
 	grep ^PYTHONPATH .env ||  echo "PYTHONPATH=." >> .env
