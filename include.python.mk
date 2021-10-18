@@ -19,20 +19,22 @@ SHELL := /usr/bin/env bash
 # EXCLUDE := -type d \( -name extern -o -name .git \) -prune -o
 # https://stackoverflow.com/questions/4210042/how-to-EXCLUDE-a-directory-in-find-command
 EXCLUDE := -not \( -path "./extern/*" -o -path "./.git/*" \)
-ALL_PY := $$(find restart -name "*.py" $(EXCLUDE) )
-ALL_YAML := $$(find restart -name "*.yaml" $(EXCLUDE))
+ALL_PY := $$(find . -name "*.py" $(EXCLUDE) )
+ALL_YAML := $$(find . -name "*.yaml" $(EXCLUDE))
 # gitpod needs three digits
 PYTHON ?= 3.9
 PYTHON_MINOR ?= $(PYTHON).7
 DOC ?= doc
 LIB ?= lib
-NAME ?= $$(basename $(PWD))
-# put a python file here or the module name
-MAIN ?= $(name).py
-#MAIN ?= ScrapeAllAndSend.py
+NAME ?= $(notdir $(PWD))
+# put a python file here or the module name it also looks in ./bin
+# https://www.gnu.org/software/make/manual/html_node/Wildcard-Function.html
+# https://www.gnu.org/software/make/manual/html_node/Conditional-Functions.html#Conditional-Functions
+MAIN ?= $(or $(wildcard $(NAME).py)$(wildcard bin/$(NAME).py),$(realpath $(NAME).py bin/$(NAME).py))
 MAIN_PATH ?= .
 
-TEST_PYPI_USERNAME ?= richtong
+# should really be an environment variable
+TEST_PYPI_USERNAME ?= $$TEST_PYPI_USERNAME
 
 # this is not yet a module so no name
 IS_MODULE ?= False
@@ -87,11 +89,11 @@ ifeq ($(ENV),pipenv)
 	# conditional dependency https://stackoverflow.com/questions/59867140/conditional-dependencies-in-gnu-make
 	INSTALL_REQ = pipenv-python
 else ifeq ($(ENV),conda)
-	RUN := conda run -n $(name)
+	RUN := conda run -n $(NAME)
 	INIT := eval "$$(conda shell.bash hook)"
-	ACTIVATE := $(INIT) && conda activate $(name)
+	ACTIVATE := $(INIT) && conda activate $(NAME)
 	UPDATE := conda update --all -y
-	INSTALL := conda install -y -n $(name)
+	INSTALL := conda install -y -n $(NAME)
 	INSTALL_DEV := $(INSTALL)
 	INSTALL_REQ = conda-clean
 else ifeq ($(ENV),none)
@@ -159,9 +161,10 @@ test-ci:
 # https://stackoverflow.com/questions/54503964/type-hint-for-numpy-ndarray-dtype/54541916
 #
 
-# test-env: Test environment (Makefile testing only)
-.PHONY: test-env
-test-env:
+# test-make: Test environment (Makefile testing only)
+.PHONY: test-make
+test-make:
+	@echo 'NAME="$(NAME)" MAIN="$(MAIN)"'
 	@echo 'ENV="$(ENV)" RUN="$(RUN)"'
 	@echo 'SRC="$(SRC)" NB="$(NB)" STREAMLIT="$(STREAMLIT)"'
 
@@ -187,26 +190,23 @@ pip-install: $(INSTALL_REQ)
 	@echo INSTALL=$(INSTALL)
 	@echo INSTALL_DEV=$(INSTALL_DEV)
 	@echo INSTALL_REQ=$(INSTALL_REQ)
-
 ifeq ($(ENV),conda)
-		conda env list | grep ^$(name) || conda create -y --name $(name)
+		conda env list | grep ^$(NAME) || conda create -y --name $(NAME)
 		conda config --env --add channels conda-forge
 		conda config --env --set channel_priority strict
-		conda install --name $(name) -y python=$(PYTHON)
-
+		conda install --name $(NAME) -y python=$(PYTHON)
 		# using conditional in function form if first is not null, then insert
 		# second, else the third if it is there
 		$(if $(strip $(PIP_ONLY)),$(RUN) pip install $(PIP_ONLY) || true)
-
-		conda install --name $(name) -y $(PIP_DEV)
-		conda install --name $(name) -y $(PIP)
-		[[ -r environment.yml ]] && conda env update --name $(name) -f environment.yml || true
+		conda install --name $(NAME) -y $(PIP_DEV)
+		conda install --name $(NAME) -y $(PIP)
+		[[ -r environment.yml ]] && conda env update --name $(NAME) -f environment.yml || true
 		# echo $$SHELL
 		[[ -r requirements.txt ]] && \
 			grep -v "^#" requirements.txt | \
 				(while read requirement; do \
 					echo "processing $$requirement"; \
-					if ! conda install --name $(name) -y "$$requirement"; then \
+					if ! conda install --name $(NAME) -y "$$requirement"; then \
 						$(ACTIVATE) && \
 						pip install "$$requirement"; \
 						echo "installed $$requirement";\
@@ -214,28 +214,24 @@ ifeq ($(ENV),conda)
 				done) \
 			|| true
 		# https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#setting-environment-variables
-		conda env config vars set PYTHONNOUSERSITE=true --name $(name)
+		conda env config vars set PYTHONNOUSERSITE=true --name $(NAME)
 		@echo WARNING -- we do not parse the PYthon User site in ~/.
 else
 		# now handle pip and pipenv together
 		# https://stackoverflow.com/questions/38801796/makefile-set-if-variable-is-empty
 		$(if $(strip $(PIP)), $(INSTALL) $(PIP))
-
 		$(if $(strip $(PIP_DEV)), $(INSTALL_DEV) $(PIP_DEV))
-
 		# if PIP_ONLY run use regular pip if not pipenv
 		$(if $(strip $(PIP_ONLY))$(findstring pipenv, $(ENV)), $(INSTALL) $(PIP_ONLY), $(RUN) pip install $(PIP_ONLY))
-
 		$(if $(findstring pipenv, $(ENV)), pipenv lock && pipenv update)
-
 endif
 
 ## export: export configuration to requirements.txt or environment.yml
 .PHONY: export
 export:
-ifeq ($(ENV), conda)
+ifeq ($(strip $(ENV)), conda)
 	$(ACTIVATE) && conda env export > environment.yml
-else ifeq ($(ENV), pipenv)
+else
 	$(RUN) pip freeze > requirements.txt
 endif
 
@@ -256,7 +252,7 @@ doc-debug:
 		do pipenv run pdoc --http : $(DOC) $$file; \
 	done
 
-## format: reformat python code to standards
+## format: reformat python code to standards (deprecated use pre-commit to do this)
 .PHONY: format
 format:
 	# the default is 88 but pyflakes wants 79
@@ -269,10 +265,10 @@ shell:
 ifeq ($(strip $(ENV)),pipenv)
 	pipenv shell
 else ifeq ($(strip $(ENV)),conda)
-	@echo "run conda activate $(name) in your shell make cannot run"
+	@echo "run conda activate $(NAME) in your shell make cannot run"
 else
 	@echo "bare pip so no need to shell"
-fi
+endif
 
 ## pipenv-lock: Install from the lock file (for deployment and test)
 .PHONY: pipenv-lock
@@ -286,11 +282,11 @@ pipenv-lock:
 conda-clean:
 	$(INIT) && conda activate base
 	$(UPDATE)
-	conda env remove -n $(name) || true
+	conda env remove -n $(NAME) || true
 	conda clean -afy
 
 # Note we are using setup.cfg for all the mypy and flake EXCLUDEs and config
-## lint : code check (conda)
+## lint : code check (deprecated use pre-commit)
 .PHONY: lint
 lint:
 	$(RUN) flake8 || true
