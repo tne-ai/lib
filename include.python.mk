@@ -49,18 +49,21 @@ STREAMLIT ?= $(MAIN)
 PIPENV_CHECK_FLAGS ?= --ignore 38212
 PIP ?=
 # These cannot be installed in the environment must use pip install
+# build, twine and setuptools for PIP packaging only but install since
+# most of what we do will end up packaged
 PIP_ONLY ?=
 PIP_DEV += \
-		 pre-commit \
-		 isort \
-		 seed-isort-config \
-		 yamllint \
-		 flake8 \
-		 mypy \
-		 bandit \
-		 black \
-		 pydocstyle \
-		 pdoc3 \
+		pre-commit \
+		isort \
+		seed-isort-config \
+		yamllint \
+		flake8 \
+		mypy \
+		bandit \
+		black \
+		pydocstyle \
+		pdoc3 \
+		build twine setuptools wheel
 
 # https://stackoverflow.com/questions/589276/how-can-i-use-bash-syntax-in-makefile-targets
 # The virtual environment [ pipenv | conda | none ]
@@ -260,10 +263,16 @@ format:
 	$(RUN) isort --profile=black -w 79 .
 	$(RUN) black -l 79 *.py
 
-## pipenv: Run interactive commands in Pipenv environment
-.PHONY: pipenv
-pipenv:
+## shell: Run interactive commands in Pipenv environment
+.PHONY: shell
+shell:
+ifeq ($(strip $(ENV)),pipenv)
 	pipenv shell
+else ifeq ($(strip $(ENV)),conda)
+	@echo "run conda activate $(name) in your shell make cannot run"
+else
+	@echo "bare pip so no need to shell"
+fi
 
 ## pipenv-lock: Install from the lock file (for deployment and test)
 .PHONY: pipenv-lock
@@ -279,11 +288,6 @@ conda-clean:
 	$(UPDATE)
 	conda env remove -n $(name) || true
 	conda clean -afy
-
-## conda: activate conda environment must be done in bash shell
-.PHONY: conda
-conda:
-	@echo "run conda activate $(name) in you shell"
 
 # Note we are using setup.cfg for all the mypy and flake EXCLUDEs and config
 ## lint : code check (conda)
@@ -372,12 +376,6 @@ dist: setup.py
 	@echo "from https://test.pypi.org/manage/account/#api-token"
 	$(RUN) python -m build
 
-
-## pypi: build package
-#.PHONY: package
-#package:
-	#$(RUN) python setup.py sdist bdist_wheel
-
 ## pypi: build package and push to the python package index
 .PHONY: pypi
 pypi: dist
@@ -385,3 +383,8 @@ pypi: dist
 		-u __token__ \
 		-p "pypi-$$PYPI_API_TOKEN" \
 		dist/*
+
+## pip-dev: pip install in place for local package development
+.PHONY: pip-dev
+pip-dev:
+	$(RUN) pip install -e .
