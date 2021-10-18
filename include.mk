@@ -105,13 +105,13 @@ brew-install:
 		brew install $(BREW) \
 	; fi
 
-LIB ?= ../../lib
+LIB_SOURCE ?= ../../lib
 LIB_FILES ?= include.python.mk include.mk
 ## lib-sync: sync from $(LIB_FILES) from $(LIB) for independent PIP packages
 .PHONY: lib-sync
 lib-sync:
 	for f in $(LIB_FILES); do \
-		if [[ -e $(LIB)/$$f ]]; then \
-			rsync -av "$(LIB)/$$f" "$$f" \
+		if [[ -e $(LIB_SOURCE)/$$f ]]; then \
+			rsync -av "$(LIB_SOURCE)/$$f" "$$f" \
 		; fi \
 	; done
