@@ -132,7 +132,7 @@ test:
 	pytest --doctest-modules "--cov=$(MAIN_PATH)"
 
 ## test-pip: test pip installed packages
-# assumes the direcotry layout of ./src/$(NAME) for package
+# assumes the directory layout of ./src/$(NAME) for package
 # and ./tests for the pytest files
 # -e or --editable means create the package in place
 #  however the -e does work for pytest
@@ -145,7 +145,11 @@ test:
 .PHONY: test-pip
 test-pip:
 	@echo pip install -e for adhoc testing
-	pip install -e .
+ifeq ($(strip $(ENV)), pipenv)
+	pipenv install --dev -e .
+else
+	$(RUN) pip install -e .
+endif
 	@echo fix to PYTHONPATH for pytest
 	PYTHONPATH="src" pytest ./tests
 
@@ -226,11 +230,14 @@ else
 		$(if $(findstring pipenv, $(ENV)), pipenv lock && pipenv update)
 endif
 
-## export: export configuration to requirements.txt or environment.yml
-.PHONY: export
-export:
+## freeze: Freeze configuration to requirements.txt or conda export to environment.yml
+# https://pipenv.kennethreitz.org/en/latest/basics/ lock -r will add SHA hashes
+.PHONY: freeze
+freeze:
 ifeq ($(strip $(ENV)), conda)
 	$(ACTIVATE) && conda env export > environment.yml
+else ifeq ($(strip $(ENV)), pipenv)
+	pipenv lock -r
 else
 	$(RUN) pip freeze > requirements.txt
 endif
@@ -379,8 +386,3 @@ pypi: dist
 		-u __token__ \
 		-p "pypi-$$PYPI_API_TOKEN" \
 		dist/*
-
-## pip-dev: pip install in place for local package development
-.PHONY: pip-dev
-pip-dev:
-	$(RUN) pip install -e .
