@@ -355,19 +355,11 @@ if eval "[[ ! -v $lib_name ]]"; then
 			# local brew_cask
 			# brew_cask="$(brew info --cask "$package" 2>&1)"
 			# if grep -q "^$package:" <<<"$brew_cask"; then
-			if ! brew list --cask "$package" &>/dev/null; then
-				# found a brew cask now see if it is installed
-				#if grep -q "Not installed" <<<"$brew_cask"; then
-				log_verbose "$package not installed as a brew cask"
-				((++count))
-				#fi
-				continue
-			fi
+			# no more distinction between cask and package
 
 			# now do the Mac checks
-			# see if the package is installed by homebrew
 			# https://osxdaily.com/2018/10/20/how-list-all-homebrew-packages-installed-mac/
-			# as of sept 2021 this method no long works not installed is not
+			# as of sept 2021 this method no longer works not installed is not
 			# emitted
 			# brew_info="$(brew info "$package" 2>&1)"
 			# need the a quotes for the echo to retain the newlines
