@@ -13,6 +13,13 @@ xcode_license_accept() {
 	fi
 }
 
+# xcode_cli_install: check for the tools and install them
+xcode_cli_install() {
+	if ! xcode-select -p && ! pkgutil --pkg-info=com.apple.pkg.CLTools_Executables; then
+		xcode-select --install
+	fi
+}
+
 # returns the mac release
 mac_version() {
 	sw_vers -productVersion

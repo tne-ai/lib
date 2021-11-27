@@ -22,6 +22,13 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# how to do an indirect reference
 	eval "$lib_name=true"
 
+	# https://unix.stackexchange.com/questions/293940/how-can-i-make-press-any-key-to-continue
+	# returns the variable key
+
+	util_press_key() {
+		read -n1 -r -p "Press anything to continue.." key
+	}
+
 	# look for a file name with a string complicated because there is not a name default
 	# the default is to look for Google Drive somewhere in the name
 	# if there are multiple accocunts
