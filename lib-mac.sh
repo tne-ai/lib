@@ -25,6 +25,15 @@ mac_version() {
 	sw_vers -productVersion
 }
 
+# return the Mac architecture arm64 or i386
+mac_arch() {
+	uname -m
+}
+
+mac_is_arm() {
+	mac_arch | grep -q arm64
+}
+
 #  converst version to the code name used for things like install-macports.sh which needs names
 # https://en.wikipedia.org/wiki/MacOS
 mac_codename() {
