@@ -32,7 +32,6 @@ Dockerfile ?= Dockerfile
 Dockerfile.m4 ?= $(Dockerfile).m4
 # http://www.scottmcpeak.com/autodepend/autodepend.html
 # The leading dash means if the precendts don't exist then don't complain
-## docker: pull docker image and builds locally along with tag with git sha
 -$(Dockerfile): $(Dockerfile.m4)
 	m4 <"$(Dockerfile.m4)" >"$(Dockerfile)"
 
