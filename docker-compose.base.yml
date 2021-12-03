@@ -8,9 +8,10 @@
 ---
 version: "3.9"
 services:
-  # note keys cannot be substituted so can't say ${foo}:
+  # note keys cannot be substituted so can't say ${foo}: ${bar}
   main:
     image: ${IMAGE}
+    build: .
     volumes:
       - ${DATA}:${CONTAINER_DATA}
     # equivalent of -it

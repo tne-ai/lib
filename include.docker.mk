@@ -8,8 +8,8 @@
 # The makefiles are self documenting, you use two leading for make help to produce output
 
 # YOu will want to change these depending on the image and the org
-repo ?= richt
-name ?= $(shell basename $(PWD))
+REPO ?= richt
+NAME ?= $(shell basename $(PWD))
 SHELL := /usr/bin/env bash
 DOCKER_COMPOSE_YML ?= docker-compose.yml
 DOCKER_USER ?= docker
@@ -18,29 +18,17 @@ DEST_DIR ?= /home/$(DOCKER_USER)/data
 SRC_DIR ?= $(CURDIR)/data
 # -v is deprecated
 # volumes ?= -v "$$(readlink -f "./data"):$(DEST_DIR)"
-volumes ?= --mount "type=bind,source=$(SRC_DIR),target=$(DEST_DIR)"
-flags ?=
+VOLUMES ?= --mount "type=bind,source=$(SRC_DIR),target=$(DEST_DIR)"
+FLAGS ?=
 
-Dockerfile ?= Dockerfile
-#
-# Uses m4 for includes so Dockerfile.m4 are processed this way
-# since docker does not support a macro language
-# https://www3.physnet.uni-hamburg.de/physnet/Tru64-Unix/HTML/APS32DTE/M4XXXXXX.HTM
-# Assumes GNU M4 is installed
-# https://github.com/moby/moby/issues/735
-# If you want preprocessing just create a Dockerfile.m4
-Dockerfile.m4 ?= $(Dockerfile).m4
-# http://www.scottmcpeak.com/autodepend/autodepend.html
-# The leading dash means if the precendts don't exist then don't complain
--$(Dockerfile): $(Dockerfile.m4)
-	m4 <"$(Dockerfile.m4)" >"$(Dockerfile)"
+DOCKERFILE ?= Dockerfile
 
-image ?= $(repo)/$(name)
-container := $(name)
-build_path ?= .
+IMAGE ?= $(REPO)/$(NAME)
+CONTAINER := $(NAME)
+BUILD_PATH ?= .
 MAIN ?= $(name).py
 DOCKER_ENV ?= docker
-CONDA_ENV ?= $(name)
+CONDA_ENV ?= $(NAME)
 # https://github.com/moby/moby/issues/7281
 
 # pip packages that can also be installed by conda
@@ -58,11 +46,11 @@ TTY ?= true
 HOST_UID=$(shell id -u)
 HOST_GID=$(shell id -g)
 # get the IP container address
-CONTAINER_IP=$$(docker container inspect -f '{{ $$net := index .NetworkSettings.Networks "$(name)_default" }}{{ $$net.IPAddress }}' $(name)_main_1)
+CONTAINER_IP=$$(docker container inspect -f '{{ $$net := index .NetworkSettings.Networks "$(NAME)_default" }}{{ $$net.IPAddress }}' $(NAME)_main_1)
 HOST_IP=$(shell ipconfig getifaddr en0)
 # more complex
 #HOST_IP=$(shell ifconfig en0 | grep "inet " | cut -d ' ' -f 2)
-EXPORTS ?= export HOST_UID="$(HOST_UID)" HOST_GID="$(HOST_GID)" HOST_IP="$(HOST_IP)"
+EXPORTS ?= export HOST_UID="$(HOST_UID)" HOST_GID="$(HOST_GID)" HOST_IP="$(HOST_IP) IMAGE=$(IMAGE)"
 
 ## xhost: Run docker with xhost on
 # https://github.com/moby/moby/issues/35886
@@ -82,9 +70,12 @@ xhost:
 	xhost "+$(ifconfig getifaddre en0)"
 	xhose "+localhost"
 
-# these are only for docker build
-# For docker compose you need an .env file instead
+# You should note need the architecture since docker works with both intel and
+# m1 on Apple Silicon
+ARCH=$(shell uname -m)
 DOCKER_ENV_FILE ?= docker-compose.env
+
+# these are only for docker build (deprecated use docker compose and DOCKER_ENV_FILE instead)
 docker_flags ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
 				--build-arg "DEST_DIR=$(DEST_DIR)" \
 				--build-arg "NB_USER=$(DOCKER_USER)" \
@@ -102,27 +93,27 @@ DOCKER_COMPOSE_MAIN ?= main
 		# LOCAL_USER_ID=$(LOCAL_USER_ID)
 .PHONY: build
 build:
-	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
+	$(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull; \
 	else \
 		docker build --pull \
-					$(docker_flags) \
-					 -f "$(Dockerfile)" \
-					 -t "$(image)" \
-					 $(build_path) && \
-		docker tag $(image) $(image):$$(git rev-parse HEAD);  \
+					$(DOCKER_FLAGS) \
+					 -f "$(DOCKERFILE)" \
+					 -t "$(IMAGE)" \
+					 $(BUILD_PATH) && \
+		docker tag $(IMAGE) $(IMAGE):$$(git rev-parse HEAD);  \
 	fi
 
 ## docker-lint: run the linter against the docker file
 		# LOCAL_USER_ID=$(LOCAL_USER_ID)
 .PHONY: docker-lint
-docker-lint: $(Dockerfile)
-	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
+docker-lint: $(DOCKERFILE)
+	$(EXPORTS) && \
 	if [[ -r $((DOCKER_COMPOSE_YML)) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" config; \
 	else \
-		dockerfilelint $(Dockerfile); \
+		dockerfilelint $(DOCKERFILE); \
 	fi
 
 ## docker-test: run tests for pip file
@@ -140,15 +131,15 @@ push:
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env "$(DOCKER_ENV_FILE)"-f "$(DOCKER_COMPOSE_YML)" push; \
 	else \
-		docker push $(image); \
+		docker push $(IMAGE); \
 	fi
 
 # for those times when we make a change in but the Dockerfile does not notice
 # In the no cache case do not pull as this will give you stale layers
 ## no-cache: build docker image with no cache
 .PHONY: no-cache
-no-cache: $(Dockerfile)
-	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
+no-cache: $(DOCKERFILE)
+	$(EXPORTS) && \
 	if [[ -e $(DOCKER_COMPOSE_YML) ]]; then \
 		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" build \
@@ -156,8 +147,8 @@ no-cache: $(Dockerfile)
 	else \
 		docker build --pull --no-cache \
 			$(docker_flags) \
-			--build-arg NB_USER=$(DOCKER_USER) -f $(Dockerfile) -t $(image) $(build_path); \
-		docker push $(image); \
+			--build-arg NB_USER=$(DOCKER_USER) -f $(Dockerfile) -t $(IMAGE) $(BUILD_PATH); \
+		docker push $(IMAGE); \
 	fi
 
 # bash -c means the first argument is run and then the next are set as the $1,
@@ -173,19 +164,19 @@ for_containers = bash -c 'for container in $$(docker ps -qa --filter name="$$0")
 # the first $0 is assumed to be flags to docker run then come the arguments
 # And that the last digit is separate by a dash to an underscore
 docker_run = bash -c ' \
-	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
+	$(EXPORTS) && \
 	last=$$(docker ps --format "{{.Names}}" | rev | tr - _ | cut -d "_" -f 1 | sort -r | head -n1) && \
 	docker run $$0 \
-		--name $(container)_$$((last+1)) \
-		$(volumes) $(flags) $(image) $$@ && \
+		--name $(CONTAINER)_$$((last+1)) \
+		$(VOLUMES) $(flags) $(IMAGE) $$@ && \
 	sleep 4 && \
-	docker logs $(container)_$$((last+1))'
+	docker logs $(CONTAINER)_$$((last+1))'
 
 
 ## stop: halts all running containers (deprecated)
 .PHONY: stop
 stop:
-	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
+	$(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" down \
 	; else \
@@ -196,11 +187,11 @@ stop:
 ## pull: pulls the latest image
 .PHONY: pull
 pull:
-	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
+	$(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" pull; \
 	else \
-		docker pull $(image); \
+		docker pull $(IMAGE); \
 	fi
 
 ## run [args]: stops all the containers and then runs in the background
@@ -246,7 +237,7 @@ run: stop
 		sleep 5 && \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" logs \
 	; else \
-		$(docker_run) -dt $(cmd) \
+		$(DOCKER_RUN) -dt $(CMD) \
 	; fi
 
 ## exec: Run docker in foreground and then exit (treat like any Unix command)
@@ -260,7 +251,7 @@ exec: stop
 		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up \
 	; else \
-		$(docker_run) -t $(cmd) \
+		$(docker_run) -t $(CMD) \
 	; fi
 
 # https://gist.github.com/mitchwongho/11266726
@@ -279,16 +270,16 @@ shell:
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" run "$(DOCKER_COMPOSE_MAIN)" /bin/bash; \
 	else \
-		docker pull $(image); \
+		docker pull $(IMAGE); \
 		docker run -it \
 			--entrypoint /bin/bash \
-			--rm $(volumes) $(flags) $(image); \
+			--rm $(volumes) $(flags) $(IMAGE); \
 	fi
 
 ## resume: keep running an existing container
 .PHONY: resume
 resume:
-	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
+	$(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" start; \
 	else \
