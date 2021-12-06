@@ -1,8 +1,8 @@
-# note tables not compatible with 3.9
+# note tables not compatible with 3.9 as of June 2020
 ##
 ## Jupyter Notebook Commands
 ## ----
-PYTHON ?= 3.8
+#PYTHON ?= 3.8
 PACKAGES+=make vim gosu
 # for Restart
 #PIP+=pandas confuse ipysheet h5py ipywidgets ipympl ipyvuetify \

@@ -158,9 +158,9 @@ test-pip:
 	@echo fix to PYTHONPATH for pytest
 	PYTHONPATH="src" pytest ./tests
 
-## pip-install-dev: Install as a development package for testing
-.PHONY: pip-install-dev
-pip-install-dev: pip-install
+## install-dev: Install as a development package for testing
+.PHONY: install-dev
+install-dev: install
 	@echo pip install -e for adhoc testing
 ifeq ($(strip $(ENV)), pipenv)
 	$(INSTALL) --dev -e .
@@ -198,10 +198,10 @@ vi:
 	cd $(ED_DIR) && $(RUN) "$$VISUAL" $(ED)
 
 # https://www.technologyscout.net/2017/11/how-to-install-dependencies-from-a-requirements-txt-file-with-conda/
-## pip-install: install into python environment set by $(ENV)
+## install: install into python environment set by $(ENV)
 # https://stackoverflow.com/questions/9008649/gnu-make-conditional-function-if-inside-a-user-defined-function-always-ev
-.PHONY: pip-install
-pip-install: $(INSTALL_REQ)
+.PHONY: install
+install: $(INSTALL_REQ)
 ifeq ($(ENV),conda)
 	@echo "conda preamble"
 	conda env list | grep ^$(NAME) || conda create -y --name $(NAME)
@@ -278,8 +278,8 @@ format:
 	$(RUN) black -l 79 *.py
 
 ## shell: Run interactive commands in Pipenv environment
-.PHONY: shell
-shell:
+.PHONY: pipenv-shell
+pipenv-shell:
 ifeq ($(strip $(ENV)),pipenv)
 	$(PIPENV) shell
 else ifeq ($(strip $(ENV)),conda)
