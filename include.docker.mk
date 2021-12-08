@@ -104,7 +104,7 @@ DOCKER_COMPOSE_MAIN ?= main
 		# LOCAL_USER_ID=$(LOCAL_USER_ID)
 .PHONY: build
 build:
-	$(EXPORTS) \
+	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull; \
 	else \
@@ -120,7 +120,7 @@ build:
 # LOCAL_USER_ID=$(LOCAL_USER_ID)
 .PHONY: docker-lint
 docker-lint: $(DOCKERFILE)
-	$(EXPORTS) \
+	export $(EXPORTS) && \
 	if [[ -r $((DOCKER_COMPOSE_YML)) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" config; \
 	else \
@@ -150,7 +150,7 @@ push:
 ## no-cache: build docker image with no cache
 .PHONY: no-cache
 no-cache: $(DOCKERFILE)
-	$(EXPORTS) \
+	export $(EXPORTS) && \
 	if [[ -e $(DOCKER_COMPOSE_YML) ]]; then \
 		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" build \
@@ -175,8 +175,9 @@ for_containers = bash -c 'for container in $$(docker ps -qa --filter name="$$0")
 # the first $0 is assumed to be flags to docker run then come the arguments
 # And that the last digit is separate by a dash to an underscore
 DOCKER_RUN = bash -c ' \
+	export $(EXPORTS) && \
 	last=$$(docker ps --format "{{.Names}}" | rev | tr - _ | cut -d "_" -f 1 | sort -r | head -n1) && \
-	$(EXPORTS) docker run $$0 \
+	docker run $$0 \
 		--name $(CONTAINER)_$$((last+1)) \
 		$(VOLUMES) $(FLAGS) $(IMAGE) $$@ && \
 	sleep 4 && \
@@ -186,7 +187,7 @@ DOCKER_RUN = bash -c ' \
 ## stop: halts all running containers (deprecated)
 .PHONY: stop
 stop:
-	$(EXPORTS) \
+	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" down \
 	; else \
@@ -197,7 +198,7 @@ stop:
 ## pull: pulls the latest image
 .PHONY: pull
 pull:
-	$(EXPORTS) \
+	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" pull; \
 	else \
@@ -241,7 +242,7 @@ pull:
 # and the .env file is static
 .PHONY: run
 run: stop
-	$(EXPORTS) \
+	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up -d  && \
 		sleep 5 && \
@@ -256,7 +257,7 @@ run: stop
 #
 .PHONY: exec
 exec: stop
-	$(EXPORTS) \
+	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		LOCAL_USER_ID=$(LOCAL_USER_ID) \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up \
@@ -276,7 +277,7 @@ exec: stop
 ## shell: start and new container and run the interactive shell
 .PHONY: shell
 shell:
-	$(EXPORTS) \
+	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" run "$(DOCKER_COMPOSE_MAIN)" /bin/bash; \
 	else \
@@ -289,7 +290,7 @@ shell:
 ## resume: keep running an existing container
 .PHONY: resume
 resume:
-	$(EXPORTS) \
+	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" start; \
 	else \

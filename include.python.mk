@@ -85,10 +85,10 @@ MACOS_VERSION ?= $(shell sw_vers -productVersion)
 # https://github.com/pypa/packaging/pull/319
 # These may have been fixed
 ifeq ($(ENV),pipenv)
-	# only need the compat for the switch from 10.x to 11.x with Big Sur, an
-	# and Montery at 12.x
-	# PIPENV := pipenv
-	PIPENV := SYSTEM_VERSION_COMPAT=1 pipenv
+	# only need the compat for the switch from 10.x to 11.x with Big Surn
+	#PIPENV := SYSTEM_VERSION_COMPAT=1 pipenv
+	# Use this Monterey as the version compat is fixed
+	PIPENV := pipenv
 	RUN := $(PIPENV) run
 	UPDATE := $(PIPENV) update
 	INSTALL := $(PIPENV) install
