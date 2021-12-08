@@ -27,6 +27,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 
 	util_press_key() {
 		read -n1 -r -p "Press anything to continue.." key
+		export key
 	}
 
 	# look for a file name with a string complicated because there is not a name default
