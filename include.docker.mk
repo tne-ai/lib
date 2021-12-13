@@ -100,10 +100,15 @@ docker_flags ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
 # Guess the name of the main container is called main
 DOCKER_COMPOSE_MAIN ?= main
 
+## docker: make sure docker is running
+.PHONY: docker
+docker:
+	if ! docker ps >/dev/null; then  open -a docker && sleep 30; fi
+
 ## build: build images (push separately)
 		# LOCAL_USER_ID=$(LOCAL_USER_ID)
 .PHONY: build
-build:
+build: docker
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull; \
@@ -119,7 +124,7 @@ build:
 ## docker-lint: run the linter against the docker file
 # LOCAL_USER_ID=$(LOCAL_USER_ID)
 .PHONY: docker-lint
-docker-lint: $(DOCKERFILE)
+docker-lint: $(DOCKERFILE) docker
 	export $(EXPORTS) && \
 	if [[ -r $((DOCKER_COMPOSE_YML)) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" config; \
@@ -129,14 +134,14 @@ docker-lint: $(DOCKERFILE)
 
 ## docker-test: run tests for pip file
 .PHONY: dockertest
-docker-test:
+docker-test: docker
 	@echo PIP=$(PIP)
 	@echo PIP_ONLY=$(PIP_ONLY)
 	@echo PYTHON=$(PYTHON)
 
 ## push: after a build will push the image up
 .PHONY: push
-push:
+push: docker
 	# need to push and pull to make sure the entire cluster has the right images
 	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
@@ -149,7 +154,7 @@ push:
 # In the no cache case do not pull as this will give you stale layers
 ## no-cache: build docker image with no cache
 .PHONY: no-cache
-no-cache: $(DOCKERFILE)
+no-cache: $(DOCKERFILE) docker
 	export $(EXPORTS) && \
 	if [[ -e $(DOCKER_COMPOSE_YML) ]]; then \
 		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
@@ -186,7 +191,7 @@ DOCKER_RUN = bash -c ' \
 
 ## stop: halts all running containers (deprecated)
 .PHONY: stop
-stop:
+stop: docker
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" down \
@@ -197,7 +202,7 @@ stop:
 
 ## pull: pulls the latest image
 .PHONY: pull
-pull:
+pull: docker
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" pull; \
@@ -241,7 +246,7 @@ pull:
 # needs. the Host IP has to be passed in as it changes dynamically
 # and the .env file is static
 .PHONY: run
-run: stop
+run: stop 
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up -d  && \
@@ -276,7 +281,7 @@ exec: stop
 	#export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 ## shell: start and new container and run the interactive shell
 .PHONY: shell
-shell:
+shell: docker
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" run "$(DOCKER_COMPOSE_MAIN)" /bin/bash; \
@@ -289,7 +294,7 @@ shell:
 
 ## resume: keep running an existing container
 .PHONY: resume
-resume:
+resume: docker
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" start; \
@@ -300,5 +305,5 @@ resume:
 # Note we say only the type file because otherwise it tries to delete $(docker_data) itself
 ## prune: Save some space on docker
 .PHONY: prune
-prune:
+prune: docker
 	docker system prune --volumes

@@ -17,12 +17,15 @@ NOTEBOOK ?= notebook.ipynb
 docx:
 	pandoc $(NOTEBOOK) -s -o "$$(basename -s ipynb "$(NOTEBOOK)")docx"
 
+# If you are running in a container otherwise it is just home
+DATA ?= $(PWD)
+#DATA ?= /var/data
 
 ## jupyter: run jupyter
 jupyter:
 	jupyter lab build && \
 	jupyter lab \
-        --notebook-dir=/var/data \
+        --notebook-dir=$(DATA) \
         --ip='*' \
         --port=8888 \
         --no-browser
