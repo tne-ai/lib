@@ -100,15 +100,15 @@ docker_flags ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
 # Guess the name of the main container is called main
 DOCKER_COMPOSE_MAIN ?= main
 
-## docker: make sure docker is running
-.PHONY: docker
-docker:
+## docker-installed: make sure docker is running
+.PHONY: docker-installed
+docker-installed:
 	if ! docker ps >/dev/null; then  open -a docker && sleep 30; fi
 
 ## build: build images (push separately)
 		# LOCAL_USER_ID=$(LOCAL_USER_ID)
 .PHONY: build
-build: docker
+build: docker-installed
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull; \
@@ -124,7 +124,7 @@ build: docker
 ## docker-lint: run the linter against the docker file
 # LOCAL_USER_ID=$(LOCAL_USER_ID)
 .PHONY: docker-lint
-docker-lint: $(DOCKERFILE) docker
+docker-lint: $(DOCKERFILE) docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $((DOCKER_COMPOSE_YML)) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" config; \
@@ -134,14 +134,14 @@ docker-lint: $(DOCKERFILE) docker
 
 ## docker-test: run tests for pip file
 .PHONY: dockertest
-docker-test: docker
+docker-test: docker-installed
 	@echo PIP=$(PIP)
 	@echo PIP_ONLY=$(PIP_ONLY)
 	@echo PYTHON=$(PYTHON)
 
 ## push: after a build will push the image up
 .PHONY: push
-push: docker
+push: docker-installed
 	# need to push and pull to make sure the entire cluster has the right images
 	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
@@ -154,7 +154,7 @@ push: docker
 # In the no cache case do not pull as this will give you stale layers
 ## no-cache: build docker image with no cache
 .PHONY: no-cache
-no-cache: $(DOCKERFILE) docker
+no-cache: $(DOCKERFILE) docker-installed
 	export $(EXPORTS) && \
 	if [[ -e $(DOCKER_COMPOSE_YML) ]]; then \
 		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
@@ -191,7 +191,7 @@ DOCKER_RUN = bash -c ' \
 
 ## stop: halts all running containers (deprecated)
 .PHONY: stop
-stop: docker
+stop: docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" down \
@@ -202,7 +202,7 @@ stop: docker
 
 ## pull: pulls the latest image
 .PHONY: pull
-pull: docker
+pull: docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" pull; \
@@ -241,12 +241,12 @@ pull: docker
 # -rm remove the container when it exits
 
 
-## run: Run the docker container in the background (for web apps like Jupyter)
+## docker: Run the docker container in the background (for web apps like Jupyter)
 # we show the log after 5 second so you can see things like the security token
 # needs. the Host IP has to be passed in as it changes dynamically
 # and the .env file is static
-.PHONY: run
-run: stop 
+.PHONY: docker
+docker: stop  docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up -d  && \
@@ -261,7 +261,7 @@ run: stop
 # note no --re needed we automaticaly do this and need for logs
 #
 .PHONY: exec
-exec: stop
+exec: stop docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		LOCAL_USER_ID=$(LOCAL_USER_ID) \
@@ -281,7 +281,7 @@ exec: stop
 	#export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 ## shell: start and new container and run the interactive shell
 .PHONY: shell
-shell: docker
+shell: docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" run "$(DOCKER_COMPOSE_MAIN)" /bin/bash; \
@@ -294,7 +294,7 @@ shell: docker
 
 ## resume: keep running an existing container
 .PHONY: resume
-resume: docker
+resume: docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		docker compose --env-file "$(DOCKER_ENV_FILE)" start; \
@@ -305,5 +305,5 @@ resume: docker
 # Note we say only the type file because otherwise it tries to delete $(docker_data) itself
 ## prune: Save some space on docker
 .PHONY: prune
-prune: docker
+prune: docker-installed
 	docker system prune --volumes
