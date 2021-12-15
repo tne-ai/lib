@@ -103,7 +103,7 @@ DOCKER_COMPOSE_MAIN ?= main
 ## docker-installed: make sure docker is running
 .PHONY: docker-installed
 docker-installed:
-	if ! docker ps >/dev/null; then  open -a docker && sleep 30; fi
+	if ! docker ps >/dev/null; then  open -a docker && sleep 60; fi
 
 ## build: build images (push separately)
 		# LOCAL_USER_ID=$(LOCAL_USER_ID)
