@@ -666,8 +666,9 @@ if eval "[[ ! -v $lib_name ]]"; then
 		fi
 		# Use the resume feature to make sure you got it by first trying and if
 		# http://www.cyberciti.biz/faq/curl-command-resume-broken-download/
-		log_verbose "curl -C - -L $url -o $dest"
-		if ! curl -C - -L "$url" -o "$dest"; then
+		log_verbose "curl -C - -L $url -o $dest_dir/dest"
+		mkdir -p "$dest_dir"
+		if ! curl -C - -L "$url" -o "$dest_dir/$dest"; then
 			# if we fail see if the return code doesn't allow -C for resume and retry
 			# Amazon AWS for instance doesn't allow resume and returns 31
 			# Private Internet Access servers return 33 for same issue
@@ -680,7 +681,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 
 	# download file and then attach or open as appropriate
 	# this was  in lib-mac.sh
-	# Usage: download_url_open url [[file] [download_directory]]
+	# Usage: download_url_open url [[[file] [download_directory]] [destination_directory]]
 	# But now is in lib-install.sh and uses download_url
 	download_url_open() {
 		if [[ ! $OSTYPE =~ darwin ]]; then return 0; fi
@@ -690,6 +691,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		# http://stackoverflow.com/questions/965053/extract-filename-and-extension-in-bash
 		local file="${2:-${url##*/}}"
 		local dest="${3:-"$WS_DIR/cache"}"
+		local target="${4:-"$dest"}"
 		mkdir -p "$dest"
 		local extension="${file##*.}"
 		log_verbose "curl from $url to $dest/$file open $extension"
@@ -714,7 +716,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			sudo installer -pkg "$file" -target /
 			;;
 		tar)
-			tar xzf "$file"
+			tar xzf "$file" --directory "$target"
 			;;
 		gz)
 			open "$file"
@@ -722,7 +724,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		zip)
 			# unpack the file
 			log_verbose "unzip $file"
-			unzip "$file"
+			unzip "$file" -d "$target"
 			# If the file unpacked into an app move it
 			local app="${file%.*}.app"
 			if [[ -e $app ]]; then
