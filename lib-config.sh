@@ -40,6 +40,32 @@
 # (obsolete use config_to_sed which also does quotes)
 # and make it ready for sed by backquoting special characters
 
+## config_add_shell [new-shell-path]
+config_add_shell() {
+	local DESIRED_SHELL_PATH
+	DESIRED_SHELL_PATH="${1:-"$(brew --prefix)/bin/bash"}"
+	if [[ ! -e $DESIRED_SHELL_PATH ]]; then
+		return 1
+	fi
+	if ! grep "$DESIRED_SHELL_PATH" /etc/shells; then
+		sudo tee -a /etc/shells <<<"$DESIRED_SHELL_PATH" >/dev/null
+	fi
+	if in_os mac; then
+	  CURRENT_SHELL_PATH="$(dscl . -read "$HOME" UserShell)"
+	else
+	  CURRENT_SHELL_PATH="$(grep "$USER" /etc/passwd | cut -d ":" -f 7)"
+	fi
+	log_verbose "Current default shell is $CURRENT_SHELL_PATH"
+	# https://stackoverflow.com/questions/16375519/how-to-get-the-default-shell
+	if [[ "$CURRENT_SHELL_PATH" != "$DESIRED_SHELL_PATH" ]]; then
+		log_verbose "Default user shell is not $DESIRED_SHELL_PATH"
+		log_warning you only get one login opportunity to change the shell so type carefully.
+		log_warning "If you do not want to change the chsh just press enter"
+		log_warning "if you make a mistake just rerun $SCRIPTNAME"
+		chsh -s "$DESIRED_SHELL_PATH"
+	fi
+}
+
 # config_profile: returns the name of the profile you should edit
 config_profile() {
 	if [[ $OSTYPE =~ darwin ]]; then
