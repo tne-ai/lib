@@ -21,7 +21,6 @@ endif
 IMAGE ?= $(REPO)/$(NAME)
 
 SHELL := /usr/bin/env bash
-DOCKER_COMPOSE_YML ?= docker-compose.yml
 DOCKER_USER ?= docker
 HOST_DIR ?= /home/$(DOCKER_USER)/data
 # https://stackoverflow.com/questions/18136918/how-to-get-current-relative-directory-of-your-makefile
@@ -33,6 +32,35 @@ VOLUMES ?= --mount "type=bind,source=$(HOST_DIR),target=$(CONTAINER_DIR)"
 # no flags by default
 FLAGS ?=
 DOCKERFILE ?= Dockerfile
+
+# using real docker or podman
+DOCKER ?= podman
+DOCKER_MACHINE_NAME ?= podman-machine-default
+# podman-compose does not support --env-file
+#DOCKER_COMPOSE ?= podman-compose
+# use docker compose with the right socket to podman
+# https://gist.github.com/kaaquist/dab64aeb52a815b935b11c86202761a3
+# https://stackoverflow.com/questions/63319824/how-to-add-contains-or-startswith-in-jq
+#jq '.[] | select(.Name | startswith("$(DOCKER_MACHINE_NAME)")) | .URI')"; 
+# use asterisk to indicate default
+# jq -r to remove quotes
+DOCKER_SOCKET ?= if [[ $(DOCKER) =~ podman && ! -r /tmp/podman.socket ]]; then \
+		URI="$$($(DOCKER) system connection list --format=json  | \
+			jq -r '.[] | select(.Name=="$(DOCKER_MACHINE_NAME)*") | .URI')"; \
+		echo $$URI; \
+		echo /tmp/podman.sock:/"$$(echo $$URI | cut -d/ -f 4-)";  \
+		echo "$$(echo $$URI| cut -d/ -f 1-3)";  \
+		ssh -fnNT -L /tmp/podman.sock:/"$$(echo $$URI | cut -d/ -f 4-)" \
+			-i "$$HOME/.ssh/$(DOCKER_MACHINE_NAME)" \
+			"$$(echo $$URI| cut -d/ -f 1-3)" \
+			-o StreamLocalBindUnlink=yes; \
+		export DOCKER_HOST="unix:///tmp/podman.sock"; \
+	fi
+DOCKER_COMPOSE ?= $(DOCKER_SOCKET) && docker compose
+DOCKER_COMPOSE_YML ?= docker-compose.yml
+# The real docker
+#DOCKER ?= docker
+#DOCKER_COMPOSE ?= docker compose
 
 CONTAINER := $(NAME)
 BUILD_PATH ?= .
@@ -57,7 +85,7 @@ TTY ?= true
 HOST_UID ?= $(shell id -u)
 HOST_GID ?= $(shell id -g)
 # get the IP container address
-CONTAINER_IP=$$(docker container inspect -f '{{ $$net := index .NetworkSettings.Networks "$(NAME)_default" }}{{ $$net.IPAddress }}' $(NAME)_main_1)
+CONTAINER_IP=$$($(DOCKER) container inspect -f '{{ $$net := index .NetworkSettings.Networks "$(NAME)_default" }}{{ $$net.IPAddress }}' $(NAME)_main_1)
 HOST_IP=$(shell ipconfig getifaddr en0)
 # more complex
 #HOST_IP=$(shell ifconfig en0 | grep "inet " | cut -d ' ' -f 2)
@@ -87,7 +115,7 @@ ARCH=$(shell uname -m)
 DOCKER_ENV_FILE ?= docker-compose.env
 
 # these are only for docker build (deprecated use docker compose and DOCKER_ENV_FILE instead)
-docker_flags ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
+DOCKER_FLAGS ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
 				--build-arg "HOST_DIR=$(HOST_DIR)" \
 				--build-arg "NB_USER=$(DOCKER_USER)" \
 				--build-arg "ENV=$(DOCKER_ENV)" \
@@ -100,34 +128,50 @@ docker_flags ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
 # Guess the name of the main container is called main
 DOCKER_COMPOSE_MAIN ?= main
 
-## docker-installed: make sure docker is running
+## docker-installed: make sure docker is running (Mac only)
+# now podman aware so only checks if you want docker
+# and if podman then connect docker compose to it
+# https://www.redhat.com/sysadmin/podman-docker-compose
 .PHONY: docker-installed
 docker-installed:
-	if ! docker ps >/dev/null; then  open -a docker && sleep 60; fi
-
+	if [[ $(DOCKER) =~ docker ]] && ! $(DOCKER) ps >/dev/null; then \
+		open -a $(DOCKER) && sleep 60; fi
+	if [[ $(DOCKER) =~ podman ]]; then \
+		if $(DOCKER) machine list --format={{.Name}} | grep -qv "$(DOCKER_MACHINE_NAME)"; then \
+			$(DOCKER) machine init; \
+		fi; \
+		if $(DOCKER) machine list --format "{{.Name}}" | \
+				grep -q "$(DOCKER_MACHINE_NAME)" && \
+			$(DOCKER) machine list --format "{{.LastUp}}" | \
+				grep -qv "Currently running"; then \
+				echo $(DOCKER) machine start; \
+				$(DOCKER) machine start; \
+		fi; \
+	fi
 ## build: build images (push separately)
-		# LOCAL_USER_ID=$(LOCAL_USER_ID)
+# LOCAL_USER_ID=$(LOCAL_USER_ID)
+# https://docs.podman.io/en/latest/markdown/podman-system-connection-list.1.html
 .PHONY: build
 build: docker-installed
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
-		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull; \
+		$(DOCKER) compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull; \
 	else \
-		docker build --pull \
+		$(DOCKER) build --pull \
 					$(FLAGS) \
 					 -f "$(DOCKERFILE)" \
 					 -t "$(IMAGE)" \
 					 $(BUILD_PATH) && \
-		docker tag $(IMAGE) $(IMAGE):$$(git rev-parse HEAD);  \
+		$(DOCKER) tag $(IMAGE) $(IMAGE):$$(git rev-parse HEAD);  \
 	fi
 
-## docker-lint: run the linter against the docker file
+## docker-lint: run the linter against the docker file (for podman requires socket connect)
 # LOCAL_USER_ID=$(LOCAL_USER_ID)
 .PHONY: docker-lint
 docker-lint: $(DOCKERFILE) docker-installed
 	export $(EXPORTS) && \
-	if [[ -r $((DOCKER_COMPOSE_YML)) ]]; then \
-		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" config; \
+	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
+		$(DOCKER) compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" config; \
 	else \
 		dockerfilelint $(DOCKERFILE); \
 	fi
@@ -145,9 +189,9 @@ push: docker-installed
 	# need to push and pull to make sure the entire cluster has the right images
 	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" push; \
+		$(DOCKER) compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" push; \
 	else \
-		docker push $(IMAGE); \
+		$(DOCKER) push $(IMAGE); \
 	fi
 
 # for those times when we make a change in but the Dockerfile does not notice
@@ -158,20 +202,20 @@ no-cache: $(DOCKERFILE) docker-installed
 	export $(EXPORTS) && \
 	if [[ -e $(DOCKER_COMPOSE_YML) ]]; then \
 		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
-		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" build \
+		$(DOCKER) compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" build \
 			--build-arg NB_USER=$(DOCKER_USER); \
 	else \
-		docker build --pull --no-cache \
-			$(docker_flags) \
+		$(DOCKER) build --pull --no-cache \
+			$(DOCKER_FLAGS) \
 			--build-arg NB_USER=$(DOCKER_USER) -f $(Dockerfile) -t $(IMAGE) $(BUILD_PATH); \
-		docker push $(IMAGE); \
+		$(DOCKER) push $(IMAGE); \
 	fi
 
 # bash -c means the first argument is run and then the next are set as the $1,
 # to it and not that you use awk with the \$ in double quotes
-for_containers = bash -c 'for container in $$(docker ps -qa --filter name="$$0"); \
+for_containers = bash -c 'for container in $$($(DOCKER) ps -qa --filter name="$$0"); \
 						  do \
-						  	docker $$1 "$$container" $$2 $$3 $$4 $$5 $$6 $$7 $$8 $$9; \
+						  	$(DOCKER) $$1 "$$container" $$2 $$3 $$4 $$5 $$6 $$7 $$8 $$9; \
 						  done'
 
 # we use https://stackoverflow.com/questions/12426659/how-to-extract-last-part-of-string-in-bash
@@ -181,12 +225,12 @@ for_containers = bash -c 'for container in $$(docker ps -qa --filter name="$$0")
 # And that the last digit is separate by a dash to an underscore
 DOCKER_RUN = bash -c ' \
 	export $(EXPORTS) && \
-	last=$$(docker ps --format "{{.Names}}" | rev | tr - _ | cut -d "_" -f 1 | sort -r | head -n1) && \
-	docker run $$0 \
+	last=$$($(DOCKER) ps --format "{{.Names}}" | rev | tr - _ | cut -d "_" -f 1 | sort -r | head -n1) && \
+	$(DOCKER) run $$0 \
 		--name $(CONTAINER)_$$((last+1)) \
 		$(VOLUMES) $(FLAGS) $(IMAGE) $$@ && \
 	sleep 4 && \
-	docker logs $(CONTAINER)_$$((last+1))'
+	$(DOCKER) logs $(CONTAINER)_$$((last+1))'
 
 
 ## stop: halts all running containers (deprecated)
@@ -194,7 +238,7 @@ DOCKER_RUN = bash -c ' \
 stop: docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		docker compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" down \
+		$(DOCKER_COMPOSE) --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" down \
 	; else \
 		$(for_containers) $(container) stop > /dev/null && \
 		$(for_containers) $(container) "rm -v" > /dev/null \
@@ -205,9 +249,9 @@ stop: docker-installed
 pull: docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" pull; \
+		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" pull; \
 	else \
-		docker pull $(IMAGE); \
+		$(DOCKER) pull $(IMAGE); \
 	fi
 
 ## run [args]: stops all the containers and then runs in the background
@@ -249,9 +293,9 @@ pull: docker-installed
 docker: stop  docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up -d  && \
+		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up -d  && \
 		sleep 5 && \
-		docker compose --env-file "$(DOCKER_ENV_FILE)" logs \
+		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" logs \
 	; else \
 		$(DOCKER_RUN) $(FLAGS) -dt $(CMD) \
 	; fi
@@ -265,7 +309,7 @@ exec: stop docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		LOCAL_USER_ID=$(LOCAL_USER_ID) \
-		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up \
+		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up \
 	; else \
 		$(DOCKER_RUN) -t $(CMD) \
 	; fi
@@ -284,10 +328,10 @@ exec: stop docker-installed
 shell: docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		docker compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" run "$(DOCKER_COMPOSE_MAIN)" /bin/bash; \
+		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" run "$(DOCKER_COMPOSE_MAIN)" /bin/bash; \
 	else \
-		docker pull $(IMAGE); \
-		docker run -it \
+		$(DOCKER) pull $(IMAGE); \
+		$(DOCKER) run -it \
 			--entrypoint /bin/bash \
 			--rm $(volumes) $(flags) $(IMAGE); \
 	fi
@@ -297,13 +341,13 @@ shell: docker-installed
 resume: docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		docker compose --env-file "$(DOCKER_ENV_FILE)" start; \
+		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" start; \
 	else \
-		docker start -ai $(container); \
+		$(DOCKER) start -ai $(container); \
 	fi
 
 # Note we say only the type file because otherwise it tries to delete $(docker_data) itself
 ## prune: Save some space on docker
 .PHONY: prune
 prune: docker-installed
-	docker system prune --volumes
+	$(DOCKER) system prune --volumes
