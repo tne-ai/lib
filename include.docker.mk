@@ -18,7 +18,12 @@ ifndef NAME
 NAME != basename $(PWD)
 endif
 
-IMAGE ?= $(REPO)/$(NAME)
+# gcr.io - google container resitry
+# ghcr.io - Githbu Container Registey
+# public.ecr.aws - Amazon public container registry
+# docker.io - Docker Hub
+REGISTRY ?= docker.io
+IMAGE ?= $(REGISTRY)/$(REPO)/$(NAME)
 
 SHELL := /usr/bin/env bash
 DOCKER_USER ?= docker
