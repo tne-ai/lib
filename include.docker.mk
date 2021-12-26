@@ -137,22 +137,23 @@ DOCKER_COMPOSE_MAIN ?= main
 # now podman aware so only checks if you want docker
 # and if podman then connect docker compose to it
 # https://www.redhat.com/sysadmin/podman-docker-compose
+# note that podman machine ls | grep -v does not work
 .PHONY: docker-installed
 docker-installed:
 	if [[ $(DOCKER) =~ docker ]] && ! $(DOCKER) ps >/dev/null; then \
-		open -a $(DOCKER) && sleep 60; fi
-	if [[ $(DOCKER) =~ podman ]]; then \
-		if $(DOCKER) machine list --format={{.Name}} | grep -qv "$(DOCKER_MACHINE_NAME)"; then \
-			$(DOCKER) machine init; \
+		open -a $(DOCKER) && sleep 60; fi; \
+	if ! $(DOCKER) machine list --format={{.Name}} | \
+				grep -q "$(DOCKER_MACHINE_NAME)"; then \
+			$(DOCKER) machine init --cpus=2 --disk-size=100 --memory=4096; \
 		fi; \
-		if $(DOCKER) machine list --format "{{.Name}}" | \
+	if $(DOCKER) machine list --format "{{.Name}}" | \
 				grep -q "$(DOCKER_MACHINE_NAME)" && \
 			$(DOCKER) machine list --format "{{.LastUp}}" | \
 				grep -qv "Currently running"; then \
-				echo $(DOCKER) machine start; \
-				$(DOCKER) machine start; \
-		fi; \
-	fi
+					echo $(DOCKER) machine start; \
+					$(DOCKER) machine start; \
+	fi;
+
 ## build: build images (push separately)
 # LOCAL_USER_ID=$(LOCAL_USER_ID)
 # https://docs.podman.io/en/latest/markdown/podman-system-connection-list.1.html
@@ -160,7 +161,7 @@ docker-installed:
 build: docker-installed
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
-		$(DOCKER) compose --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull; \
+		$(DOCKER_COMPOSE) --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull; \
 	else \
 		$(DOCKER) build --pull \
 					$(FLAGS) \
@@ -176,7 +177,7 @@ build: docker-installed
 docker-lint: $(DOCKERFILE) docker-installed
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		$(DOCKER) compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" config; \
+		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" config; \
 	else \
 		dockerfilelint $(DOCKERFILE); \
 	fi
@@ -190,11 +191,11 @@ docker-test: docker-installed
 
 ## push: after a build will push the image up
 .PHONY: push
-push: docker-installed
+push: docker-installed build
 	# need to push and pull to make sure the entire cluster has the right images
-	export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
+	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
-		$(DOCKER) compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" push; \
+		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" push; \
 	else \
 		$(DOCKER) push $(IMAGE); \
 	fi
@@ -207,7 +208,7 @@ no-cache: $(DOCKERFILE) docker-installed
 	export $(EXPORTS) && \
 	if [[ -e $(DOCKER_COMPOSE_YML) ]]; then \
 		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
-		$(DOCKER) compose --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" build \
+		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" build \
 			--build-arg NB_USER=$(DOCKER_USER); \
 	else \
 		$(DOCKER) build --pull --no-cache \
