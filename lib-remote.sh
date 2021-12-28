@@ -58,8 +58,8 @@ remote_run() {
 	script="$(readlink -f "$2")"
 	local include_sh
 	include_sh="$(dirname "$script")/include.sh"
-	local script_rel_to_wsdir=${script#$WS_DIR/}
-	local relative_ws_dir=${WS_DIR#$HOME/}
+	local script_rel_to_wsdir=${script#"$WS_DIR/"}
+	local relative_ws_dir=${WS_DIR#"$HOME/"}
 	local remote_script="$relative_ws_dir/$script_rel_to_wsdir"
 	local remote_script_dir
 	remote_script_dir="$(dirname "$remote_script")"

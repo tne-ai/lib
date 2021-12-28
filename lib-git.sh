@@ -61,8 +61,6 @@ git_organization() {
 	# remove up to the first slash you find
 	org="${org%/*}"
 	org="${org##*[:/]}"
-	# consume everything up the last colon or slash you find
-	export org="${org#$*[:/]}"
 	if ! popd >/dev/null; then
 		return 2
 	fi

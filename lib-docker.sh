@@ -235,7 +235,7 @@ exec_output() {
 	if "$DOCKER_OUTPUT"; then
 		echo "RUN $*"
 	else
-		eval "$@"
+		"$@"
 	fi
 }
 

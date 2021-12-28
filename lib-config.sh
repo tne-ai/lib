@@ -51,9 +51,9 @@ config_add_shell() {
 		sudo tee -a /etc/shells <<<"$DESIRED_SHELL_PATH" >/dev/null
 	fi
 	if in_os mac; then
-	  CURRENT_SHELL_PATH="$(dscl . -read "$HOME" UserShell)"
+		CURRENT_SHELL_PATH="$(dscl . -read "$HOME" UserShell)"
 	else
-	  CURRENT_SHELL_PATH="$(grep "$USER" /etc/passwd | cut -d ":" -f 7)"
+		CURRENT_SHELL_PATH="$(grep "$USER" /etc/passwd | cut -d ":" -f 7)"
 	fi
 	log_verbose "Current default shell is $CURRENT_SHELL_PATH"
 	# https://stackoverflow.com/questions/16375519/how-to-get-the-default-shell

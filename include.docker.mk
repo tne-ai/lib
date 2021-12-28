@@ -50,7 +50,7 @@ DOCKER_MACHINE_NAME ?= podman-machine-default
 # use docker compose with the right socket to podman
 # https://gist.github.com/kaaquist/dab64aeb52a815b935b11c86202761a3
 # https://stackoverflow.com/questions/63319824/how-to-add-contains-or-startswith-in-jq
-#jq '.[] | select(.Name | startswith("$(DOCKER_MACHINE_NAME)")) | .URI')"; 
+#jq '.[] | select(.Name | startswith("$(DOCKER_MACHINE_NAME)")) | .URI')";
 # use asterisk to indicate default
 # jq -r to remove quotes
 DOCKER_SOCKET ?= if [[ $(DOCKER) =~ podman && ! -r /tmp/podman.socket ]]; then \
