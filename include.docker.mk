@@ -24,6 +24,10 @@ endif
 # docker.io - Docker Hub
 REGISTRY ?= docker.io
 IMAGE ?= $(REGISTRY)/$(REPO)/$(NAME)
+# build 64-bit arm for M1 Mac and AMD64 for Intel machines
+ARCH ?= arm64 amd64
+# Use the git commit by default
+VERSION ?= $(shell git rev-parse HEAD)
 
 SHELL := /usr/bin/env bash
 DOCKER_USER ?= docker
@@ -154,21 +158,25 @@ docker-installed:
 					$(DOCKER) machine start; \
 	fi;
 
-## build: build images (push separately)
+## build: build arm64 and amd64 images (push separately) from single Dockerfile
 # LOCAL_USER_ID=$(LOCAL_USER_ID)
 # https://docs.podman.io/en/latest/markdown/podman-system-connection-list.1.html
+# https://sdeoras.medium.com/special-case-of-building-multi-arch-container-images-distroless-go-and-podman-ad3e2ba0ccea
 .PHONY: build
 build: docker-installed
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull; \
 	else \
-		$(DOCKER) build --pull \
-					$(FLAGS) \
-					 -f "$(DOCKERFILE)" \
-					 -t "$(IMAGE)" \
-					 $(BUILD_PATH) && \
-		$(DOCKER) tag $(IMAGE) $(IMAGE):$$(git rev-parse HEAD);  \
+		$(DOCKER) manifest create "$(IMAGE):$(VERSION)"
+		for arch in $(ARCH) do \
+			$(DOCKER) build --arch=$$arch --pull \
+						$(FLAGS) \
+						 -f "$(DOCKERFILE)" \
+						 -t "$(IMAGE):$(VERSION).$$arch" \
+						 $(BUILD_PATH) && \
+		    $(DOCKER) manifest add "$(IMAGE):$(VERSION)" "$(IMAGE):$(VERSION).$$arch"
+		done; \
 	fi
 
 ## docker-lint: run the linter against the docker file (for podman requires socket connect)
@@ -197,7 +205,7 @@ push: docker-installed build
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" push; \
 	else \
-		$(DOCKER) push $(IMAGE); \
+		$(DOCKER) push --all-tags $(IMAGE):; \
 	fi
 
 # for those times when we make a change in but the Dockerfile does not notice
