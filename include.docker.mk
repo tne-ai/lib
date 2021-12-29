@@ -137,13 +137,13 @@ DOCKER_FLAGS ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
 # Guess the name of the main container is called main
 DOCKER_COMPOSE_MAIN ?= main
 
-## docker-installed: make sure docker is running (Mac only)
+## docker-start: make sure docker is running (Mac only)
 # now podman aware so only checks if you want docker
 # and if podman then connect docker compose to it
 # https://www.redhat.com/sysadmin/podman-docker-compose
 # note that podman machine ls | grep -v does not work
-.PHONY: docker-installed
-docker-installed:
+.PHONY: docker-start
+docker-start:
 	if [[ $(DOCKER) =~ docker ]] && ! $(DOCKER) ps >/dev/null; then \
 		open -a $(DOCKER) && sleep 60; fi; \
 	if ! $(DOCKER) machine list --format={{.Name}} | \
@@ -158,31 +158,42 @@ docker-installed:
 					$(DOCKER) machine start; \
 	fi;
 
+## docker-stop: stop the docker/podman runtimes
+# https://stackoverflow.com/questions/55100327/how-to-open-and-close-apps-using-bash-in-macos
+.PHONY: docker-stop
+docker-stop:
+	if [[ $(DOCKER) =~ docker ]] && docker ps >/dev/null; then \
+		osascript -e 'quit app "Docker"'; \
+	fi; \
+	if [[ $(DOCKER) =~ podman && $$(podman machine list --format={{.LastUp}}) =~ "Currently running" ]]; then \
+		podman machine stop; \
+	fi
+
 ## build: build arm64 and amd64 images (push separately) from single Dockerfile
 # LOCAL_USER_ID=$(LOCAL_USER_ID)
 # https://docs.podman.io/en/latest/markdown/podman-system-connection-list.1.html
 # https://sdeoras.medium.com/special-case-of-building-multi-arch-container-images-distroless-go-and-podman-ad3e2ba0ccea
 .PHONY: build
-build: docker-installed
+build: docker-start
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull; \
 	else \
-		$(DOCKER) manifest create "$(IMAGE):$(VERSION)"
-		for arch in $(ARCH) do \
+		$(DOCKER) manifest create "$(IMAGE):$(VERSION)"; \
+		for arch in $(ARCH); do \
 			$(DOCKER) build --arch=$$arch --pull \
 						$(FLAGS) \
 						 -f "$(DOCKERFILE)" \
 						 -t "$(IMAGE):$(VERSION).$$arch" \
-						 $(BUILD_PATH) && \
-		    $(DOCKER) manifest add "$(IMAGE):$(VERSION)" "$(IMAGE):$(VERSION).$$arch"
+						 $(BUILD_PATH); \
+		    $(DOCKER) manifest add "$(IMAGE):$(VERSION)" "$(IMAGE):$(VERSION).$$arch"; \
 		done; \
 	fi
 
 ## docker-lint: run the linter against the docker file (for podman requires socket connect)
 # LOCAL_USER_ID=$(LOCAL_USER_ID)
 .PHONY: docker-lint
-docker-lint: $(DOCKERFILE) docker-installed
+docker-lint: $(DOCKERFILE) docker-start
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" config; \
@@ -192,14 +203,14 @@ docker-lint: $(DOCKERFILE) docker-installed
 
 ## docker-test: run tests for pip file
 .PHONY: dockertest
-docker-test: docker-installed
+docker-test: docker-start
 	@echo PIP=$(PIP)
 	@echo PIP_ONLY=$(PIP_ONLY)
 	@echo PYTHON=$(PYTHON)
 
 ## push: after a build will push the image up
 .PHONY: push
-push: docker-installed build
+push: docker-start build
 	# need to push and pull to make sure the entire cluster has the right images
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
@@ -212,7 +223,7 @@ push: docker-installed build
 # In the no cache case do not pull as this will give you stale layers
 ## no-cache: build docker image with no cache
 .PHONY: no-cache
-no-cache: $(DOCKERFILE) docker-installed
+no-cache: $(DOCKERFILE) docker-start
 	export $(EXPORTS) && \
 	if [[ -e $(DOCKER_COMPOSE_YML) ]]; then \
 		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
@@ -249,7 +260,7 @@ DOCKER_RUN = bash -c ' \
 
 ## stop: halts all running containers (deprecated)
 .PHONY: stop
-stop: docker-installed
+stop: docker-start
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		$(DOCKER_COMPOSE) --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" down \
@@ -260,7 +271,7 @@ stop: docker-installed
 
 ## pull: pulls the latest image
 .PHONY: pull
-pull: docker-installed
+pull: docker-start
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" pull; \
@@ -304,7 +315,7 @@ pull: docker-installed
 # needs. the Host IP has to be passed in as it changes dynamically
 # and the .env file is static
 .PHONY: docker
-docker: stop  docker-installed
+docker: stop  docker-start
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up -d  && \
@@ -319,7 +330,7 @@ docker: stop  docker-installed
 # note no --re needed we automaticaly do this and need for logs
 #
 .PHONY: exec
-exec: stop docker-installed
+exec: stop docker-start
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		LOCAL_USER_ID=$(LOCAL_USER_ID) \
@@ -339,7 +350,7 @@ exec: stop docker-installed
 	#export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
 ## shell: start and new container and run the interactive shell
 .PHONY: shell
-shell: docker-installed
+shell: docker-start
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" run "$(DOCKER_COMPOSE_MAIN)" /bin/bash; \
@@ -352,7 +363,7 @@ shell: docker-installed
 
 ## resume: keep running an existing container
 .PHONY: resume
-resume: docker-installed
+resume: docker-start
 	export $(EXPORTS) && \
 	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" start; \
@@ -363,5 +374,5 @@ resume: docker-installed
 # Note we say only the type file because otherwise it tries to delete $(docker_data) itself
 ## prune: Save some space on docker
 .PHONY: prune
-prune: docker-installed
+prune: docker-start
 	$(DOCKER) system prune --volumes
