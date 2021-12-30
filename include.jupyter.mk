@@ -10,6 +10,7 @@ PACKAGES+=make vim gosu
 #PIP_ONLY+=tables qgrid
 
 NOTEBOOK ?= notebook.ipynb
+# ENV is the environment
 
 
 ## docx: Convert from .ipynb to .docx
@@ -22,9 +23,11 @@ DATA ?= $(PWD)
 #DATA ?= /var/data
 
 ## jupyter: run jupyter
+# if include.python.mk is added will run in the environment defined assuming
+# that RUN is set
 jupyter:
-	jupyter lab build && \
-	jupyter lab \
+	$(RUN) jupyter lab build && \
+	$(RUN) jupyter lab \
         --notebook-dir=$(DATA) \
         --ip='*' \
         --port=8888 \

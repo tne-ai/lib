@@ -43,7 +43,11 @@ FLAGS ?=
 DOCKERFILE ?= Dockerfile
 
 # using real docker or podman
-DOCKER ?= podman
+# As of Dec 2021 there is no support for host volume mounts with podman so
+# only use it if you do not need local files
+# https://github.com/containers/podman/issues/8016
+#DOCKER ?= podman
+DOCKER = docker
 DOCKER_MACHINE_NAME ?= podman-machine-default
 # podman-compose does not support --env-file
 #DOCKER_COMPOSE ?= podman-compose
@@ -144,29 +148,31 @@ DOCKER_COMPOSE_MAIN ?= main
 # note that podman machine ls | grep -v does not work
 .PHONY: docker-start
 docker-start:
-	if [[ $(DOCKER) =~ docker ]] && ! $(DOCKER) ps >/dev/null; then \
+	if [[ $(DOCKER) =~ docker ]] && ! $(DOCKER) ps &>/dev/null; then \
 		open -a $(DOCKER) && sleep 60; fi; \
-	if ! $(DOCKER) machine list --format={{.Name}} | \
-				grep -q "$(DOCKER_MACHINE_NAME)"; then \
-			$(DOCKER) machine init --cpus=2 --disk-size=100 --memory=4096; \
+	if [[ $(DOCKER) =~ podman ]]; then \
+		if ! $(DOCKER) machine list --format={{.Name}} | \
+					grep -q "$(DOCKER_MACHINE_NAME)"; then \
+				$(DOCKER) machine init --cpus=2 --disk-size=100 --memory=4096; \
+			fi; \
+		if $(DOCKER) machine list --format "{{.Name}}" | \
+					grep -q "$(DOCKER_MACHINE_NAME)" && \
+				$(DOCKER) machine list --format "{{.LastUp}}" | \
+					grep -qv "Currently running"; then \
+						echo $(DOCKER) machine start; \
+						$(DOCKER) machine start; \
 		fi; \
-	if $(DOCKER) machine list --format "{{.Name}}" | \
-				grep -q "$(DOCKER_MACHINE_NAME)" && \
-			$(DOCKER) machine list --format "{{.LastUp}}" | \
-				grep -qv "Currently running"; then \
-					echo $(DOCKER) machine start; \
-					$(DOCKER) machine start; \
-	fi;
+	fi
 
 ## docker-stop: stop the docker/podman runtimes
 # https://stackoverflow.com/questions/55100327/how-to-open-and-close-apps-using-bash-in-macos
 .PHONY: docker-stop
 docker-stop:
-	if [[ $(DOCKER) =~ docker ]] && docker ps >/dev/null; then \
+	if [[ $(DOCKER) =~ docker ]] && $(DOCKER) ps &>/dev/null; then \
 		osascript -e 'quit app "Docker"'; \
 	fi; \
-	if [[ $(DOCKER) =~ podman && $$(podman machine list --format={{.LastUp}}) =~ "Currently running" ]]; then \
-		podman machine stop; \
+	if [[ $(DOCKER) =~ podman && $$($(DOCKER) machine list --format={{.LastUp}}) =~ "Currently running" ]]; then \
+		$(DOCKER) machine stop; \
 	fi
 
 ## build: build arm64 and amd64 images (push separately) from single Dockerfile

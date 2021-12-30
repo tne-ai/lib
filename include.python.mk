@@ -345,6 +345,7 @@ pipenv-python: pipenv-super-clean pipenv-clean
 	@echo pipenv sometimes corrupts after python $(PYTHON) install so reinstall if needed
 	$(PIPENV) --version || brew reinstall pipenv
 
+	if [[ -n $$PIPENV_ACTIVE ]]; then echo "Cannot run inside pipenv shell exit first"; exit 1; fi
 	PIPENV_IGNORE_VIRTUALENVS=1 $(PIPENV) install --python $(PYTHON)
 	@echo use .env to ensure we can see all packages
 	grep ^PYTHONPATH .env ||  echo "PYTHONPATH=." >> .env
