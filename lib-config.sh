@@ -73,14 +73,22 @@ config_profile() {
 	elif [[ $OSTYPE =~ linux ]]; then
 		# .profile is only for run once at start
 		echo "$HOME/.profile"
-	else
+	elif [[ -z $BASH_VERSION ]]; then
+		# https://stackoverflow.com/questions/3199893/howto-detect-bash-from-shell-script
 		echo "$HOME/.bashrc"
+	elif [[ -z $ZSH_VERSION ]]; then
+		echo "$HOME/.zshrc"
 	fi
 }
 
 # config the non-login script run with every new shell
 config_profile_shell() {
 	echo "$HOME/.bashrc"
+}
+
+## config_zsh: returns the location of the zsh configuration profile
+config_profile_zsh() {
+	echo "$HOME/.zshrc"
 }
 
 # config_backup takes a set of files and backs them up
