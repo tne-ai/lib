@@ -50,6 +50,12 @@ config_add_shell() {
 	if ! grep "$DESIRED_SHELL_PATH" /etc/shells; then
 		sudo tee -a /etc/shells <<<"$DESIRED_SHELL_PATH" >/dev/null
 	fi
+}
+
+## config_default_shell [new-shell-path]
+config_change_default_shell() {
+	local DESIRED_SHELL_PATH
+	DESIRED_SHELL_PATH="${1:-"$(brew --prefix)/bin/bash"}"
 	if in_os mac; then
 		CURRENT_SHELL_PATH="$(dscl . -read "$HOME" UserShell)"
 	else
