@@ -92,6 +92,7 @@ ifeq ($(ENV),pipenv)
 	RUN := $(PIPENV) run
 	UPDATE := $(PIPENV) update
 	INSTALL := $(PIPENV) install
+	INSTALL_PRE := $(PIPENV) install --pre
 	INSTALL_DEV := $(INSTALL) --dev --pre
 	INSTALL_PIP_ONLY := $(INSTALL)
 	INSTALL_REQ := pipenv-clean
@@ -103,6 +104,7 @@ else ifeq ($(ENV),conda)
 	ACTIVATE := $(INIT) && conda activate $(NAME)
 	UPDATE := conda update --all -y
 	INSTALL := conda install -y -n $(NAME)
+	INSTALL_PRE := $(RUN) pip install --pre
 	INSTALL_DEV := $(INSTALL)
 	INSTALL_PIP_ONLY := $(RUN) pip install
 	INSTALL_REQ = conda-clean
@@ -114,6 +116,7 @@ else ifeq ($(ENV),none)
 	UPDATE := :
 	INSTALL := pip install
 	INSTALL_DEV := $(INSTALL)
+	INSTALL_PRE := $(INSTALL) --pre
 	INSTALL_PIP_ONLY := $(INSTALL)
 	INSTALL_REQ :=
 endif
@@ -214,6 +217,7 @@ endif
 	# second, else the third if it is there
 	@echo installing pip packages
 	$(if $(strip $(PIP)), $(INSTALL)  $(PIP))
+	$(if $(strip $(PIP_PRE)), $(INSTALL_PRE)  $(PIP_PRE))
 	$(if $(strip $(PIP_DEV)), $(INSTALL_DEV) $(PIP_DEV))
 	$(if $(strip $(PIP_ONLY)), $(INSTALL_PIP_ONLY) $(PIP_ONLY) || true)
 

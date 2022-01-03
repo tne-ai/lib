@@ -10,7 +10,9 @@ PACKAGES+=make vim gosu
 #PIP_ONLY+=tables qgrid
 
 NOTEBOOK ?= notebook.ipynb
-# ENV is the environment
+# ENV is the environment used by include.python.mkkk
+PIP ?= nbdime
+ENV ?= pipenv
 
 
 ## docx: Convert from .ipynb to .docx
@@ -22,11 +24,21 @@ docx:
 DATA ?= $(PWD)
 #DATA ?= /var/data
 
+LAB ?=
+
+## jupyter-install: installs jupyterlab extensions after python packages
+.PHONY: jupyter-install
+jupyter-install: install
+	$(RUN) jupyter labextension install $(LAB)
 ## jupyter: run jupyter
 # if include.python.mk is added will run in the environment defined assuming
 # that RUN is set
+# https://nbdime.readthedocs.io/en/latest/installing.html
+# do not have to enable the pip install does this
+# $(RUN) nbdime extensions --enable
+.PHONY: jupyter
 jupyter:
-	$(RUN) jupyter lab build && \
+	$(RUN) jupyter lab build
 	$(RUN) jupyter lab \
         --notebook-dir=$(DATA) \
         --ip='*' \

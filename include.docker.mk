@@ -46,8 +46,28 @@ DOCKERFILE ?= Dockerfile
 # As of Dec 2021 there is no support for host volume mounts with podman so
 # only use it if you do not need local files
 # https://github.com/containers/podman/issues/8016
-#DOCKER ?= podman
-DOCKER = docker
+# option combinations are
+#
+# docker, docker - docker cli using Docker.app
+DOCKER ?= docker
+DOCKER_RUNTIME ?= $(DOCKER)
+#
+# docker, colima - docker cli using colima with docker runtime
+# DOCKER ?= docker
+# DOCKER_RUNTIME ?= colima
+#
+# podman, podman - podman cli using podman
+# DOCKER ?= podman
+# DOCKER_RUNTIME ?= $(DOCKER)
+#
+# colima nerdctl, colima - colima nerdctl using colima containerd
+# DOCKER ?= colima nerdctl
+# DOCKER_RUNTIME ? colima
+#
+# lima nerdctl, lima - lima nerdctl using lima containerd
+# DOCKER ?= lima nerdctl
+# DOCKER_RUNTIME ?= lima
+
 DOCKER_MACHINE_NAME ?= podman-machine-default
 # podman-compose does not support --env-file
 #DOCKER_COMPOSE ?= podman-compose
@@ -146,21 +166,35 @@ DOCKER_COMPOSE_MAIN ?= main
 # and if podman then connect docker compose to it
 # https://www.redhat.com/sysadmin/podman-docker-compose
 # note that podman machine ls | grep -v does not work
+#
 .PHONY: docker-start
 docker-start:
-	if [[ $(DOCKER) =~ docker ]] && ! $(DOCKER) ps &>/dev/null; then \
-		open -a $(DOCKER) && sleep 60; fi; \
-	if [[ $(DOCKER) =~ podman ]]; then \
-		if ! $(DOCKER) machine list --format={{.Name}} | \
+	if [[ "$(DOCKER_RUNTIME)" =~ docker ]] && ! "$(DOCKER)" ps &>/dev/null; then \
+		open -a "$(DOCKER)" && sleep 60; \
+	elif [[ "$(DOCKER_RUNTIME)" =~ colima ]]; then \
+		if [[ "$(DOCKER)" =~ nerdctl ]]; then \
+			FLAG="--runtime containerd"; \
+		fi; \
+		if ! colima status &> /dev/null; then \
+			colima start $$FLAG --cpu 2 --memory 8 --disk 100; \
+		fi; \
+	elif [[ "$(DOCKER_RUNTIME)" =~ limactl ]]; \
+		if ! limactl list -f "{{.Status}}" default; then \
+			limactl start; \
+			lima sudo systemctl start containerd; \
+			lima sudo nerdctl run --privileged --rm tonistiigi/binfmt --install all; \
+		fi; \
+	elif [[ "$(DOCKER_RUNTIME)" =~ podman ]]; then \
+		if ! $(DOCKER_RUNTIME) machine list --format={{.Name}} | \
 					grep -q "$(DOCKER_MACHINE_NAME)"; then \
-				$(DOCKER) machine init --cpus=2 --disk-size=100 --memory=4096; \
+				$(DOCKER_RUNTIME) machine init --cpus=2 --disk-size=100 --memory=4096; \
 			fi; \
-		if $(DOCKER) machine list --format "{{.Name}}" | \
+		if $(DOCKER_RUNTIME) machine list --format "{{.Name}}" | \
 					grep -q "$(DOCKER_MACHINE_NAME)" && \
-				$(DOCKER) machine list --format "{{.LastUp}}" | \
+				$(DOCKER_RUNTIME) machine list --format "{{.LastUp}}" | \
 					grep -qv "Currently running"; then \
-						echo $(DOCKER) machine start; \
-						$(DOCKER) machine start; \
+						echo $(DOCKER_RUNTIME) machine start; \
+						$(DOCKER_RUNTIME) machine start; \
 		fi; \
 	fi
 
