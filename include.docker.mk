@@ -48,25 +48,30 @@ DOCKERFILE ?= Dockerfile
 # https://github.com/containers/podman/issues/8016
 # option combinations are
 #
-# docker, docker - docker cli using Docker.app
+# docker, docker - docker cli using Docker.app (tested works)
 DOCKER ?= docker
 DOCKER_RUNTIME ?= $(DOCKER)
 #
-# docker, colima - docker cli using colima with docker runtime
+# docker, colima - docker cli using colima with docker runtime (tested works)
 # DOCKER ?= docker
 # DOCKER_RUNTIME ?= colima
+# uncomment for cross platform amd64 images
+# COLIMA_ARCH_FLAG ?= --arch x86_64
+# uncomment for cross platform arm64 images
+# COLIMA_ARCH_FLAG ?= --arch aarch64
 #
-# podman, podman - podman cli using podman
-# DOCKER ?= podman
-# DOCKER_RUNTIME ?= $(DOCKER)
-#
-# colima nerdctl, colima - colima nerdctl using colima containerd
+# colima nerdctl, colima - colima nerdctl using colima containerd (tested works)
 # DOCKER ?= colima nerdctl
 # DOCKER_RUNTIME ? colima
 #
-# lima nerdctl, lima - lima nerdctl using lima containerd
+# lima nerdctl, lima - lima nerdctl using lima containerd (test works if
+# NordVPN not running at docker-start time)
 # DOCKER ?= lima nerdctl
-# DOCKER_RUNTIME ?= lima
+# DOCKER_RUNTIME ?= limactl
+#
+# podman, podman - podman cli using podman (does not work no way to mount host volumes)
+# DOCKER ?= podman
+# DOCKER_RUNTIME ?= $(DOCKER)
 
 DOCKER_MACHINE_NAME ?= podman-machine-default
 # podman-compose does not support --env-file
@@ -77,7 +82,7 @@ DOCKER_MACHINE_NAME ?= podman-machine-default
 #jq '.[] | select(.Name | startswith("$(DOCKER_MACHINE_NAME)")) | .URI')";
 # use asterisk to indicate default
 # jq -r to remove quotes
-DOCKER_SOCKET ?= if [[ $(DOCKER) =~ podman && ! -r /tmp/podman.socket ]]; then \
+DOCKER_SOCKET ?= if [[ "$(DOCKER)" =~ podman && ! -r /tmp/podman.socket ]]; then \
 		URI="$$($(DOCKER) system connection list --format=json  | \
 			jq -r '.[] | select(.Name=="$(DOCKER_MACHINE_NAME)*") | .URI')"; \
 		echo $$URI; \
@@ -89,7 +94,7 @@ DOCKER_SOCKET ?= if [[ $(DOCKER) =~ podman && ! -r /tmp/podman.socket ]]; then \
 			-o StreamLocalBindUnlink=yes; \
 		export DOCKER_HOST="unix:///tmp/podman.sock"; \
 	fi
-DOCKER_COMPOSE ?= $(DOCKER_SOCKET) && docker compose
+DOCKER_COMPOSE ?= $(DOCKER_SOCKET) && $(DOCKER) compose
 DOCKER_COMPOSE_YML ?= docker-compose.yml
 # The real docker
 #DOCKER ?= docker
@@ -166,7 +171,6 @@ DOCKER_COMPOSE_MAIN ?= main
 # and if podman then connect docker compose to it
 # https://www.redhat.com/sysadmin/podman-docker-compose
 # note that podman machine ls | grep -v does not work
-#
 .PHONY: docker-start
 docker-start:
 	if [[ "$(DOCKER_RUNTIME)" =~ docker ]] && ! "$(DOCKER)" ps &>/dev/null; then \
@@ -176,10 +180,10 @@ docker-start:
 			FLAG="--runtime containerd"; \
 		fi; \
 		if ! colima status &> /dev/null; then \
-			colima start $$FLAG --cpu 2 --memory 8 --disk 100; \
+			colima start $$FLAG --cpu 2 --memory 8 --disk 100 $(COLIMA_ARCH_FLAG); \
 		fi; \
-	elif [[ "$(DOCKER_RUNTIME)" =~ limactl ]]; \
-		if ! limactl list -f "{{.Status}}" default; then \
+	elif [[ "$(DOCKER_RUNTIME)" =~ limactl ]]; then \
+		if [[ ! $$(limactl list -f "{{.Status}}" default) =~ Running ]]; then \
 			limactl start; \
 			lima sudo systemctl start containerd; \
 			lima sudo nerdctl run --privileged --rm tonistiigi/binfmt --install all; \
@@ -202,10 +206,10 @@ docker-start:
 # https://stackoverflow.com/questions/55100327/how-to-open-and-close-apps-using-bash-in-macos
 .PHONY: docker-stop
 docker-stop:
-	if [[ $(DOCKER) =~ docker ]] && $(DOCKER) ps &>/dev/null; then \
+	if [[ "$(DOCKER)" =~ docker ]] && $(DOCKER) ps &>/dev/null; then \
 		osascript -e 'quit app "Docker"'; \
 	fi; \
-	if [[ $(DOCKER) =~ podman && $$($(DOCKER) machine list --format={{.LastUp}}) =~ "Currently running" ]]; then \
+	if [[ "$(DOCKER)" =~ podman && $$($(DOCKER) machine list --format={{.LastUp}}) =~ "Currently running" ]]; then \
 		$(DOCKER) machine stop; \
 	fi
 
@@ -235,7 +239,7 @@ build: docker-start
 .PHONY: docker-lint
 docker-lint: $(DOCKERFILE) docker-start
 	export $(EXPORTS) && \
-	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
+	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" config; \
 	else \
 		dockerfilelint $(DOCKERFILE); \
@@ -253,7 +257,7 @@ docker-test: docker-start
 push: docker-start build
 	# need to push and pull to make sure the entire cluster has the right images
 	export $(EXPORTS) && \
-	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
+	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" push; \
 	else \
 		$(DOCKER) push --all-tags $(IMAGE):; \
@@ -265,7 +269,7 @@ push: docker-start build
 .PHONY: no-cache
 no-cache: $(DOCKERFILE) docker-start
 	export $(EXPORTS) && \
-	if [[ -e $(DOCKER_COMPOSE_YML) ]]; then \
+	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		# LOCAL_USER_ID=$(LOCAL_USER_ID) \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" build \
 			--build-arg NB_USER=$(DOCKER_USER); \
@@ -302,7 +306,7 @@ DOCKER_RUN = bash -c ' \
 .PHONY: stop
 stop: docker-start
 	export $(EXPORTS) && \
-	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
+	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" down \
 	; else \
 		$(for_containers) $(container) stop > /dev/null && \
@@ -313,7 +317,7 @@ stop: docker-start
 .PHONY: pull
 pull: docker-start
 	export $(EXPORTS) && \
-	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
+	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" pull; \
 	else \
 		$(DOCKER) pull $(IMAGE); \
@@ -357,7 +361,7 @@ pull: docker-start
 .PHONY: docker
 docker: stop  docker-start
 	export $(EXPORTS) && \
-	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
+	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up -d  && \
 		sleep 5 && \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" logs \
@@ -372,7 +376,7 @@ docker: stop  docker-start
 .PHONY: exec
 exec: stop docker-start
 	export $(EXPORTS) && \
-	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
+	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		LOCAL_USER_ID=$(LOCAL_USER_ID) \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up \
 	; else \
@@ -392,7 +396,7 @@ exec: stop docker-start
 .PHONY: shell
 shell: docker-start
 	export $(EXPORTS) && \
-	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
+	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" run "$(DOCKER_COMPOSE_MAIN)" /bin/bash; \
 	else \
 		$(DOCKER) pull $(IMAGE); \
@@ -405,7 +409,7 @@ shell: docker-start
 .PHONY: resume
 resume: docker-start
 	export $(EXPORTS) && \
-	if [[ -r $(DOCKER_COMPOSE_YML) ]]; then \
+	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" start; \
 	else \
 		$(DOCKER) start -ai $(container); \
