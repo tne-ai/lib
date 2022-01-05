@@ -478,9 +478,9 @@ if eval "[[ ! -v $lib_name ]]"; then
 		done
 	}
 
-	# determine the location of the stow subdirectory
+	# determine the location of the stow subdirectory as a dot delimited string
 	# usage: util_full_version
-	# stdout returns the normalized full name os.major.minor...
+	# stdout returns the normalized full name os.arch.major.minor...
 	util_full_version() {
 		case $OSTYPE in
 		darwin*)
@@ -489,10 +489,10 @@ if eval "[[ ! -v $lib_name ]]"; then
 			# Note that 16 = Sierra, 15=El Capitan,...
 			# https://stackoverflow.com/questions/9913942/check-version-of-os-then-issue-a-command-if-the-correct-version
 			# But we use the user visible version
-			echo "macos.$(sw_vers -productVersion)"
+			echo "macos.$(uname -m).$(sw_vers -productVersion)"
 			;;
 		linux*)
-			echo "linux.$(linux_distribution).$(linux_version)"
+			echo "linux.$(uname -m).$(linux_distribution).$(linux_version)"
 			;;
 		*)
 			return 1
