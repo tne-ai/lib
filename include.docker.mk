@@ -9,6 +9,9 @@
 
 # YOu will want to change these depending on the image and the org
 REPO ?= tongfamily
+
+# Container registry user name
+REPO_USER ?= richt
 #
 # https://stackoverflow.com/questions/10024279/how-to-use-shell-commands-in-makefile
 # Cannot use ?= because we want the shell to evaluate at make time
@@ -60,7 +63,8 @@ DOCKER_RUNTIME ?= $(DOCKER)
 # uncomment for cross platform arm64 images
 # COLIMA_ARCH_FLAG ?= --arch aarch64
 #
-# colima nerdctl, colima - colima nerdctl using colima containerd (tested works)
+# colima nerdctl, colima - colima nerdctl using colima containerd (tested works,
+# does not support build --pull)
 # DOCKER ?= colima nerdctl
 # DOCKER_RUNTIME ? colima
 #
@@ -188,6 +192,9 @@ docker-start:
 			lima sudo systemctl start containerd; \
 			lima sudo nerdctl run --privileged --rm tonistiigi/binfmt --install all; \
 		fi; \
+		if [[ ! $$(lima nerdctl login) =~ "Login Succeeded" ]]; then \
+			lima nerdctl login --username "$(REPO_USER)"; \
+		fi; \
 	elif [[ "$(DOCKER_RUNTIME)" =~ podman ]]; then \
 		if ! $(DOCKER_RUNTIME) machine list --format={{.Name}} | \
 					grep -q "$(DOCKER_MACHINE_NAME)"; then \
@@ -217,11 +224,13 @@ docker-stop:
 # LOCAL_USER_ID=$(LOCAL_USER_ID)
 # https://docs.podman.io/en/latest/markdown/podman-system-connection-list.1.html
 # https://sdeoras.medium.com/special-case-of-building-multi-arch-container-images-distroless-go-and-podman-ad3e2ba0ccea
+# note that nerdctl compose build does not support --pull which docker compose
+# does
 .PHONY: build
 build: docker-start
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
-		$(DOCKER_COMPOSE) --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build --pull; \
+		$(DOCKER_COMPOSE) --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build; \
 	else \
 		$(DOCKER) manifest create "$(IMAGE):$(VERSION)"; \
 		for arch in $(ARCH); do \

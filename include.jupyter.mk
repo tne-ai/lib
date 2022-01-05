@@ -14,6 +14,18 @@ NOTEBOOK ?= notebook.ipynb
 PIP ?= nbdime
 ENV ?= pipenv
 
+## jupyterlite: initialize jupyter lite and build from current pip installed lab extensions
+##              copies files in ./files to ./_output/files, File/download changes when done
+.PHONY: jupyterlite
+jupyterlite:
+	jupyter lite init
+	jupyter lite build
+	jupyter lite serve
+
+## jupyterlite-clean: Remove the _output directory removes all in-browser edits
+.PHONY: jupyterlite-clean
+jupyterlite-clean:
+	rm -rf _output
 
 ## docx: Convert from .ipynb to .docx
 .phony: docx
