@@ -147,7 +147,10 @@ if eval "[[ ! -v $lib_name ]]"; then
 		if ! pushd "${1:-"$HOME"}" >/dev/null; then
 			return 1
 		fi
-		for file in .profile .bash_profile .bashrc; do
+		# only need .bash_profile usually
+		#for file in .profile .bash_profile .bashrc; do
+		#shellcheck disable=SC2043
+		for file in .bash_profile; do
 			if [[ -e "$file" ]]; then
 				# turn off undefined variable checking because
 				# scripts like bash completion reference undefined

@@ -571,6 +571,8 @@ if eval "[[ ! -v $lib_name ]]"; then
 			flags+=" $1 "
 			shift
 		done
+		log_verbose "PATH is $PATH"
+		log_verbose "using pip at $(command -v pip)"
 		for package in "$@"; do
 			# note we pass flags unquoted  so each is a separate flag
 			# conditionally run sudo if asked
