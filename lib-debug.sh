@@ -104,6 +104,11 @@ if eval "[[ ! -v $lib_name ]]"; then
 		fi
 	}
 
+	debug_prompt() {
+		#echo "debug_prompt: args are $*"
+		read -rp "[${BASH_SOURCE[0]}:$LINENO}] $BASH_COMMAND? " _
+	}
+
 	# When trace is off we temporarily stop debugging but remember so trace off
 	# works
 	# https://www.shell-tips.com/bash/debug-script/
@@ -120,8 +125,9 @@ if eval "[[ ! -v $lib_name ]]"; then
 			set -vx -o functrace errtrace
 			shopt -s extdebug
 			# http://mywiki.wooledge.org/BashGuide/Practices#Debugging
-			# this does not work anymore as of Sept 2021 on Mac
-			trap '(read -p "[$BASH_SOURCE:$LINENO] $BASH_COMMAND?")' DEBUG
+			#trap 'debug_prompt "$_"' DEBUG
+			trap 'read -rp "[${BASH_SOURCE[0]}:$LINENO] $BASH_COMMAND? " _' DEBUG
+
 		fi
 	}
 
