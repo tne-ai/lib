@@ -21,12 +21,17 @@ ifndef NAME
 NAME != basename $(PWD)
 endif
 
+# docker.io - Docker Hub
+#DOCKER_REGISTRY ?= docker.io
+# Google Repo
+#DOCKER_REGISTRY ?= gcr.io
+# Github Repo
+DOCKER_REGISTRY ?= ghcr.io
+
 # gcr.io - google container resitry
 # ghcr.io - Githbu Container Registey
 # public.ecr.aws - Amazon public container registry
-# docker.io - Docker Hub
-REGISTRY ?= docker.io
-IMAGE ?= $(REGISTRY)/$(REPO)/$(NAME)
+IMAGE ?= $(DOCKER_REGISTRY)/$(REPO)/$(NAME)
 # build 64-bit arm for M1 Mac and AMD64 for Intel machines
 ARCH ?= arm64 amd64
 # Use the git commit by default
@@ -69,7 +74,7 @@ DOCKER_RUNTIME ?= $(DOCKER)
 # DOCKER_RUNTIME ? colima
 #
 # lima nerdctl, lima - lima nerdctl using lima containerd (test works if
-# NordVPN not running at docker-start time)
+# NordVPN not running at docker-start time but docker hub access not working)
 # DOCKER ?= lima nerdctl
 # DOCKER_RUNTIME ?= limactl
 #
@@ -169,6 +174,11 @@ DOCKER_FLAGS ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
 
 # Guess the name of the main container is called main
 DOCKER_COMPOSE_MAIN ?= main
+
+## docker-login: login to the container egistry
+.PHONY: docker-login
+docker-login: docker-start
+	echo $(DOCKER_TOKEN) | docker login "$(DOCKER_REGISTRY)" -u $(DOCKER_USER) --password-stdin
 
 ## docker-start: make sure docker is running (Mac only)
 # now podman aware so only checks if you want docker

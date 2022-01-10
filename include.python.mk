@@ -361,8 +361,11 @@ pipenv-python: pipenv-super-clean pipenv-clean
 # Then add a dummy pipenv so that you do not move up recursively
 # And create an environment in the current directory
 # we normally do not remove the Pipfile just the environment
+# https://github.com/pypa/pipenv/issues/3827
+# Remove caches
 .PHONY: pipenv-clean
 pipenv-clean:
+	rm -rf "$$HOME/Library/Caches/pipenv"
 	$(PIPENV) --rm || true
 
 ## pipenv-super-clean: Remove the Pipfile and reinstall all packages
