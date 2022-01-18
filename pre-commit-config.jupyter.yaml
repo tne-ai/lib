@@ -53,6 +53,23 @@ repos:
       - id: check-case-conflict
       - id: check-docstring-first
 
+  # https://jupytext.readthedocs.io/en/latest/using-pre-commit.html
+  # sync all notebooks with their corresponding markdown files
+  # use black to format the python code
+  - repo: https://github.com/mwouts/jupytext
+    rev: v1.10.0
+    hooks:
+      - id: jupytext
+        args: [--sync, --pipe, black]
+        additional_dependencies:
+          - black==20.8b1
+  - repo: https://github.com/psf/black
+    rev: 20.8b1
+    hooks:
+      - id: black
+        language_version: python3.9
+        args: [-l 79]
+
   - repo: https://github.com/jumanjihouse/pre-commit-hooks
     rev: 2.1.5
     hooks:
@@ -70,7 +87,7 @@ repos:
   # https://github.com/igorshubovych/markdownlint-cli
   # node version of markdownlint with better disabling of checks
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.27.1
+    rev: v0.30.0
     hooks:
       - id: markdownlint
 

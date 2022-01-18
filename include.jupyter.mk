@@ -14,6 +14,11 @@ NOTEBOOK ?= notebook.ipynb
 PIP ?= nbdime
 ENV ?= pipenv
 
+## jupytext: sync markdown and notebook with latest edits
+.PHONY: jupytext
+jupytext:
+	jupytext --sync "$(DATA)/$(NOTEBOOK)"
+
 ## jupyterlite: initialize jupyter lite and build from current pip installed lab extensions
 ##              copies files in ./files to ./_output/files, File/download changes when done
 .PHONY: jupyterlite
@@ -42,17 +47,18 @@ LAB ?=
 .PHONY: jupyter-install
 jupyter-install: install
 	$(RUN) jupyter labextension install $(LAB)
+	$(RUN) jupyter lab build
 ## jupyter: run jupyter
 # if include.python.mk is added will run in the environment defined assuming
 # that RUN is set
 # https://nbdime.readthedocs.io/en/latest/installing.html
 # do not have to enable the pip install does this
 # $(RUN) nbdime extensions --enable
+# do not start a browser
+# --no-browser
+# --port=8888
 .PHONY: jupyter
 jupyter:
-	$(RUN) jupyter lab build
 	$(RUN) jupyter lab \
         --notebook-dir=$(DATA) \
-        --ip='*' \
-        --port=8888 \
-        --no-browser
+        --ip='*'

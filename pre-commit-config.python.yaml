@@ -73,7 +73,7 @@ repos:
   # https://github.com/igorshubovych/markdownlint-cli
   # node version of markdownlint with better disabling of checks
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.27.1
+    rev: v0.30.0
     hooks:
     - id: markdownlint
 
