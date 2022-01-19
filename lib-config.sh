@@ -285,9 +285,16 @@ config_add_var() {
 # It looks for a prefix and then slams a new line in if it findds it
 # forces a replacement if it already exists
 # the replacement can be multiple lines
-# usage: config_replace [file| ""] prefix-of-of-the-line-to-be-replaced lines-to-add
+# flags: -m this flag means if you find an instance don't replace
+#        the default is you replace a single line
+# usage: config_replace [-n] [file| ""] prefix-of-of-the-line-to-be-replaced lines-to-add
 config_replace() {
 	if (($# < 3)); then return 1; fi
+	local MULTILINE=false
+	if [[ $1 == -m ]]; then
+		local MULTILINE=true
+		shift
+	fi
 	local file="${1:-"$(config_profile)"}"
 	local target="${2:-""}"
 	local lines="${3:-""}"
@@ -304,7 +311,7 @@ config_replace() {
 		#echo no line so add with tee
 		# do not quote need_sudo as it can be null if not needed
 		$need_sudo tee -a "$file" <<<"$lines" >/dev/null
-	else
+	elif ! $MULTILINE; then
 		# note this requires gnu sed running on a Mac
 		# fails with the installed sed
 		# to make change work we need to convert
