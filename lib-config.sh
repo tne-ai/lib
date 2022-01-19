@@ -285,13 +285,13 @@ config_add_var() {
 # It looks for a prefix and then slams a new line in if it findds it
 # forces a replacement if it already exists
 # the replacement can be multiple lines
-# flags: -m this flag means if you find an instance don't replace
+# flags: -x this flag means if you find an instance don't replace
 #        the default is you replace a single line
 # usage: config_replace [-n] [file| ""] prefix-of-of-the-line-to-be-replaced lines-to-add
 config_replace() {
 	if (($# < 3)); then return 1; fi
 	local MULTILINE=false
-	if [[ $1 == -m ]]; then
+	if [[ $1 == -x ]]; then
 		local MULTILINE=true
 		shift
 	fi
