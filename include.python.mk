@@ -55,17 +55,22 @@ PIP ?=
 # most of what we do will end up packaged
 PIP_ONLY ?=
 PIP_DEV += \
-		pre-commit \
-		isort \
-		seed-isort-config \
-		yamllint \
-		flake8 \
-		mypy \
 		bandit \
+		beautysh \
 		black \
-		pydocstyle \
+		build \
+		flake8 \
+		isort \
+		mypy \
+		neovim \
 		pdoc3 \
-		build twine setuptools wheel
+		pre-commit \
+		pydocstyle \
+		seed-isort-config \
+		setuptools \
+		twine \
+		wheel \
+		yamllint
 
 # https://stackoverflow.com/questions/589276/how-can-i-use-bash-syntax-in-makefile-targets
 # The virtual environment [ pipenv | conda | none ]
