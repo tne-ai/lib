@@ -3,6 +3,19 @@
 ## Mac OS X specific routines
 ##
 
+# https://stackoverflow.com/questions/9483959/osx-10-8-loginitems
+# https://apple.stackexchange.com/questions/310495/can-login-items-be-added-via-the-command-line-in-high-sierra
+## usage: mac_login_item [items...]
+mac_login_item_add() {
+	for item in "$@"; do
+		# this worked for Mac OS 10.8 but not Monterey
+		#defaults write "$HOME/Library/Preferences/loginwindow" \
+		#    AutoLaunchedApplicationDictionary -array-add \
+		#    -array-add "{ \"Path\" = \"$item\"; \"Hide\" = \"0\"; }"
+		osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"$item\", hidden:false }"
+	done
+}
+
 # If this is full xcode make sure to accept the license
 xcode_license_accept() {
 	# https://apple.stackexchange.com/questions/175069/how-to-accept-xcode-license:w
