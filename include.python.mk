@@ -72,6 +72,11 @@ PIP_DEV += \
 		wheel \
 		yamllint
 
+# default conda channels
+CONDA_CHANNEL ?= conda-forge
+# conda only packages
+CONDA_ONLY ?=
+
 # https://stackoverflow.com/questions/589276/how-can-i-use-bash-syntax-in-makefile-targets
 # The virtual environment [ pipenv | conda | none ]
 ENV ?= pipenv
@@ -82,6 +87,7 @@ UPDATE ?=
 INSTALL ?=
 INSTALL_DEV ?= $(INSTALL)
 MACOS_VERSION ?= $(shell sw_vers -productVersion)
+ARCH ?= $(shell uname -m)
 # due to https://github.com/pypa/pipenv/issues/4564
 # pipenv does not correctly deal with MacOS 11 and above so run in
 # compatibility mode as of Sept 2021
@@ -100,9 +106,9 @@ ifeq ($(ENV),pipenv)
 	INSTALL_PRE := $(PIPENV) install --pre
 	INSTALL_DEV := $(INSTALL) --dev --pre
 	INSTALL_PIP_ONLY := $(INSTALL)
-	INSTALL_REQ := pipenv-clean
 	# conditional dependency https://stackoverflow.com/questions/59867140/conditional-dependencies-in-gnu-make
-	INSTALL_REQ = pipenv-python
+	# install h5py right after the clean
+	INSTALL_REQ := pipenv-clean $(if $(strip $(INSTALL_H5PY)),install-h5py)
 else ifeq ($(ENV),conda)
 	RUN := conda run -n $(NAME)
 	INIT := eval "$$(conda shell.bash hook)"
@@ -123,7 +129,7 @@ else ifeq ($(ENV),none)
 	INSTALL_DEV := $(INSTALL)
 	INSTALL_PRE := $(INSTALL) --pre
 	INSTALL_PIP_ONLY := $(INSTALL)
-	INSTALL_REQ :=
+	INSTALL_REQ := $(if $(strip $(INSTALL_H5PY)),install-h5py)
 endif
 
 ## main: run the main program
@@ -165,6 +171,22 @@ test:
 test-pip:
 	@echo fix to PYTHONPATH for pytest
 	PYTHONPATH="src" pytest ./tests
+
+# https://stackoverflow.com/questions/66741778/how-to-install-h5py-needed-for-keras-on-macos-with-m1
+## install-h5py: Special installation of h5py for M1 set INSTALL_H5PY to run as part of install
+.PHONY: install-h5py
+install-h5py:
+	if [[ ! $$(uname -m) =~ arm64 ]] || [[ $(ENV) =~ conda ]]; then \
+		$(INSTALL) h5py; \
+	else \
+		brew install hdf5 && \
+		export HDF5_DIR="$$(brew --prefix hdf5)" && \
+		if [[ $(ENV) =~ pipenv ]]; then \
+			PIP_NO_BINARY=h5py pipenv install h5py; \
+		else \
+			$(INSTALL) --no-binary=h5py h5py; \
+		fi; \
+	fi
 
 ## install-dev: Install as a development package for testing
 .PHONY: install-dev
@@ -215,7 +237,7 @@ ifeq ($(ENV),conda)
 	conda env list | grep ^$(NAME) || conda create -y --name $(NAME)
 	conda config --env --add channels conda-forge
 	conda config --env --set channel_priority strict
-	conda install --name $(NAME) -y python=$(PYTHON)
+	$(INSTALL) python=$(PYTHON) $(CONDA_ONLY)
 endif
 
 	# using conditional in function form if first is not null, then insert

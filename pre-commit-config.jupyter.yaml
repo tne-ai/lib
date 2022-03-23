@@ -62,9 +62,9 @@ repos:
       - id: jupytext
         args: [--sync, --pipe, black]
         additional_dependencies:
-          - black==20.8b1
+          - black==22.1.0
   - repo: https://github.com/psf/black
-    rev: 20.8b1
+    rev: 22.1.0
     hooks:
       - id: black
         language_version: python3.9
