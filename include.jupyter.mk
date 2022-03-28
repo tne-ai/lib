@@ -8,16 +8,27 @@ PACKAGES+=make vim gosu
 #PIP+=pandas confuse ipysheet h5py ipywidgets ipympl ipyvuetify \
      #scipy altair xlrd bqplot ipyvolume restart==2.6.7 restart_datasets voila
 #PIP_ONLY+=tables qgrid
+NPM_PACKAGES+=mermaid-filter
 
-NOTEBOOK ?= notebook.ipynb
+
+# If you are running in a container otherwise it is just home
+DATA ?= $(PWD)/data
+#DATA ?= /var/data
+
+NOTEBOOK ?= $(DATA)/$(notdir $(PWD)).ipynb
+# https://stackoverflow.com/questions/12069457/how-to-change-the-extension-of-each-file-in-a-list-with-multiple-extensions-in-g
+MARKDOWN ?= $(NOTEBOOK:ipynb=md)
+
 # ENV is the environment used by include.python.mkkk
 PIP ?= nbdime
 ENV ?= pipenv
+# LAB are the jupyterlab extensions
+LAB ?=
 
 ## jupytext: sync markdown and notebook with latest edits
 .PHONY: jupytext
 jupytext:
-	jupytext --sync "$(DATA)/$(NOTEBOOK)"
+	jupytext --sync "$(NOTEBOOK)"
 
 ## jupyterlite: initialize jupyter lite and build from current pip installed lab extensions
 ##              copies files in ./files to ./_output/files, File/download changes when done
@@ -35,13 +46,13 @@ jupyterlite-clean:
 ## docx: Convert from .ipynb to .docx
 .phony: docx
 docx:
-	pandoc $(NOTEBOOK) -s -o "$$(basename -s ipynb "$(NOTEBOOK)")docx"
+	pandoc -s -o "$(NOTEBOOK:ipynb=docx)" $(NOTEBOOK)
 
-# If you are running in a container otherwise it is just home
-DATA ?= $(PWD)
-#DATA ?= /var/data
+## pdf: Convert from markdown to pdf with mermaid
+.phony: pdf
+pdf:
+	pandoc -F mermaid-filter -s -o "$(MARKDOWN:ipynb=pdf)" $(MARKDOWN)
 
-LAB ?=
 
 ## jupyter-install: installs jupyterlab extensions after python packages
 .PHONY: jupyter-install
