@@ -27,9 +27,9 @@ What actually happened
 
 ## Steps to Reproduce the Problem
 
-1. _install_this_
-1. _run_that_
-1. _see output_
+1. *install this*
+1. *run that*
+1. *see output*
 
 ## Specifications
 
