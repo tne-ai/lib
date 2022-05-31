@@ -67,7 +67,7 @@ repos:
         #additional_dependencies: []
 
   # https://github.com/igorshubovych/markdownlint-cli
-  # node version of markdownlint with better disabling of checks
+  # node version of markdownlint with better disabling of checks by line
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.30.0
     hooks:
