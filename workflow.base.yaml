@@ -23,7 +23,7 @@ jobs:
         # we do not need matrix that is in python version
         # https://github.com/actions/setup-python/issues/249
         # Need to quote 3.10 as this gets shortend to "3.10"
-        python-version: [3.9, "3.10"]
+        python-version: [3.9, "3.10.3"]
 
     steps:
       # checkout repo under $GITHUB_WORKSPACE
