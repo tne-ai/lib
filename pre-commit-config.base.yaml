@@ -13,7 +13,7 @@
 # need this so gitlint only runs during commit-msg
 default_stages: [commit, push]
 # exclude deprecated files so we do not check them anymore
-exclude: (^archive/)
+exclude: (^archive/|^user/)
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     # only language independent hooks
