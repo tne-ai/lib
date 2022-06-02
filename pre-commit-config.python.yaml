@@ -1,3 +1,4 @@
+# ./lib/pre-commit-config.python.yaml
 # Python oriented pre-commit
 #
 # Note that the check-yaml argument does not work
