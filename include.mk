@@ -63,6 +63,11 @@ pre-commit-install:
 		pre-commit install --hook-type commit-msg \
 	; fi
 
+## act: Run Github actions as docker job on local machine only works as amd64
+.PHONY: act
+act:
+	act --container-architecture linux/amd64
+
 ## git-lfs: installs git lfs
 .PHONY: git-lfs
 git-lfs:
