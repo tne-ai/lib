@@ -25,10 +25,14 @@ ENV ?= pipenv
 # LAB are the jupyterlab extensions
 LAB ?=
 
-## jupytext: sync markdown and notebook with latest edits
+## jupytext: sync notebook and markdown with latest edits
 .PHONY: jupytext
 jupytext:
-	jupytext --sync "$(NOTEBOOK)"
+	if [[ -e $(NOTEBOOK) ]]; then \
+		jupytext --sync "$(NOTEBOOK)" \
+	; else \
+		jupytext --sync "$(NOTEBOOK:ipynb=md)" \
+	; fi
 
 ## jupyterlite: initialize jupyter lite and build from current pip installed lab extensions
 ##              copies files in ./files to ./_output/files, File/download changes when done
@@ -46,12 +50,12 @@ jupyterlite-clean:
 ## docx: Convert from .ipynb to .docx
 .phony: docx
 docx:
-	pandoc -s -o "$(NOTEBOOK:ipynb=docx)" $(NOTEBOOK)
+	pandoc -F mermaid-filter -s -o "$(NOTEBOOK:ipynb=docx)" $(NOTEBOOK)
 
 ## pdf: Convert from markdown to pdf with mermaid
 .phony: pdf
 pdf:
-	pandoc -F mermaid-filter -s -o "$(MARKDOWN:ipynb=pdf)" $(MARKDOWN)
+	pandoc -F mermaid-filter -s -o "$(MARKDOWN:md=pdf)" $(MARKDOWN)
 
 
 ## jupyter-install: installs jupyterlab extensions after python packages
