@@ -187,17 +187,3 @@ repos:
   #   rev: 0.4.0
   #   hooks:
   #     - id: nbstripout
-
-  # https://github.com/roy-ht/pre-commit-jupyter
-  # Removes notebook output, you leave output in git repo
-  # by adding [pin] or [donotremove] in a comment in a cell somewhere
-  - repo: https://github.com/aflc/pre-commit-jupyter
-    rev: v1.2.1
-    hooks:
-      - id: jupyter-notebook-cleanup
-        args:
-          - --remove-kernel-metadata
-          - --pin-patterns
-          - "[pin];[donotremove]"
-        files: \.ipynb$
-        types: ["file"]

@@ -80,6 +80,14 @@ repos:
     hooks:
       - id: markdownlint
 
+  # https://yamllint.readthedocs.io/en/stable/integration.html#integration-with-pre-commit
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: 1.17.9
+    hooks:
+      - id: yamllint
+        # use relaxed because .pre-commit-config has truthy value warning
+        args: [-d relaxed]
+
   # https://jorisroovers.com/gitlint/#using-gitlint-through-pre-commit
   - repo: https://github.com/jorisroovers/gitlint
     rev: v0.17.0
@@ -104,11 +112,3 @@ repos:
           - "[pin];[donotremove]"
         files: \.ipynb$
         types: ["file"]
-
-  # https://yamllint.readthedocs.io/en/stable/integration.html#integration-with-pre-commit
-  - repo: https://github.com/adrienverge/yamllint.git
-    rev: 1.17.9
-    hooks:
-      - id: yamllint
-        # use relaxed because .pre-commit-config has truthy value warning
-        args: [-d relaxed]
