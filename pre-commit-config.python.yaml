@@ -1,5 +1,7 @@
 # ./lib/pre-commit-config.python.yaml
-# Python oriented pre-commit
+# Python oriented pre-commit (deprecated)
+# These checks are no added to base.yaml
+# use excludes locally for files you do not want to check
 #
 # Note that the check-yaml argument does not work
 #
@@ -9,10 +11,10 @@
 # python regex syntax for inclusion
 # https://www.w3schools.com/python/python_regex.asp
 # So this means only look at python files
-#files: ".py$"
+# files: ".py$"
 # This is only for python and other files
 # This means exclude directories ./typescript
-#exclude: "typescript|golang"
+# exclude: "typescript|golang"
 
 default_stages: [commit, push]
 repos:
@@ -20,19 +22,21 @@ repos:
     rev: v3.4.0
     hooks:
       - id: check-added-large-files
-      - id: check-ast
+      # do not need check-ast use dedicated python checks
+      # - id: check-ast
       - id: check-builtin-literals
       - id: check-case-conflict
       - id: check-docstring-first
       - id: check-executables-have-shebangs
       - id: check-json
       # do not run this since we do include.sh from elsewhere
-      #- id: check-symlinks
+      # - id: check-symlinks
       - id: check-merge-conflict
       - id: check-toml
       - id: check-xml
-      - id: check-yaml
-        args: [--allow-multiple-documents]
+      # use yamllint instead
+      # - id: check-yaml
+      # args: [--allow-multiple-documents]
       - id: destroyed-symlinks
       # https://github.com/pre-commit/pre-commit-hooks/blob/master/pre_commit_hooks/detect_aws_credentials.py
       - id: detect-aws-credentials
@@ -55,21 +59,21 @@ repos:
     hooks:
       # as of Feb 2020, error with ruby 3.0
       # https://github.com/jumanjihouse/pre-commit-hooks/issues/86
-      #- id: markdownlint
+      # - id: markdownlint
       - id: shellcheck
       - id: shfmt
 
   # switch from using mdl to markdown-cli because it handles disabling
   # checks on a per line basis rather than per project with .mdlrc
-  #- repo: local
+  # - repo: local
   #  hooks:
-  #    # https://github.com/markdownlint/markdownlint/blob/master/.pre-commit-hooks.yaml
+  # https://github.com/markdownlint/markdownlint/blob/master/.pre-commit-hooks.yaml
   #    - id: markdownlintlocal
   #      name: Markdownlint Local
   #      description: Run Markdownlint locally
   #      entry: mdl
   #      language: ruby
-        #files: \.(md|mdown|markdown)$
+  #     #files: \.(md|mdown|markdown)$
 
 
   # https://github.com/igorshubovych/markdownlint-cli
@@ -77,7 +81,7 @@ repos:
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.30.0
     hooks:
-    - id: markdownlint
+      - id: markdownlint
 
 
   # https://jorisroovers.com/gitlint/#using-gitlint-through-pre-commit
@@ -86,6 +90,7 @@ repos:
     hooks:
       - id: gitlint
         stages: [commit-msg]
+
   # https://ljvmiranda921.github.io/notebook/2018/06/21/precommits-using-black-and-flake8/
   # https://github.com/pre-commit/mirrors-mypy
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -117,7 +122,7 @@ repos:
   #       args: [--profile=black, -w 79]
   # https://ljvmiranda921.github.io/notebook/2018/06/21/precommits-using-black-and-flake8/
   # switch to released black
-    #rev: 20.8b1
+  # #rev: 20.8b1
 
   - repo: https://github.com/psf/black
     rev: 22.1.0

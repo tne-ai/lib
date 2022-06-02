@@ -40,38 +40,38 @@ repos:
     hooks:
       # as of Feb 2020, error with ruby 3.0
       # https://github.com/jumanjihouse/pre-commit-hooks/issues/86
-      #- id: markdownlint
+      # - id: markdownlint
       - id: shellcheck
       # require shfmt be installed
       - id: shfmt
 
   # from dan this fails with a go error
-  #- repo: local
-    #hooks:
-      #- id: shfmt
-        #name: shfmt
-        #minimum_pre_commit_version: 2.4.0
-        #language: golang
-        #additional_dependencies: [mvdan.cc/sh/v3/cmd/shfmt@v3.2.2]
-        #entry: shfmt
-        #args: [ -w ]
-        #types: [ shell ]
-
+  # - repo: local
+  #  hooks:
+  #    - id: shfmt
+  #      name: shfmt
+  #      #minimum_pre_commit_version: 2.4.0
+  #      #language: golang
+  #      #additional_dependencies: [mvdan.cc/sh/v3/cmd/shfmt@v3.2.2]
+  #      #entry: shfmt
+  #      #args: [ -w ]
+  #      #types: [ shell ]
+  #
   # covidwa does not have of these standards so comment out
 
   # https://ljvmiranda921.github.io/notebook/2018/06/21/precommits-using-black-and-flake8/
   # https://github.com/pre-commit/mirrors-mypy
-  #- repo: https://github.com/pre-commit/mirrors-mypy
+  # - repo: https://github.com/pre-commit/mirrors-mypy
   #  #rev: 'v0.782' will not run as of Feb 2020
   #  rev: v0.812
   #  hooks:
   #    - id: mypy
-  #- repo: https://github.com/pycqa/flake8
+  # - repo: https://github.com/pycqa/flake8
   #  rev: 3.8.4
   #  hooks:
   #    - id: flake8
   # covidwa not using pydocstyle
-  #- repo: https://github.com/pycqa/pydocstyle
+  # - repo: https://github.com/pycqa/pydocstyle
   #  rev: 5.1.1
   #  hooks:
   #    - id: pydocstyle
@@ -92,7 +92,7 @@ repos:
   ##       args: [--profile=black, -w 79]
   ## https://ljvmiranda921.github.io/notebook/2018/06/21/precommits-using-black-and-flake8/
 
-  #- repo: https://github.com/psf/black
+  # - repo: https://github.com/psf/black
   #  rev: 20.8b1
   #  hooks:
   #    - id: black
@@ -118,19 +118,22 @@ repos:
   - repo: local
     hooks:
       # check the current working directory run by calling the id
-      #- id: testing
+      # - id: testing
       #  # the friendly name
       #  name: Test Local
       #  # this has to be a single executable so use bash -c to run scripts
       #  entry: bash -c "cd python && pwd"
-        #language: system
-        #verbose: true
-        #pass_filenames: false
-        #always_run: true
+      # #language: system
+      # #verbose: true
+      # #pass_filenames: false
+      # #always_run: true
       - id: pytest
         name: Python Linting
-        entry: bash -c "cd python && pytest --timeout=600 --ignore=lambda_stage --doctest-modules --cov=."
-        #args: [--timeout=600, --ignore=lambda_stage, --doctest-modules, --cov=.]
+        entry: >
+          bash -c "cd python && pytest --timeout=600
+             --ignore=lambda_stage --doctest-modules --cov=."
+        # args: >
+        # [--timeout=600, --ignore=lambda_stage, --doctest-modules, --cov=.]
         language: system
         pass_filenames: false
         always_run: true

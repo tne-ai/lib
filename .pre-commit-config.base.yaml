@@ -1,6 +1,5 @@
 # ./lib/pre-commit-config.base.yaml
 # now includes all the jupyter and python checks
-# if you want to exclude then use the exclude and put the directories in
 #
 # For the main source repo with random stuff in it
 # tried dockerfilelint but too strict and disabling does not work
@@ -17,9 +16,7 @@ repos:
     # only language independent hooks
     rev: v4.2.0
     hooks:
-      # allow up to 2MB files for jupyter notebooks
       - id: check-added-large-files
-        args: ["--maxkb=2048"]
       - id: check-merge-conflict
       - id: check-executables-have-shebangs
       # exclude third-party files
@@ -76,13 +73,6 @@ repos:
       - id: shellcheck
       # additional_dependencies: []
 
-  # Use shellcheck instead
-  # - repo: https://github.com/detailyang/pre-commit-shell
-  #  rev: 1.0.5
-  #  hooks:
-  #    - id: shell-lint
-  #      args: [--format=json]
-
   # https://github.com/igorshubovych/markdownlint-cli
   # node version of markdownlint with better disabling of checks by line
   - repo: https://github.com/igorshubovych/markdownlint-cli
@@ -96,73 +86,6 @@ repos:
     hooks:
       - id: gitlint
         stages: [commit-msg]
-
-  # https://yamllint.readthedocs.io/en/stable/integration.html#integration-with-pre-commit
-  - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.26.3
-    hooks:
-      - id: yamllint
-        # use relaxed because .pre-commit-config has truthy value warning
-        args: [-d relaxed]
-
-  # python regex syntax for inclusion
-  # https://www.w3schools.com/python/python_regex.asp
-  # So this means only look at python files
-  # files: ".py$"
-  # This is only for python and other files
-  # This means exclude directories ./typescript
-  # exclude: "typescript|golang"
-
-  # https://ljvmiranda921.github.io/notebook/2018/06/21/precommits-using-black-and-flake8/
-  # https://github.com/pre-commit/mirrors-mypy
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v0.960'
-    hooks:
-      - id: mypy
-  - repo: https://github.com/pycqa/flake8
-    rev: 4.0.1
-    hooks:
-      - id: flake8
-  - repo: https://github.com/pycqa/pydocstyle
-    rev: 6.1.1
-    hooks:
-      - id: pydocstyle
-
-  # puts the isort.cfg at the root we do not want that
-  # https://pypi.org/project/seed-isort-config/
-  # - repo: https://github.com/asottile/seed-isort-config
-  #   rev: v2.2.0
-  #   hooks:
-  #     # remember this will place things at the root of the repo
-  #     # but running in lint locally places it in the current directory
-  #    - id: seed-isort-config
-  # does not respect the local arguments
-  # - repo: https://github.com/timothycrosley/isort
-  #   rev: 5.2.0
-  #   hooks:
-  #     - id: isort
-  #       args: [--profile=black, -w 79]
-  # https://ljvmiranda921.github.io/notebook/2018/06/21/precommits-using-black-and-flake8/
-  # switch to released black
-  # #rev: 20.8b1
-
-  - repo: https://github.com/psf/black
-    rev: 22.3.0
-    hooks:
-      - id: black
-        language_version: python3.9
-        args: [-l 79]
-
-  # https://jupytext.readthedocs.io/en/latest/using-pre-commit.html
-  # sync all notebooks with their corresponding markdown files
-  # use black to format the python code
-  - repo: https://github.com/mwouts/jupytext
-    rev: v1.13.8
-    hooks:
-      - id: jupytext
-        args: [--sync, --pipe, black]
-        additional_dependencies:
-          - black==22.1.0
 
   # strips everything out so use pre-commit-jupyter instead
   # - repo: https://github.com/kynan/nbstripout
@@ -182,22 +105,10 @@ repos:
         files: \.ipynb$
         types: ["file"]
 
-  # strips everything out so use pre-commit-jupyter instead
-  # - repo: https://github.com/kynan/nbstripout
-  #   rev: 0.4.0
-  #   hooks:
-  #     - id: nbstripout
-
-  # https://github.com/roy-ht/pre-commit-jupyter
-  # Removes notebook output, you leave output in git repo
-  # by adding [pin] or [donotremove] in a comment in a cell somewhere
-  - repo: https://github.com/aflc/pre-commit-jupyter
-    rev: v1.2.1
+  # https://yamllint.readthedocs.io/en/stable/integration.html#integration-with-pre-commit
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: 1.17.9
     hooks:
-      - id: jupyter-notebook-cleanup
-        args:
-          - --remove-kernel-metadata
-          - --pin-patterns
-          - "[pin];[donotremove]"
-        files: \.ipynb$
-        types: ["file"]
+      - id: yamllint
+        # use relaxed because .pre-commit-config has truthy value warning
+        args: [-d relaxed]
