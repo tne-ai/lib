@@ -4,6 +4,7 @@
 # so only single document in a yamlm file is allowed
 # tried dockerfilelint but too strict and disabling does not work
 ---
+default_stages: [commit, push]
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.3.0
@@ -73,6 +74,13 @@ repos:
     hooks:
       - id: shell-lint
         args: [--format=json]
+
+  # https://jorisroovers.com/gitlint/#using-gitlint-through-pre-commit
+  - repo: https://github.com/jorisroovers/gitlint
+    rev: v0.17.0
+    hooks:
+      - id: gitlint
+        stages: [commit-msg]
 
   # https://github.com/pre-commit/pre-commit/issues/1245
   # Make sure .gitpod.Dockerfile is built

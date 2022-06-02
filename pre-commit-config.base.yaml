@@ -6,6 +6,8 @@
 # since these are typically third party modules
 # cannot run  markdownlint checks for hugo
 ---
+# need this so gitlint only runs during commit-msg
+default_stages: [commit, push]
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     # only language independent hooks
@@ -71,7 +73,14 @@ repos:
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.31.1
     hooks:
-    - id: markdownlint
+      - id: markdownlint
+
+  # https://jorisroovers.com/gitlint/#using-gitlint-through-pre-commit
+  - repo: https://github.com/jorisroovers/gitlint
+    rev: v0.17.0
+    hooks:
+      - id: gitlint
+        stages: [commit-msg]
 
   # strips everything out so use pre-commit-jupyter instead
   #- repo: https://github.com/kynan/nbstripout

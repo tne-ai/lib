@@ -60,6 +60,7 @@ pre-commit-install:
 		$(RUN) pre-commit install || true && \
 		mkdir -p .github/workflows && \
 		echo "copy the appropriate ./lib/workflows in .github/workflows" \
+		pre-commit install --hook-type commit-msg \
 	; fi
 
 ## git-lfs: installs git lfs

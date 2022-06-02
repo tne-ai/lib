@@ -13,6 +13,7 @@
 # This means exclude directories ./typescript
 #exclude: "typescript|golang"
 
+default_stages: [commit, push]
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.4.0
@@ -77,6 +78,13 @@ repos:
     hooks:
     - id: markdownlint
 
+
+  # https://jorisroovers.com/gitlint/#using-gitlint-through-pre-commit
+  - repo: https://github.com/jorisroovers/gitlint
+    rev: v0.17.0
+    hooks:
+      - id: gitlint
+        stages: [commit-msg]
   # https://ljvmiranda921.github.io/notebook/2018/06/21/precommits-using-black-and-flake8/
   # https://github.com/pre-commit/mirrors-mypy
   - repo: https://github.com/pre-commit/mirrors-mypy

@@ -6,6 +6,7 @@
 # since these are typically third party modules
 # cannot run  markdownlint checks for hugo
 ---
+default_stages: [commit, push]
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     # only language independent hooks
@@ -90,6 +91,13 @@ repos:
     rev: v0.30.0
     hooks:
       - id: markdownlint
+
+  # https://jorisroovers.com/gitlint/#using-gitlint-through-pre-commit
+  - repo: https://github.com/jorisroovers/gitlint
+    rev: v0.17.0
+    hooks:
+      - id: gitlint
+        stages: [commit-msg]
 
   # strips everything out so use pre-commit-jupyter instead
   # - repo: https://github.com/kynan/nbstripout
