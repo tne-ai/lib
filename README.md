@@ -15,6 +15,22 @@
 
 # Library
 
+## Github Actions and Pre-commit CD/CI chain
+
+When adding to this repo, you should run a `make pre-commit-install` to install
+pre-commits. The main option is use base pre-commit-config.base.yaml as this
+now includes all the actions for python and jupyter into a single master.
+
+If you have python and jupyter notebooks that do not conform, now is the time
+to just fix them once and for all. It is a little work, but don't have this
+bite you later.
+
+These same pre-commit actions are used by workflow.base.yaml which is a GitHub
+action that uses the same .pre-commit-config.yaml and runs it in GitHub.
+
+You can also download act which runs GitHub Actions in a docker container on
+your machine to test github actions without having to push it into the cloud.
+
 ## Github files
 
 You should copy ./github to .github to get issue templates and workflow
