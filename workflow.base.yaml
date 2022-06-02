@@ -63,11 +63,11 @@ jobs:
 
 
       # https://snapcraft.io/install/shfmt/ubuntu
-      - name: Install ubuntu dependencies for shfmt and mdl
+      - name: Install ubuntu dependencies for shfmt
         run: |
           sudo apt update
           sudo apt install snapd
-          sudo snap install shfmt mdl
+          sudo snap install shfmt
 
       # Not needed there is a snap package
       # install dependencies for ruby gem mdl
@@ -103,7 +103,7 @@ jobs:
         # #flake8 --exclude ./model ./python
 
         # No longer needed in pre-commit
-        #- name: Lint with mypy
+        # - name: Lint with mypy
         # #run: |
         #   #pip install mypy
         #   #mypy --namespace-packages $(find . -name "*.py")
@@ -112,20 +112,18 @@ jobs:
         # - name: Lint with bandit
         # #run: |
         #   #pip install bandit
-        #   #bandit $(find . -type d \( -path "./.env" -o -path "./lambda_stage" \)  -prune -false \
-                               #-o -name "*.py" -a -not -name "test_*")
-
-
+        #   #bandit $(find . -type d \( -path "./.env" -o -path "./lambda_stage" \) \
+        #   -prune -false \
+        #
+        # -o -name "*.py" -a -not -name "test_*")
       # No longer needed in pre-commit
-      #- name: Lint with pydocstyle
-        #run: |
-          #pip install pydocstyle
-          #pydocstyle --convention=google $(find . -name "*.py")
-
+      # - name: Lint with pydocstyle
+        # run: |
+          # pip install pydocstyle
+          # pydocstyle --convention=google $(find . -name "*.py")
       # No longer needed in pre-commit
       #- name: Reformat with black
         #uses: psf/black@stable
-
       # A custom action https://github.com/marketplace/actions/yaml-lint
       # Causes some strange file to get linted
       #- name: Lint with yamllint action
