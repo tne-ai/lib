@@ -1,4 +1,4 @@
-# ./lib/pre-commit-config.base.yaml
+# ./lib/pre-commit-config.full.yaml
 # now includes all the jupyter and python checks
 # if you want to exclude then use the exclude and put the directories in
 #
@@ -189,3 +189,12 @@ repos:
   #   rev: 0.4.0
   #   hooks:
   #     - id: nbstripout
+
+  # lint Dockerfiles with hadolint
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.10.0
+    hooks:
+      # use if hadolint is local
+      - id: hadolint
+      # use if you have docker and you do not need hadolint installed
+      # - id: hadolint-docker
