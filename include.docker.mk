@@ -1,4 +1,5 @@
-#
+#RCH
+
 ##
 ## Docker command v2 uses docker-compose if docker_compose.yaml exists
 ## -------
@@ -21,19 +22,28 @@ ifndef NAME
 NAME != basename $(PWD)
 endif
 
-# docker.io - Docker Hub
-#DOCKER_REGISTRY ?= docker.io
-# Google Repo
-#DOCKER_REGISTRY ?= gcr.io
-# Github Repo
+# Github Repo - Preferred
 DOCKER_REGISTRY ?= ghcr.io
-
-# gcr.io - google container resitry
-# ghcr.io - Githbu Container Registey
+# docker.io - Docker Hub deprecated
+#DOCKER_REGISTRY ?= docker.io
+# Google Repo - Not free
+#DOCKER_REGISTRY ?= gcr.io
 # public.ecr.aws - Amazon public container registry
+# DOCKER_REGISTRY ?= public.ecr.aws
+
+# the new multiarch builder
+DOCKER_BUILD ?= buildx
+# the old style builder
+
 IMAGE ?= $(DOCKER_REGISTRY)/$(REPO)/$(NAME)
 # build 64-bit arm for M1 Mac and AMD64 for Intel machines
-ARCH ?= arm64 amd64
+# syntax is for the buildx multiarch builder
+ARCH ?= linux/arm64,linux/amd64
+
+# You should note need the architecture since docker works with both intel and
+# m1 on Apple Silicon but by default we build both M1 and Intel
+ARCH ?=$(shell uname -m)
+#
 # Use the git commit by default
 VERSION ?= $(shell git rev-parse HEAD)
 
@@ -50,37 +60,59 @@ VOLUMES ?= --mount "type=bind,source=$(HOST_DIR),target=$(CONTAINER_DIR)"
 FLAGS ?=
 DOCKERFILE ?= Dockerfile
 
-# using real docker or podman
+# option combinations are
+#
+# Set the docker type
+DOCKER_TYPE ?= docker
+# docker, docker - docker cli using Docker.app (tested works)
+ifeq ($(DOCKER_TYPE),docker)
+DOCKER ?= docker
+DOCKER_RUNTIME ?= $(DOCKER)
+DOCKER_CONTEXT ?= default
+endif
+ifeq ($(DOCKER_TYPE),docker-colima)
+#
+# docker, colima - docker cli using colima with docker runtime (tested works)
+# make sure the context is set to point to the right socket
+DOCKER ?= docker
+DOCKER_RUNTIME ?= colima
+DOCKER_CONTENT ?= colima
+ifneq ($(findstring amd64,$(ARCH)),)
+# uncomment for cross platform amd64 images
+COLIMA_ARCH_FLAG ?= --arch x86_64
+endif
+ifeq ($(findstring arm64,$(ARCH)),)
+# uncomment for cross platform arm64 images
+COLIMA_ARCH_FLAG ?= --arch aarch64
+endif
+endif
+# colima nerdctl, colima - colima nerdctl using colima containerd
+# (tested works,
+# does not support build --pull)
+#
+ifeq ($(DOCKER_TYPE),colima-nerdctl)
+DOCKER ?= colima nerdctl
+DOCKER_RUNTIME ?= colima
+DOCKER_CONTENT ?= colima
+endif
+#
+# As of Jan 2022
+# NordVPN not running at docker-start time but docker hub access not working)
+# lima nerdctl, lima - lima nerdctl using lima containerd (test works if
+#
+ifeq ($(DOCKER_TYPE),lima-nerdctl)
+DOCKER ?= lima nerdctl
+DOCKER_RUNTIME ?= limactl
+endif
+#
+# podman, podman - podman cli using podman (does not work no way to mount host volumes)
 # As of Dec 2021 there is no support for host volume mounts with podman so
 # only use it if you do not need local files
 # https://github.com/containers/podman/issues/8016
-# option combinations are
-#
-# docker, docker - docker cli using Docker.app (tested works)
-DOCKER ?= docker
+ifeq ($(DOCKER_TYPE),podman)
+DOCKER ?= podman
 DOCKER_RUNTIME ?= $(DOCKER)
-#
-# docker, colima - docker cli using colima with docker runtime (tested works)
-# DOCKER ?= docker
-# DOCKER_RUNTIME ?= colima
-# uncomment for cross platform amd64 images
-# COLIMA_ARCH_FLAG ?= --arch x86_64
-# uncomment for cross platform arm64 images
-# COLIMA_ARCH_FLAG ?= --arch aarch64
-#
-# colima nerdctl, colima - colima nerdctl using colima containerd (tested works,
-# does not support build --pull)
-# DOCKER ?= colima nerdctl
-# DOCKER_RUNTIME ? colima
-#
-# lima nerdctl, lima - lima nerdctl using lima containerd (test works if
-# NordVPN not running at docker-start time but docker hub access not working)
-# DOCKER ?= lima nerdctl
-# DOCKER_RUNTIME ?= limactl
-#
-# podman, podman - podman cli using podman (does not work no way to mount host volumes)
-# DOCKER ?= podman
-# DOCKER_RUNTIME ?= $(DOCKER)
+endif
 
 DOCKER_MACHINE_NAME ?= podman-machine-default
 # podman-compose does not support --env-file
@@ -156,9 +188,6 @@ xhost:
 	xhost "+$(ifconfig getifaddre en0)"
 	xhose "+localhost"
 
-# You should note need the architecture since docker works with both intel and
-# m1 on Apple Silicon
-ARCH=$(shell uname -m)
 DOCKER_ENV_FILE ?= docker-compose.env
 
 # these are only for docker build (deprecated use docker compose and DOCKER_ENV_FILE instead)
@@ -187,6 +216,7 @@ docker-login: docker-start
 # note that podman machine ls | grep -v does not work
 .PHONY: docker-start
 docker-start:
+	docker context use "$(DOCKER_CONTEXT)" && \
 	if [[ "$(DOCKER_RUNTIME)" =~ docker ]] && ! "$(DOCKER)" ps &>/dev/null; then \
 		open -a "$(DOCKER)" && sleep 60; \
 	elif [[ "$(DOCKER_RUNTIME)" =~ colima ]]; then \
@@ -236,13 +266,19 @@ docker-stop:
 # https://sdeoras.medium.com/special-case-of-building-multi-arch-container-images-distroless-go-and-podman-ad3e2ba0ccea
 # note that nerdctl compose build does not support --pull which docker compose
 # does
+		#$(DOCKER) manifest create "$(IMAGE):$(VERSION)"; \
 .PHONY: build
+# https://github.com/abiosoft/colima/issues/44 to use buildx with colima
 build: docker-start
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build; \
+	elif [[ $(DOCKER_BUILD) =~ buildx ]]; then \
+		if [[ $(DOCKER) =~ colima ]]; then \
+			docker buildx create --use "$(DOCKER")"; \
+		fi; \
+		docker buildx build --load --platform $(ARCH) -t "$(IMAGE):$(VERSION)" $(DOCKER_FLAGS) -f "$(DOCKERFILE)" $(BUILD_PATH); \
 	else \
-		$(DOCKER) manifest create "$(IMAGE):$(VERSION)"; \
 		for arch in $(ARCH); do \
 			$(DOCKER) build --arch=$$arch --pull \
 						$(FLAGS) \
@@ -278,8 +314,10 @@ push: docker-start build
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" push; \
+	elif [[ $(DOCKER_BUILD) =~ buildx ]]; then \
+	    docker buildx push --platform $(ARCH) -t "$(IMAGE):$(VERSION)" $(DOCKER_FLAGS) -f "$(DOCKERFILE)" $(BUILD_PATH); \
 	else \
-		$(DOCKER) push --all-tags $(IMAGE):; \
+		$(DOCKER) push --all-tags $(IMAGE): ; \
 	fi
 
 # for those times when we make a change in but the Dockerfile does not notice
