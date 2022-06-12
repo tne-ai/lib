@@ -13,7 +13,7 @@ REPO ?= tongfamily
 
 # Container registry user name
 REPO_USER ?= richt
-#
+
 # https://stackoverflow.com/questions/10024279/how-to-use-shell-commands-in-makefile
 # Cannot use ?= because we want the shell to evaluate at make time
 ifndef NAME
@@ -34,10 +34,13 @@ DOCKER_REGISTRY ?= ghcr.io
 # the new multiarch builder
 DOCKER_BUILD ?= buildx
 # the old style builder
+# DOCKER_BUILD ?= docker
 
 IMAGE ?= $(DOCKER_REGISTRY)/$(REPO)/$(NAME)
 # build 64-bit arm for M1 Mac and AMD64 for Intel machines
 # syntax is for the buildx multiarch builder
+# https://docs.docker.com/buildx/working-with-buildx/
+# use ARG TARGETPLATFORM in Dockerfile to do differential builds
 ARCH ?= linux/arm64,linux/amd64
 
 # You should note need the architecture since docker works with both intel and
@@ -269,15 +272,16 @@ docker-stop:
 		#$(DOCKER) manifest create "$(IMAGE):$(VERSION)"; \
 .PHONY: build
 # https://github.com/abiosoft/colima/issues/44 to use buildx with colima
+# note in docker buildx we cannot have to push here because --load does not work with multi-arch manifests 
 build: docker-start
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build; \
 	elif [[ $(DOCKER_BUILD) =~ buildx ]]; then \
 		if [[ $(DOCKER) =~ colima ]]; then \
-			docker buildx create --use "$(DOCKER")"; \
+			docker buildx create --use "$(DOCKER)"; \
 		fi; \
-		docker buildx build --load --platform $(ARCH) -t "$(IMAGE):$(VERSION)" $(DOCKER_FLAGS) -f "$(DOCKERFILE)" $(BUILD_PATH); \
+		docker buildx build --push --platform $(ARCH) -t "$(IMAGE):$(VERSION)" $(DOCKER_FLAGS) -f "$(DOCKERFILE)" $(BUILD_PATH); \
 	else \
 		for arch in $(ARCH); do \
 			$(DOCKER) build --arch=$$arch --pull \
