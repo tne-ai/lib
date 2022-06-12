@@ -82,13 +82,18 @@ jobs:
       # #run: |
       #   #gem install mdl
 
-      # install dependencies for markdownlint-cli
+      - name: Install homebrew
+        uses: artemnovichkov/action-homebrew@0.1.0
       - name: Install node
         uses: actions/setup-node@v2
         with:
           node-version: '14'
+
       - name: Install markdownlint-cli
         run: npm install -g markdownlint-cli
+
+      - name: Install hadolint
+        run: brew install hadolint
 
 
       # https://github.com/pre-commit/action
