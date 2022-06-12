@@ -1,6 +1,6 @@
 # https://docs.docker.com/compose/gettingstarted/
 # syntax=docker/dockerfile:1
-FROM px4io/px4-dev-simulation-focal:2021-09-08
+FROM ubuntu:20.04
 # Note that the passed in argument NAME is the name of the application
 LABEL maintainer="Rich Tong (rich@tongfamily.com)"
 
@@ -11,6 +11,7 @@ ARG GROUP=staff
 # these are the MacOS defaults so you should override to 1000:1000 for Linux
 ARG UID=501
 ARG GID=20
+ARG COMMAND=bash
 ENV DEBIAN_FRONTEND=noninteractive
 # https://medium.com/fundbox-engineering/overview-d3759e83969c
 # if you say NO then you get regular notebook
@@ -29,12 +30,13 @@ USER root
 # The jupyter notebooks delete the apt list
 RUN mkdir -p /var/lib/apt/list && \
     apt-get update -y && \
-    apt-get install -y \
-        vim \
-        curl \
-        sudo \
-        git-lfs \
-        openssh-server
+    apt-get install -y --no-install-recommends \
+        vim=2:8.1.2269-1ubuntu5 \
+        curl=7.68.0-1ubuntu2 \
+        sudo=1.8.31-1ubuntu1 \
+        git-lfs=2.9.2-1 \
+        openssh-server=1:8.2p1-4ubuntu0.2 \
+    && rm -rf /var/lib/apt/lists/*
 
 
 # keep this as reference in case any are needed
@@ -52,7 +54,7 @@ RUN mkdir -p /var/lib/apt/list && \
 # https://www.atlantic.net/vps-hosting/how-to-setup-passwordless-sudo-for-a-specific-user/
 #RUN groupadd -g $GID $GROUP && \
 # Assumes the PX4 base has create user so add SUDO to it
-RUN if ! id "$USER"; then useradd -g "$GID" -u "$UID" -m "$USER"; fi && \
+RUN if ! id "$USER"; then useradd -l -g "$GID" -u "$UID" -m "$USER"; fi && \
     usermod -aG sudo "$USER" && \
     usermod -g "$GID" "$USER" && \
     usermod -u "$UID" "$USER" && \
@@ -66,19 +68,17 @@ WORKDIR /home/$USER
 # the system level facilities https://askubuntu.com/questions/97552/how-to-install-dot-provided-by-graphviz
 # Also for the ip filings get mermaid and graphviz
 RUN pip install --quiet --no-cache-dir \
-        pre-commit
+        pre-commit==2.19.0
 
 # install the pip and other dependencies not in the base image
-RUN git clone --recursive https://github.com/px4/px4-autopilot
-
 # Now install the remaining tools
-RUN ./px4-autopilot/Tools/setup/ubuntu.sh
+RUN git clone --recursive https://github.com/px4/px4-autopilot && \
+    ./px4-autopilot/Tools/setup/ubuntu.sh
 
 # https://docs.qgroundcontrol.com/master/en/releases/daily_builds.html
 # Latest build of QGrouncControl
-RUN mkdir -p bin && \
-    cd bin && \
-    curl https://s3-us-west-2.amazonaws.com/qgroundcontrol/builds/master/QGroundControl.AppImage
+WORKDIR /home/$USER/bin
+RUN curl https://s3-us-west-2.amazonaws.com/qgroundcontrol/builds/master/QGroundControl.AppImage
 
 # These can be overridden at docker run time
 # Entrypoint is always run even when you have command line argument
@@ -87,4 +87,4 @@ RUN mkdir -p bin && \
 # https://www.ctl.io/developers/blog/post/dockerfile-entrypoint-vs-cmd/
 # ENTRYPOINT jupyterlab
 # this means that if docker run specified and there is no command run this
-CMD $COMMAND
+CMD [ "${COMMAND}" ]

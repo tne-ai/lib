@@ -272,7 +272,7 @@ docker-stop:
 		#$(DOCKER) manifest create "$(IMAGE):$(VERSION)"; \
 .PHONY: build
 # https://github.com/abiosoft/colima/issues/44 to use buildx with colima
-# note in docker buildx we cannot have to push here because --load does not work with multi-arch manifests 
+# note in docker buildx we cannot have to push here because --load does not work with multi-arch manifests
 build: docker-start
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
