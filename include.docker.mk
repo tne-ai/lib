@@ -312,6 +312,7 @@ docker-test: docker-start
 	@echo PYTHON=$(PYTHON)
 
 ## push: after a build will push the image up
+# note that with dockerx buildx push there is not --all-tags so only the $(VERSION) tag is pushed
 .PHONY: push
 push: docker-start build
 	# need to push and pull to make sure the entire cluster has the right images
