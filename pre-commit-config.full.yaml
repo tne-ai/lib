@@ -1,6 +1,6 @@
 # ./lib/pre-commit-config.full.yaml
 # now includes all the jupyter and python checks
-# if you want to exclude then use the exclude and put the directories in
+# if you want to exclude then use the exclude and put the directories inLE
 #
 # For the main source repo with random stuff in it
 # tried dockerfilelint but too strict and disabling does not work
