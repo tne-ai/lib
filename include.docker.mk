@@ -1,5 +1,3 @@
-#RCH
-
 ##
 ## Docker command v2 uses docker-compose if docker_compose.yaml exists
 ## -------
@@ -8,11 +6,23 @@
 #
 # The makefiles are self documenting, you use two leading for make help to produce output
 
-# YOu will want to change these depending on the image and the org
-REPO ?= tongfamily
 
+## Change REPO and DOCKER_REGISTRY
+# Github Repo - Preferred
+DOCKER_REGISTRY ?= ghcr.io
+REPO ?= richtong
+REPO_USER ?= richtong
+# docker.io - Docker Hub deprecated
+#DOCKER_REGISTRY ?= docker.io
 # Container registry user name
-REPO_USER ?= richt
+# REPO_USER ?= richt
+# Google Repo - Not free
+#DOCKER_REGISTRY ?= gcr.io
+#REPO ?= not-set
+# public.ecr.aws - Amazon public container registry
+# DOCKER_REGISTRY ?= public.ecr.aws
+# REPO ?= not-set
+
 
 # https://stackoverflow.com/questions/10024279/how-to-use-shell-commands-in-makefile
 # Cannot use ?= because we want the shell to evaluate at make time
@@ -21,15 +31,6 @@ ifndef NAME
 #NAME := $(shell basename $(PWD))
 NAME != basename $(PWD)
 endif
-
-# Github Repo - Preferred
-DOCKER_REGISTRY ?= ghcr.io
-# docker.io - Docker Hub deprecated
-#DOCKER_REGISTRY ?= docker.io
-# Google Repo - Not free
-#DOCKER_REGISTRY ?= gcr.io
-# public.ecr.aws - Amazon public container registry
-# DOCKER_REGISTRY ?= public.ecr.aws
 
 # the new multiarch builder
 DOCKER_BUILD ?= buildx
@@ -207,7 +208,7 @@ DOCKER_FLAGS ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
 # Guess the name of the main container is called main
 DOCKER_COMPOSE_MAIN ?= main
 
-## docker-login: login to the container egistry
+## docker-login: login to the container registry works for docker hub only
 .PHONY: docker-login
 docker-login: docker-start
 	echo $(DOCKER_TOKEN) | docker login "$(DOCKER_REGISTRY)" -u $(DOCKER_USER) --password-stdin
@@ -273,6 +274,7 @@ docker-stop:
 .PHONY: build
 # https://github.com/abiosoft/colima/issues/44 to use buildx with colima
 # note in docker buildx we cannot have to push here because --load does not work with multi-arch manifests
+# it does not know how to export the manifest
 build: docker-start
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
@@ -314,13 +316,13 @@ docker-test: docker-start
 ## push: after a build will push the image up
 # note that with dockerx buildx push there is not --all-tags so only the $(VERSION) tag is pushed
 .PHONY: push
-push: docker-start build
+push: build
 	# need to push and pull to make sure the entire cluster has the right images
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" push; \
 	elif [[ $(DOCKER_BUILD) =~ buildx ]]; then \
-	    docker buildx push --platform $(ARCH) -t "$(IMAGE):$(VERSION)" $(DOCKER_FLAGS) -f "$(DOCKERFILE)" $(BUILD_PATH); \
+	    docker buildx build --push --platform $(ARCH) -t "$(IMAGE):$(VERSION)" $(DOCKER_FLAGS) -f "$(DOCKERFILE)" $(BUILD_PATH); \
 	else \
 		$(DOCKER) push --all-tags $(IMAGE): ; \
 	fi
