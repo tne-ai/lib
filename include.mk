@@ -28,9 +28,9 @@ help: $(MAKEFILE_LIST)
 	@sed -n 's/^##//p' $(MAKEFILE_LIST)
 
 ## These are required tags from checkmate stubs are here you should overwrite
-.PHONY: test
-test:
-	@echo "test stub"
+#.PHONY: test
+#test:
+#    @echo "test stub"
 
 ## tag: pushes a new tag up while delete old to force the action
 .PHONY: tag
