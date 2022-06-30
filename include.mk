@@ -76,7 +76,11 @@ act:
 ## git-lfs: installs git lfs
 .PHONY: git-lfs
 git-lfs:
+	$(RUN) brew install git-lfs
 	$(RUN) git lfs install
+	$(RUN) git add --all
+	$(RUN) git commit -av
+	# this will fail if you are not already committed
 	$(RUN) git lfs pull
 
 ## repo-install: creates a repo and sets up pre-commits and creates default submodules
