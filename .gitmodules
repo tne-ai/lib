@@ -1,0 +1,3 @@
+[submodule "gmsl"]
+	path = gmsl
+	url = git@github.com:richtong/gmsl
