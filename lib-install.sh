@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# vim: ai:sw=4:ts=4:noet
 ##
 ##Installation works on either Mac OS X (Darwin) or Ubuntu
 ##
@@ -348,6 +349,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			flags+=" $item "
 			shift
 		done
+		log_verbose "looking for $*"
 		for package in "$@"; do
 			log_verbose "looking for $package"
 			# before sept 2021 brew info and brew search
