@@ -352,7 +352,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		for package in "$@"; do
 			log_verbose "looking for $package"
 			# most of the time we have brew on linux, mac and wsl
-			if brew list "$package" &>/dev/null; then
+			if brew info "$package" &>/dev/null; then
 				log_verbose "$package is in brew"
 				if [[ -n $flags ]]; then
 					# if there are require flags for the package, see if we have them
@@ -363,7 +363,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 					# if it is a valid flag for the $package and it is not installed
 					# then force an uninstall to get it
 					quoted_flags="$(flags_to_grep "$flags")"
-					if ! brew list "$package" 2>&1 | grep -q "$quoted_flags"; then
+					if ! brew list "$package" |& grep -q "$quoted_flags"; then
 						# if they are then uninstall the package to get ready
 						# for an install later
 						log_verbose "$package in brew with incorrect $flags force reinstall"
@@ -373,11 +373,10 @@ if eval "[[ ! -v $lib_name ]]"; then
 					log_verbose "$package installed with correct $flags"
 					continue
 				fi
-				if ! brew list "$package" | grep -q installed; then
+				if ! brew list "$package" >& /dev/null; then
 					log_verbose "$package not installed"
 					((++count))
 				fi
-				log_verbose "$package installed"
 				continue
 			fi
 
@@ -387,7 +386,6 @@ if eval "[[ ! -v $lib_name ]]"; then
 					log_verbose "$package not installed"
 					((++count))
 				fi
-				log_verbose "$package installed"
 				continue
 			fi
 
@@ -397,7 +395,6 @@ if eval "[[ ! -v $lib_name ]]"; then
 					log_verbose "$package not installed"
 					((++count))
 				fi
-				log_verbose "$package installed"
 				continue
 			fi
 
