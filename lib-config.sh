@@ -77,19 +77,36 @@ config_profile() {
 	if [[ $OSTYPE =~ darwin ]]; then
 		echo "$HOME/.bash_profile"
 	elif [[ $OSTYPE =~ linux ]]; then
-		# .profile is only for run once at start
-		echo "$HOME/.profile"
+		# this is the non-interactive shell 
+		echo "$HOME/.bash_profile"
 	elif [[ -z $BASH_VERSION ]]; then
 		# https://stackoverflow.com/questions/3199893/howto-detect-bash-from-shell-script
 		echo "$HOME/.bashrc"
 	elif [[ -z $ZSH_VERSION ]]; then
 		echo "$HOME/.zshrc"
+    else
+        echo "$HOME/.bash_profile"
 	fi
 }
 
-# config the non-login script run with every new shell
+## config the non-login script run with every new shell
 config_profile_shell() {
 	echo "$HOME/.bashrc"
+}
+
+# if this is for initial boot on linux it is .profile
+# this should have no output visible
+# not used for the Mac
+## config_profile_start: add the very first profile
+config_profile_start() {
+    if [[ $OSTYPE =~ darwin ]]; then
+        echo "$HOME/.bash_profile"
+    elif [[ $OSTYPE =~ linux ]]; then
+        echo "$HOME/.profile"
+    else
+        echo "$HOME/.profile"
+    fi
+
 }
 
 ## config_zsh: returns the location of the zsh configuration profile

@@ -304,6 +304,9 @@ if eval "[[ ! -v $lib_name ]]"; then
 			# echo ubuntu
 			# echo $(linux_version)
 			case $(linux_version) in
+            22.04)
+                echo jammy
+                ;;
 			21.10)
 				echo impish
 				;;
