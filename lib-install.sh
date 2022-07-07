@@ -329,10 +329,10 @@ if eval "[[ ! -v $lib_name ]]"; then
 		done
 	}
 
-	# returns success if all the packages are installed
-	# otherwise returns how many packages were not installed
-	# for mac look in brew first then mac ports
-	# Some special logic here to make sure the thing is installed with the right
+	## is_package_installed [packages...]
+	## returns 0 if all the packages are installed
+	## if no installed then returns how many packages were not installed
+	# For home brew, make sure the thing is installed with the right
 	# flags it will uninstall if the flags are wrong and return install needed
 	is_package_installed() {
 		local count=0
@@ -341,7 +341,6 @@ if eval "[[ ! -v $lib_name ]]"; then
 		# just run overall brew so all flags can pass though
 		local flags=""
 		for item in "$@"; do
-			# add all the flags
 			if [[ ! $item =~ ^- ]]; then
 				# break on the first non flag
 				break
@@ -349,40 +348,12 @@ if eval "[[ ! -v $lib_name ]]"; then
 			flags+=" $item "
 			shift
 		done
-		log_verbose "looking for $*"
+
 		for package in "$@"; do
 			log_verbose "looking for $package"
-			# before sept 2021 brew info and brew search
-			# did not return error code so had to grep it
-			# local brew_cask
-			# brew_cask="$(brew info --cask "$package" 2>&1)"
-			# if grep -q "^$package:" <<<"$brew_cask"; then
-			# no more distinction between cask and package
-
-			# now do the Mac checks
-			# https://osxdaily.com/2018/10/20/how-list-all-homebrew-packages-installed-mac/
-			# as of sept 2021 this method no longer works not installed is not
-			# emitted
-			# brew_info="$(brew info "$package" 2>&1)"
-			# need the a quotes for the echo to retain the newlines
-			# shellcheck disable=SC2181
-			# if (($? != 0)) || echo "$brew_info" | grep -q "^Not installed"; then
-			if ! brew list "$package" &>/dev/null; then
-				log_verbose "$package is not installed as a brew package"
-				# no package see if it is available on brew
-				if is_brew_package "$package" >/dev/null; then
-					# it is available on brew so note it and continue
-					((++count))
-					continue
-				elif command -v port && ! port installed "$package" >/dev/null 2>&1; then
-					# this is not a brew package so try macports
-					((++count))
-					continue
-				fi
-				# not available so go to the next
-
-				# if there are no required flags and it is installed the package
-				# and we go on to the next package
+			# most of the time we have brew on linux, mac and wsl
+			if brew list "$package" &>/dev/null; then
+				log_verbose "$package is in brew"
 				if [[ -n $flags ]]; then
 					# if there are require flags for the package, see if we have them
 					# http://stackoverflow.com/questions/20802320/detect-if-homebrew-package-is-installed
@@ -392,29 +363,47 @@ if eval "[[ ! -v $lib_name ]]"; then
 					# if it is a valid flag for the $package and it is not installed
 					# then force an uninstall to get it
 					quoted_flags="$(flags_to_grep "$flags")"
-					# if the package has the required flags go on to the next
 					if ! brew list "$package" 2>&1 | grep -q "$quoted_flags"; then
 						# if they are then uninstall the package to get ready
 						# for an install later
+						log_verbose "$package in brew with incorrect $flags force reinstall"
 						package_uninstall "$package"
 						((++count))
-						continue
 					fi
+					log_verbose "$package installed with correct $flags"
+					continue
 				fi
-			fi
-
-			# if the flags are not valid ignore them and say we have it
-			# and the package is installed so we can just go ont
-			# last resort try dpkg
-			if [[ ! $OSTYPE =~ darwin ]]; then
-				log_verbose "do the linux check"
-				if ! dpkg -s "$package" | grep -q "ok installed"; then
+				if ! brew list "$package" | grep -q installed; then
+					log_verbose "$package not installed"
 					((++count))
 				fi
+				log_verbose "$package installed"
+				continue
+			fi
+
+			if command -v port >/dev/null && port info "$package"; then
+				log_verbose "$package is in macports"
+				if port installed "$package" >/dev/null 2>&1; then
+					log_verbose "$package not installed"
+					((++count))
+				fi
+				log_verbose "$package installed"
+				continue
+			fi
+
+			if command -v dpkg && dpkg -l "$package"; then
+				log_verbose "$package is in dpkg"
+				if ! dpkg -s "$package" 2>/dev/null | grep -q "ok installed"; then
+					log_verbose "$package not installed"
+					((++count))
+				fi
+				log_verbose "$package installed"
 				continue
 			fi
 
 		done
+
+		log_verbose "$count packages not installed"
 		return "$count"
 	}
 
@@ -422,27 +411,13 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# usage: is_brew_package [ items... ]
 	# return 0 is all are package otherwise the number of casks or bottles not found
 	# stdout return the type of package either cask or regular brew
-	# Can be used to run install (eg $(is_brew_package)_install)
+	# Can be used to run install (eg eval $(is_brew_package)_install)
+	# note that as of 2021 you can just say brew install and it will
+	# figure out if it is a cask or formula but there are still name collisions
+	# so most of the time just do a brew install and use this as an expection
 	is_brew_package() {
-		# need extglob http://www.gnu.org/software/bash/manual/bashref.html#Pattern-Matching
-		# remember current settings and flip back
-		local not_found=0
-		# do not need this is for the old grep
-		#local extglob_setting
-		#extglob_setting=$(shopt extglob | awk '{print $2}')
-		#if [[ $extglob_setting == off ]]; then
-		#shopt -s extglob >/dev/null
-		#fi
 		for item in "$@"; do
-			# note a case statement does not work here because it cannot match
-			# with variable expansion os caskroom*$item*) does not match
-			# although  *$item*) does work for shell patterns even with shopt
-			# extglob set
-			# strings emitted by brew change so use brew info as of Sept 2021
-			#local search
-			#search=$(brew search "$item" 2>/dev/null)
-			# So use if then and full regex
-			#if grep -q "^caskroom.*\/$item$" <<<"$search"; then
+			# uses the simpler logic of brew after 2021
 			if brew info -q --cask "$item" &>/dev/null; then
 				echo cask
 				continue
@@ -455,9 +430,6 @@ if eval "[[ ! -v $lib_name ]]"; then
 			fi
 			((++not_found))
 		done
-		#if [[ $extglob_setting == off ]]; then
-		#shopt -u extglob >/dev/null
-		#fi
 		return "$not_found"
 	}
 
