@@ -161,6 +161,8 @@ if eval "[[ ! -v $lib_name ]]"; then
 				set -u
 			fi
 		done
+		# need this on apps like basictex as it adds to the path without a .profile
+		eval "$(/usr/libexec/path_helper)"
 		popd || true
 		# rehash in case the path changes changes the execution order
 		hash -r
