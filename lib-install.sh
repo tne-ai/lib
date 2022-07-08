@@ -58,19 +58,32 @@ if eval "[[ ! -v $lib_name ]]"; then
 		eval sudo apt-get upgrade "$output"
 	}
 
-	# usage: gem_install [ ruby packages ]
+	# usage: gem_install [ -flags.. ] [ ruby packages ]
 	gem_install() {
 		if (($# < 1)); then return; fi
-		if ! gem install "$@"; then
-			sudo gem install "$@"
-		fi
+		local flags=()
+		while [[ $1 =~ ^- ]]; do
+			flags+=("$1")
+			shift
+		done
+		for package in "$@"; do
+			if ! gem install "$package"; then
+				sudo gem install "${flags[@]}" "$package"
+			fi
+		done
 	}
 
-	# usage: tap_install [ taps... ]
+	# usage: tap_install [ -flags...] [ taps... ]
 	tap_install() {
+		local flags=()
+		if (($# < 1)); then return; fi
+		while [[ $1 =~ ^- ]]; do
+			flags+=("$1")
+			shift
+		done
 		for tap in "$@"; do
 			if ! brew tap | grep -q "^$tap"; then
-				brew tap "$tap"
+				brew tap "${flags[@]}" "$tap"
 			fi
 		done
 	}
@@ -95,7 +108,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# Note if the cask is already installed it will upgrade it
 	# this only works if the cask is already tapped
 	# so names of the form 'user/tap/cask' will not work
-	# usage: cask_install [ casks...]
+	# usage: cask_install [ -flags ][ casks...]
 	# returns: number of install errors
 	cask_install() {
 		local output=">/dev/null 2>&1"
@@ -103,7 +116,15 @@ if eval "[[ ! -v $lib_name ]]"; then
 		if $VERBOSE; then
 			output=""
 		fi
-
+		local flags=()
+		if (($# < 1)); then
+			return
+		fi
+		# find all the flags at the start
+		while [[ $1 =~ ^- ]]; do
+			flags+=("$1")
+			shift
+		done
 		for cask in "$@"; do
 			local brew_cask
 			brew_cask="$(brew info --cask "$cask" 2>&1)"
@@ -180,7 +201,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			if grep -q "Not installed" <<<"$brew_cask"; then
 				log_verbose installing brew cask
 				# if verbose we show all the install commands
-				if ! eval brew install --cask "$cask" "$output"; then
+				if ! brew install --cask "${flags[@]}" "$cask" "$output"; then
 					((++errors))
 					log_verbose "$cask installed failed with $errors errors"
 				fi
@@ -224,16 +245,26 @@ if eval "[[ ! -v $lib_name ]]"; then
 	flags_to_grep() {
 		echo "${1//-/\\-}"
 	}
+
 	# Mac Brew installations for simple packages called bottles
 	# for things like grep, this disables adding g to it
 	# usage: brew_install [flags] [bottles...]
 	# some brew packages cannot be installed over each other
 	# so check first
 	brew_install() {
+		local flags=()
+		if (($# < 1)); then
+			return
+		fi
+		# find all the flags at the start
+		while [[ $1 =~ ^- ]]; do
+			flags+=("$1")
+			shift
+		done
 		for package in "$@"; do
 			if ! is_package_installed "$package"; then
 				# ignore errors
-				brew install "$package" || true
+				brew install "${flags[@]}" "$package" || true
 			else
 				# ignore errors
 				brew upgrade "$package" || true
@@ -260,10 +291,20 @@ if eval "[[ ! -v $lib_name ]]"; then
 		return 1
 	}
 
+	## snap_install [ -flags.. ] [ packages... ]
 	snap_install() {
+		local flags=()
+		if (($# < 1)); then
+			return
+		fi
+		# find all the flags at the start
+		while [[ $1 =~ ^- ]]; do
+			flags+=("$1")
+			shift
+		done
 		for package in "$@"; do
 			if ! snap list "$package"; then
-				snap install "$package" || true
+				snap install "${flags[@]}" "$package" || true
 			fi
 		done
 	}
@@ -339,13 +380,13 @@ if eval "[[ ! -v $lib_name ]]"; then
 		# looks for the flags and makes sure they are installed, if not then do
 		# assumes brew is up to date
 		# just run overall brew so all flags can pass though
-		local flags=""
+		local flags=()
 		for item in "$@"; do
 			if [[ ! $item =~ ^- ]]; then
 				# break on the first non flag
 				break
 			fi
-			flags+=" $item "
+			flags+=("$item")
 			shift
 		done
 
@@ -354,7 +395,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			# most of the time we have brew on linux, mac and wsl
 			if brew info "$package" &>/dev/null; then
 				log_verbose "$package is in brew"
-				if [[ -n $flags ]]; then
+				if (( ${flags[#]} > 1 )); then
 					# if there are require flags for the package, see if we have them
 					# http://stackoverflow.com/questions/20802320/detect-if-homebrew-package-is-installed
 					# https://stackoverflow.com/questions/8833230/how-do-i-find-a-list-of-homebrews-installable-packages
@@ -362,15 +403,15 @@ if eval "[[ ! -v $lib_name ]]"; then
 					# https://github.com/Homebrew/legacy-homebrew/issues/38259
 					# if it is a valid flag for the $package and it is not installed
 					# then force an uninstall to get it
-					quoted_flags="$(flags_to_grep "$flags")"
-					if ! brew list "$package" |& grep -q "$quoted_flags"; then
+					# quoted_flags="$(flags_to_grep "$flags")"
+					if ! brew list "$package" |& grep -q "${flags[@]}"; then
 						# if they are then uninstall the package to get ready
 						# for an install later
-						log_verbose "$package in brew with incorrect $flags force reinstall"
+						log_verbose "$package in brew with incorrect ${flags[*]} force reinstall"
 						package_uninstall "$package"
 						((++count))
 					fi
-					log_verbose "$package installed with correct $flags"
+					log_verbose "$package installed with correct ${flags[*]}"
 					continue
 				fi
 				if ! brew list "$package" >& /dev/null; then
@@ -440,7 +481,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		local type
 		type="$(is_brew_package "$2")"
 		shift 2
-		local flags="$*"
+		local flags=("$@")
 		if [[ -z $type ]]; then
 			sudo port uninstall "$package"
 			return $?
@@ -448,11 +489,12 @@ if eval "[[ ! -v $lib_name ]]"; then
 		# need the braces to get the type variable
 		# and we want flags at the end for brew
 		# shellcheck disable=SC2086
-		if ! "${type}_$operation" "$package" $flags; then
+		if ! "${type}_$operation" "$package" "${flags[@]}"; then
 			return $?
 		fi
 	}
 
+	## package_install [ -flags... ] [ packages... ]
 	# install a package on Mac OS X (aka Darwin) or linux
 	# Assums that any flags at the front are passed to the underlying package
 	# manager
@@ -461,35 +503,35 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# returns: 0 if all packages installed otherwise the error code of the
 	# first install that failed
 	package_install() {
-		# find all the flags at the start
-		local flags=""
+		local flags=()
 		if (($# < 1)); then
 			return
 		fi
+		# find all the flags at the start
 		while [[ $1 =~ ^- ]]; do
-			flags+="$1 "
+			flags+=("$1")
 			shift
 		done
 		for package in "$@"; do
 			# do not check flags so do not quote
 			#shellcheck disable=SC2086
-			if is_package_installed $flags "$package"; then
+			if is_package_installed "${flags[@]}" "$package"; then
 				continue
 			fi
 			log_verbose "no package $package, try to install"
 
 			if [[ $OSTYPE =~ darwin ]]; then
 				# shellcheck disable=SC2086
-				mac_package install "$package" $flags
+				mac_package install "${flags[@]}" "$package"
 				continue
 			fi
 			# only get here for linux so try linux brew first
 			# shellcheck disable=SC2086
-			if brew install "$package" $flags; then
+			if brew install "${flags[@]}" "$package"; then
 				continue
 			fi
 			log_verbose "trying sudo apt-get install -y $package"
-			if ! sudo apt-get install -y "$package"; then
+			if ! sudo apt-get install -y "${flags[@]}" "$package"; then
 				return $?
 			fi
 		done
@@ -499,9 +541,9 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# Will also make sure that the right flags are installed for brew
 	package_uninstall() {
 		# consume the flags to pass on
-		local flags=""
+		local flags=()
 		while [[ $1 =~ ^- ]]; do
-			flags+=" $1 "
+			flags+=("$1")
 			shift
 		done
 		for package in "$@"; do
@@ -510,12 +552,12 @@ if eval "[[ ! -v $lib_name ]]"; then
 			fi
 			if [[ $OSTYPE =~ darwin ]]; then
 				# shellcheck disable=SC2086
-				mac_package uninstall "$package" $flags
+				mac_package uninstall "$package" "${flags[@]}"
 				continue
 			fi
 			# must be linux
 			# shellcheck disable=SC2086
-			if ! sudo apt-get remove -y $flags" $package"; then
+			if ! sudo apt-get remove -y "${flags[@]}" "$package"; then
 				continue
 			fi
 		done
@@ -527,7 +569,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# we have one special flag -f which means run sudo and must be the first one
 	# usage: pip_install -f [python flags..] [packages...]
 	pip_install() {
-		local flags=""
+		local flags=()
 		local use_sudo=""
 		if (($# < 1)); then
 			return
@@ -539,7 +581,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 				shift
 			fi
 			# rest of flats we pass on to pip
-			flags+=" $1 "
+			flags+=("$1")
 			shift
 		done
 		log_verbose "PATH is $PATH"
@@ -548,7 +590,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			# note we pass flags unquoted  so each is a separate flag
 			# conditionally run sudo if asked
 			# shellcheck disable=SC2086
-			eval $use_sudo pip install $flags "$package"
+			$use_sudo pip install "${flags[@]}" "$package"
 		done
 	}
 
@@ -569,14 +611,14 @@ if eval "[[ ! -v $lib_name ]]"; then
 		if (($# < 1)); then
 			return 0
 		fi
-		local flags=""
+		local flags=()
 		local use_sudo=""
 		# Look for and add for all flags beginning with a dash
 		while [[ $1 =~ ^- ]]; do
-			flags+=" $1"
 			if [[ $1 == -f ]]; then
 				use_sudo=sudo
 			fi
+			flags+=("$1")
 			shift
 		done
 		for package in "$@"; do
@@ -584,11 +626,11 @@ if eval "[[ ! -v $lib_name ]]"; then
 			# do not quote $flags so that each flag becomes a separate argument
 			# again
 			# shellcheck disable=SC2086
-			if ! npm list $flags --depth=0 "$package" >/dev/null 2>&1; then
+			if ! npm list --depth=0 "$package" >/dev/null 2>&1; then
 				# try this without sudo
 				# sudo npm install $flags $1
 				# shellcheck disable=SC2086
-				eval $use_sudo npm install $flags "$package"
+				$use_sudo npm install "${flags[@]}" "$package"
 			fi
 			shift
 		done

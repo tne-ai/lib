@@ -2,7 +2,28 @@
 ## configuration editing
 ## inspired by raspiconfig
 ##
-## There are three kinds of functions here:
+#
+# ## Profiles locations for Mac and Linux
+# MacOS and Linux use profiles in very different ways. In MacOS, when a terminal
+# window opens, .bash_profile is run and when a subshell is run the results of
+# .bash_profile are run and .bashrc are fun. Some legacy applications like Mac
+# Ports may put things into .profile. So in general, put everything into
+# .bash_profile except things like alias and functions that cannot be exported
+# You and to these with the helper functions are set like this:
+# config_profile : set to .bash_profile use for all things that are base
+# config_profile_interactive: set to .bash_profile (but different on Ubuntu
+# config_profile_shell: set to .bashrc for non-exportables like alias or function
+#
+# Ubuntu works differently. When the machine starts it reads .profile before
+# the GUI starts. When a Terminal window starts it runs .bashrc as it is a 
+# interactive but non-login shell. However, when you ssh in, you get
+# .bash_profile and then .bashrc. Note that this creates a problem that .profile
+# paths can be different than ssh paths because .profile is not run.
+# so install.sh should setup .bash_profile to source .profile on Ubuntu only
+# config_profile: set to .profile we assume it is base path setup
+# config_profile_interactive: set to .bash_profile and you can display and get input
+# config_profile_shell: for alias and functions set to .bashrc
+
 #
 # Marker and many lines
 # ---------
@@ -72,18 +93,19 @@ config_change_default_shell() {
 	fi
 }
 
-# config_profile: returns the name of the profile you should edit
+## config_profile: returns the name of the profile to use for non-interactive command
+#  this should only be for thing that do not display or require input
 config_profile() {
-	if [[ $OSTYPE =~ darwin ]]; then
+	if [[ -v ZSH_VERSION ]]; then
+		echo "$HOME/.zshrc"
+	elif [[ $OSTYPE =~ darwin ]]; then
 		echo "$HOME/.bash_profile"
 	elif [[ $OSTYPE =~ linux ]]; then
 		# this is the non-interactive shell 
-		echo "$HOME/.bash_profile"
-	elif [[ -z $BASH_VERSION ]]; then
+		echo "$HOME/.profile"
+	elif [[ -v BASH_VERSION ]]; then
 		# https://stackoverflow.com/questions/3199893/howto-detect-bash-from-shell-script
 		echo "$HOME/.bashrc"
-	elif [[ -z $ZSH_VERSION ]]; then
-		echo "$HOME/.zshrc"
     else
         echo "$HOME/.bash_profile"
 	fi
@@ -91,18 +113,27 @@ config_profile() {
 
 ## config the non-login script run with every new shell
 config_profile_shell() {
-	echo "$HOME/.bashrc"
+    if [[ -v ZSH_VERSION ]]; then
+        echo "$HOME/.zshrc"
+    elif [[ -v BASH_VERSION ]]; then
+        echo "$HOME/.bashrc"
+    else
+        echo "$HOME/.bashrc"
+    fi
+
 }
 
 # if this is for initial boot on linux it is .profile
 # this should have no output visible
 # not used for the Mac
-## config_profile_start: add the very first profile
-config_profile_start() {
-    if [[ $OSTYPE =~ darwin ]]; then
+## config_profile_interactive: Use this profile where uses need to see and type
+config_profile_interactive() {
+    if [[ -z ZSH_VERSION ]]; then
+        echo "$HOME/.zshrc"
+    elif [[ $OSTYPE =~ darwin ]]; then
         echo "$HOME/.bash_profile"
     elif [[ $OSTYPE =~ linux ]]; then
-        echo "$HOME/.profile"
+        echo "$HOME/.bash_profile"
     else
         echo "$HOME/.profile"
     fi
