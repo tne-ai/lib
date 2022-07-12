@@ -1,29 +1,56 @@
 #!/usr/bin/env/bash
-## configuration editing
+## configuration editing for Mac and Ubuntu
 ## inspired by raspiconfig
 ##
 #
-# ## Profiles locations for Mac and Linux
-# MacOS and Linux use profiles in very different ways. In MacOS, when a terminal
-# window opens, .bash_profile is run and when a subshell is run the results of
-# .bash_profile are run and .bashrc are fun. Some legacy applications like Mac
-# Ports may put things into .profile. So in general, put everything into
-# .bash_profile except things like alias and functions that cannot be exported
-# You and to these with the helper functions are set like this:
-# config_profile : set to .bash_profile use for all things that are base
-# config_profile_interactive: set to .bash_profile (but different on Ubuntu
-# config_profile_shell: set to .bashrc for non-exportables like alias or function
+# Ubuntu works differently. http://mywiki.wooledge.org/DotFiles
+# On startup:  reads .profile as /bin/sh before and cannot be interactive or
+# display text # New terminal window: .profile exports and .bashrc because it is
+# interactive non-login
+# Terminal subshell: results of .profile and .bashrc is run becase it is
+# interactive non-login # ssh in: Note no .profile exports are available. Runs
+# .bash_profile only because it is an interactive login shell # start non-GUI
+console with CTRL-ALT-F5: .bash_profile because it is an interactive login
 #
-# Ubuntu works differently. When the machine starts it reads .profile before
-# the GUI starts. When a Terminal window starts it runs .bashrc as it is a 
-# interactive but non-login shell. However, when you ssh in, you get
-# .bash_profile and then .bashrc. Note that this creates a problem that .profile
-# paths can be different than ssh paths because .profile is not run.
-# so install.sh should setup .bash_profile to source .profile on Ubuntu only
-# config_profile: set to .profile we assume it is base path setup
-# config_profile_interactive: set to .bash_profile and you can display and get input
-# config_profile_shell: for alias and functions set to .bashrc
+# The Linux strategy
+# .profile: Can be execed directly by /bin/sh so should only run sh commands 
+#           or check $BASH if it has to run Bash.
+# .bashrc:  Should be used for non-exportables like history, aliases and
+#           functions. It should check if in -i mode before presenting things
+# .bash_profile: should just source .profile and .bashrc as it is only run on ssh
+#
+# config_setup: source .profile and .bashrc
+# config_profile : set to .profile and and guard BASH commands no echo's or input allowed
+# config_profile_interactive: for interactive input use adds a guard to test if interactive
+# config_profile_nonexportable: set to .bashrc for alias and things that 
 
+# In MacOS, most applications just dump everything into .bash_profile
+# on startup: Nothing is run before the GUI starts
+# New terminal window: .bash_profile (and not .bashrc like in Ubuntu)
+# Subshell: results of .bash_profile exports plus .bashrc run
+# ssh in: .bash_profile is run
+#
+# The MacOS strategy: be as similar to Linus as possible. Be aware that 
+# .profile: Can be execed directly by /bin/sh so should only
+#
+# config_setup: In .bash_profile sources .bashrc
+# config_profile: Set to .bash_profile for non-interactive exports
+# config_profile_interactive: also set to .bash_profile on a mac
+# config_profile_nonexportable: Set to .bashrc for non-exportables such as aliases,
+# functions, history customizations
+
+## config_setup: sources the right profile based on os type
+config_setup() {
+    if [[ $OSTYPE =~ darwin ]]; then
+        if ! config_mark "$(config_profile_interactive)"; then
+            config_add "$(config_profile_interactive)" <<-EOF
+                export BASH_PR
+            EOF
+        fi
+    elif [[ $OSTUPE =~ linux ]]; then
+        if ! config_mark "(
+}
+#
 #
 # Marker and many lines
 # ---------
@@ -103,16 +130,14 @@ config_profile() {
 	elif [[ $OSTYPE =~ linux ]]; then
 		# this is the non-interactive shell 
 		echo "$HOME/.profile"
-	elif [[ -v BASH_VERSION ]]; then
-		# https://stackoverflow.com/questions/3199893/howto-detect-bash-from-shell-script
-		echo "$HOME/.bashrc"
     else
-        echo "$HOME/.bash_profile"
+        # assume its some flavor of more like linux than Mac
+        echo "$HOME/.profile"
 	fi
 }
 
 ## config the non-login script run with every new shell
-config_profile_shell() {
+config_profile_nonexportable() {
     if [[ -v ZSH_VERSION ]]; then
         echo "$HOME/.zshrc"
     elif [[ -v BASH_VERSION ]]; then
@@ -135,7 +160,8 @@ config_profile_interactive() {
     elif [[ $OSTYPE =~ linux ]]; then
         echo "$HOME/.bash_profile"
     else
-        echo "$HOME/.profile"
+        # guess it is like linux
+        echo "$HOME/.bash_profile"
     fi
 
 }
