@@ -1,55 +1,178 @@
 #!/usr/bin/env/bash
+## vi: set syntax=sh sw=4 ts=4 noet:
 ## configuration editing for Mac and Ubuntu
 ## inspired by raspiconfig
 ##
 #
-# Ubuntu works differently. http://mywiki.wooledge.org/DotFiles
-# On startup:  reads .profile as /bin/sh before and cannot be interactive or
-# display text # New terminal window: .profile exports and .bashrc because it is
-# interactive non-login
-# Terminal subshell: results of .profile and .bashrc is run becase it is
-# interactive non-login # ssh in: Note no .profile exports are available. Runs
-# .bash_profile only because it is an interactive login shell # start non-GUI
-console with CTRL-ALT-F5: .bash_profile because it is an interactive login
+# Ubuntu https://superuser.com/questions/789448/choosing-between-bashrc-profile-bash-profile-etc/789705#789705
+# On startup:  GDM reads .profile as /bin/sh before and cannot be interactive or
+#              display text # New terminal window: .profile exports and .bashrc because it is
+#              interactive non-login
+# Terminal: results of .profile and sources .bashrc
+# Terminal subshell: results of .profile and .sources bashrc is run becase it is
+#          interactive non-login
+# ssh in: Note no .profile exports are available. Runs
+#         .bash_profile only because it is an interactive login shell # start non-GUI
+# console with CTRL-ALT-F5: .bash_profile because it is an interactive login shell
 #
-# The Linux strategy
-# .profile: Can be execed directly by /bin/sh so should only run sh commands 
-#           or check $BASH if it has to run Bash.
+# The Linux strategy:
+# .profile: Can be execed directly by /bin/sh so should only run sh commands
+#           or check $BASH if it has to run Bash and source .bashrc
 # .bashrc:  Should be used for non-exportables like history, aliases and
-#           functions. It should check if in -i mode before presenting things
+#           functions. It should check if in [[ $- =~ i ]] before interactive
+#           displays.
 # .bash_profile: should just source .profile and .bashrc as it is only run on ssh
 #
-# config_setup: source .profile and .bashrc
-# config_profile : set to .profile and and guard BASH commands no echo's or input allowed
+# config_setup: source .profile and .bashrc do not put things into .bash_profile
+# config_profile : set to .profile and guard $BASH checks no echo's or input allowed
 # config_profile_interactive: for interactive input use adds a guard to test if interactive
-# config_profile_nonexportable: set to .bashrc for alias and things that 
+# config_profile_nonexportable: set to .bashrc for alias and things that
 
-# In MacOS, most applications just dump everything into .bash_profile
+# In MacOS, https://apple.stackexchange.com/questions/51036/what-is-the-difference-between-bash-profile-and-bashrc
+# is what happens is that .bash_profile is run for login shells, .bashrc is run
+# for non-login shells. If zsh is set then it sources.zprofile and then .zshrc for login shells and
+# .zshrc is for non-login shells. So in a typical configuration where bash is
+# the login shell you should put all the path and other changes just in .zshrc
 # on startup: Nothing is run before the GUI starts
-# New terminal window: .bash_profile (and not .bashrc like in Ubuntu)
-# Subshell: results of .bash_profile exports plus .bashrc run
-# ssh in: .bash_profile is run
+# New terminal window: .bash_profile or .zprofile and then .zshrc (and not .bashrc like in Ubuntu)
+# Subshell: results of .bash_profile exports plus .bashrc run or .zprofile
+#           results of .zprofile and .zshrc and then .zshrc is sourced
+# ssh in: .bash_profile run or .zprofile and then .zshrc is sourced
 #
-# The MacOS strategy: be as similar to Linus as possible. Be aware that 
-# .profile: Can be execed directly by /bin/sh so should only
+# The MacOS strategy: be as similar to Linus as possible. Be aware that
+# .profile: Put the PATH and other variables you want to be set in .profile use
+# /bin/sh syntax and detect ZSH_VERSION and run emulate sh to make this work.
+# .bash_profile: Sources .profile and .bashrc like Ubuntu.
+# .bashrc: Same strategy, it should only do non-exportables like history, aliases and functions
+#           and check if in [[ $- =~ i ]] before interactive displays.
+# .zprofile: source .profile with no need to source .zshrc as this is alway done
+# .zshrc: handles non-exportablesa nd check to see if it is interactive or not.
 #
-# config_setup: In .bash_profile sources .bashrc
-# config_profile: Set to .bash_profile for non-interactive exports
-# config_profile_interactive: also set to .bash_profile on a mac
-# config_profile_nonexportable: Set to .bashrc for non-exportables such as aliases,
-# functions, history customizations
+# Note: checking if you are login shell or not https://unix.stackexchange.com/questions/26676/how-to-check-if-a-shell-is-login-interactive-batch
+# can be done by checking for -l in $- in zsh or shopt -q login_shell for bash
+#
+# config_setup: In .bash_profile sources .profile and .bashrc
+#               In .zprofile source .profile and .zshrc
+# config_profile: Set to .profile (.zprofile if ZSH_VERSION) for non-interactive exports
+# config_profile_interactive: set to .bashrc (or .zshrc)and you should do an interactive check
+# config_profile_nonexportable: set to .bashrc (or .zshrc)for alias and things that
+# config_profile_shell: set to .bash_profile (or .zprofile if using zsh
+
+## config_profile: returns the name of the profile to use for non-interactive command
+# this should only be for thing that do not display or require input
+# this is normally .zprofile but set to .zshrc in the case where the login
+# shell is not zsh. That is if you have a Mac using bash and then escept to
+# zsh only sometimess
+# set ZSH_VERSION to use .zshrc when zsh is not the login shell
+config_profile() {
+	if [[ ! $SHELL =~ zsh && -n $ZSH_VERSION ]]; then
+		echo ".zshrc"
+	else
+		echo "$HOME/.profile"
+	fi
+}
+
+## config the non-login script run with every new shell
+# set ZSH_VERSION to use .zshrc
+config_profile_nonexportable() {
+	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
+		echo "$HOME/.zshrc"
+	else
+		echo "$HOME/.bashrc"
+	fi
+}
+
+# if this is for initial boot on linux it is .profile
+# this should have no output visible
+# not used for the Mac
+## config_profile_interactive: Use this profile where uses need to see and type
+config_profile_interactive() {
+	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
+		echo "$HOME/.zshrc"
+	else
+		# guess it is like linux
+		echo "$HOME/.bashrc"
+	fi
+}
+
+## config_zsh: returns the location of the zsh configuration profile
+config_profile_zsh() {
+	ZSH_VERSION=true config_profile
+}
+
+# config_profile_shell: set to .bash_profile (or .zprofile if using zsh
+config_profile_shell() {
+	if [[ $SHELL =~ zsh ]]; then
+		echo ".zprofile"
+	else
+		echo ".bash_profile"
+	fi
+}
 
 ## config_setup: sources the right profile based on os type
+# note safety we assume that /bin/sh syntax works for both bash and zsh
+# and whatever else comes later
+# for bash_profile, sources .profile and .bashrc. For zsh source .profile as
+# .zshrc is always sourced afterwads
 config_setup() {
-    if [[ $OSTYPE =~ darwin ]]; then
-        if ! config_mark "$(config_profile_interactive)"; then
-            config_add "$(config_profile_interactive)" <<-EOF
-                export BASH_PR
-            EOF
-        fi
-    elif [[ $OSTUPE =~ linux ]]; then
-        if ! config_mark "(
+	if ! config_mark "$(config_profile_shell)"; then
+		config_add "$(config_profile_shell)" <<-EOF
+			[ -f "$(config_profile)" ] || source "$(config_profile)"
+		EOF
+		if [[ $SHELL =~ bash ]]; then
+			config_add "$(config_profile_shell)" <<-EOF
+				[ -f "$(config_profile_nonexportable)" ] || source "$(config_profile_nonexportable)"
+			EOF
+		fi
+	fi
 }
+
+## config_setup_end: run this at the end so .rc files run after all the paths are set
+# to do we should create a function that checks and makes sure this is always
+# last in the .profile ONly needed for bash as zsh does this automatically
+config_setup_end() {
+	if [[ $SHELL =~ zsh ]]; then
+		return
+	fi
+	if ! config_mark; then
+		config_add <<-EOF
+			if [ $BASH_VERSION ]; then source $(config_profile_nonexportable); fi
+		EOF
+	fi
+}
+
+## config_add_shell [new-shell-path]
+config_add_shell() {
+	local DESIRED_SHELL_PATH
+	DESIRED_SHELL_PATH="${1:-"$(brew --prefix)/bin/bash"}"
+	if [[ ! -e $DESIRED_SHELL_PATH ]]; then
+		return 1
+	fi
+	if ! grep "$DESIRED_SHELL_PATH" /etc/shells; then
+		sudo tee -a /etc/shells <<<"$DESIRED_SHELL_PATH" >/dev/null
+	fi
+}
+
+## config_default_shell [new-shell-path]
+config_change_default_shell() {
+	local DESIRED_SHELL_PATH
+	DESIRED_SHELL_PATH="${1:-"$(brew --prefix)/bin/bash"}"
+	if in_os mac; then
+		CURRENT_SHELL_PATH="$(dscl . -read "$HOME" UserShell)"
+	else
+		CURRENT_SHELL_PATH="$(grep "$USER" /etc/passwd | cut -d ":" -f 7)"
+	fi
+	log_verbose "Current default shell is $CURRENT_SHELL_PATH"
+	# https://stackoverflow.com/questions/16375519/how-to-get-the-default-shell
+	if [[ "$CURRENT_SHELL_PATH" != "$DESIRED_SHELL_PATH" ]]; then
+		log_verbose "Default user shell is not $DESIRED_SHELL_PATH"
+		log_warning you only get one login opportunity to change the shell so type carefully.
+		log_warning "If you do not want to change the chsh just press enter"
+		log_warning "if you make a mistake just rerun $SCRIPTNAME"
+		chsh -s "$DESIRED_SHELL_PATH"
+	fi
+}
+
 #
 #
 # Marker and many lines
@@ -87,89 +210,6 @@ config_setup() {
 # config_lines_to_line: handles multiple lines additions when doing whole lines
 # (obsolete use config_to_sed which also does quotes)
 # and make it ready for sed by backquoting special characters
-
-## config_add_shell [new-shell-path]
-config_add_shell() {
-	local DESIRED_SHELL_PATH
-	DESIRED_SHELL_PATH="${1:-"$(brew --prefix)/bin/bash"}"
-	if [[ ! -e $DESIRED_SHELL_PATH ]]; then
-		return 1
-	fi
-	if ! grep "$DESIRED_SHELL_PATH" /etc/shells; then
-		sudo tee -a /etc/shells <<<"$DESIRED_SHELL_PATH" >/dev/null
-	fi
-}
-
-## config_default_shell [new-shell-path]
-config_change_default_shell() {
-	local DESIRED_SHELL_PATH
-	DESIRED_SHELL_PATH="${1:-"$(brew --prefix)/bin/bash"}"
-	if in_os mac; then
-		CURRENT_SHELL_PATH="$(dscl . -read "$HOME" UserShell)"
-	else
-		CURRENT_SHELL_PATH="$(grep "$USER" /etc/passwd | cut -d ":" -f 7)"
-	fi
-	log_verbose "Current default shell is $CURRENT_SHELL_PATH"
-	# https://stackoverflow.com/questions/16375519/how-to-get-the-default-shell
-	if [[ "$CURRENT_SHELL_PATH" != "$DESIRED_SHELL_PATH" ]]; then
-		log_verbose "Default user shell is not $DESIRED_SHELL_PATH"
-		log_warning you only get one login opportunity to change the shell so type carefully.
-		log_warning "If you do not want to change the chsh just press enter"
-		log_warning "if you make a mistake just rerun $SCRIPTNAME"
-		chsh -s "$DESIRED_SHELL_PATH"
-	fi
-}
-
-## config_profile: returns the name of the profile to use for non-interactive command
-#  this should only be for thing that do not display or require input
-config_profile() {
-	if [[ -v ZSH_VERSION ]]; then
-		echo "$HOME/.zshrc"
-	elif [[ $OSTYPE =~ darwin ]]; then
-		echo "$HOME/.bash_profile"
-	elif [[ $OSTYPE =~ linux ]]; then
-		# this is the non-interactive shell 
-		echo "$HOME/.profile"
-    else
-        # assume its some flavor of more like linux than Mac
-        echo "$HOME/.profile"
-	fi
-}
-
-## config the non-login script run with every new shell
-config_profile_nonexportable() {
-    if [[ -v ZSH_VERSION ]]; then
-        echo "$HOME/.zshrc"
-    elif [[ -v BASH_VERSION ]]; then
-        echo "$HOME/.bashrc"
-    else
-        echo "$HOME/.bashrc"
-    fi
-
-}
-
-# if this is for initial boot on linux it is .profile
-# this should have no output visible
-# not used for the Mac
-## config_profile_interactive: Use this profile where uses need to see and type
-config_profile_interactive() {
-    if [[ -z ZSH_VERSION ]]; then
-        echo "$HOME/.zshrc"
-    elif [[ $OSTYPE =~ darwin ]]; then
-        echo "$HOME/.bash_profile"
-    elif [[ $OSTYPE =~ linux ]]; then
-        echo "$HOME/.bash_profile"
-    else
-        # guess it is like linux
-        echo "$HOME/.bash_profile"
-    fi
-
-}
-
-## config_zsh: returns the location of the zsh configuration profile
-config_profile_zsh() {
-	echo "$HOME/.zshrc"
-}
 
 # config_backup takes a set of files and backs them up
 # usage: config_backup [files...]
