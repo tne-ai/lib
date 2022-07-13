@@ -65,7 +65,7 @@
 # zsh only sometimess
 # set ZSH_VERSION to use .zshrc when zsh is not the login shell
 config_profile() {
-	if [[ ! $SHELL =~ zsh && -n $ZSH_VERSION ]]; then
+	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
 		echo ".zshrc"
 	else
 		echo "$HOME/.profile"
