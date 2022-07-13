@@ -136,7 +136,7 @@ config_setup_end() {
 	fi
 	if ! config_mark; then
 		config_add <<-EOF
-			if [ $BASH_VERSION ]; then source $(config_profile_nonexportable); fi
+			if [[ $BASH_VERSION && -f $(config_profile_nonexportable) ]]; then source $(config_profile_nonexportable); fi
 		EOF
 	fi
 }
