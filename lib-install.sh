@@ -395,7 +395,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			# most of the time we have brew on linux, mac and wsl
 			if brew info "$package" &>/dev/null; then
 				log_verbose "$package is in brew"
-				if (( ${flags[#]} > 1 )); then
+				if ((${#flags[@]} > 1)); then
 					# if there are require flags for the package, see if we have them
 					# http://stackoverflow.com/questions/20802320/detect-if-homebrew-package-is-installed
 					# https://stackoverflow.com/questions/8833230/how-do-i-find-a-list-of-homebrews-installable-packages
@@ -414,7 +414,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 					log_verbose "$package installed with correct ${flags[*]}"
 					continue
 				fi
-				if ! brew list "$package" >& /dev/null; then
+				if ! brew list "$package" >&/dev/null; then
 					log_verbose "$package not installed"
 					((++count))
 				fi
