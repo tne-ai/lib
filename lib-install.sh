@@ -454,6 +454,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# figure out if it is a cask or formula but there are still name collisions
 	# so most of the time just do a brew install and use this as an expection
 	is_brew_package() {
+		local not_found=0
 		for item in "$@"; do
 			# uses the simpler logic of brew after 2021
 			if brew info -q --cask "$item" &>/dev/null; then
