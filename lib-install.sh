@@ -430,7 +430,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 				continue
 			fi
 
-			if command -v dpkg && dpkg -l "$package"; then
+			if command -v dpkg >/dev/null && dpkg -l "$package" &>/dev/null; then
 				log_verbose "$package is in dpkg"
 				if ! dpkg -s "$package" 2>/dev/null | grep -q "ok installed"; then
 					log_verbose "$package not installed"
