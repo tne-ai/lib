@@ -103,6 +103,18 @@ if eval "[[ ! -v $lib_name ]]"; then
 		done
 		return "$missing"
 	}
+	app_install() {
+		if [[ $OSTYPE =~ linux ]]; then
+			snap_install "$@"
+		else
+			cask_install "$@"
+		fi
+	}
+	snap_install() {
+		for SNAP in "$@"; do
+			snap install "$SNAP"
+		done
+	}
 
 	# Mac Brew installations for full Mac applications called casks
 	# Note if the cask is already installed it will upgrade it

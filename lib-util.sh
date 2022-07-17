@@ -6,7 +6,6 @@
 ##
 
 ## Note the if makes sure we only source once which is more efficient
-
 # create a variable that is just the filename without an extension
 lib_name="$(basename "${BASH_SOURCE%.*}")"
 # dashes are not legal in bash names
@@ -138,34 +137,6 @@ if eval "[[ ! -v $lib_name ]]"; then
 				((++i))
 			done
 		done
-	}
-
-	# Get the profiles loaded into this script
-	# needed when updating paths and want to immediately use the new
-	# commands in the running script
-	source_profile() {
-		if ! pushd "${1:-"$HOME"}" >/dev/null; then
-			return 1
-		fi
-		# only need .bash_profile usually
-		#for file in .profile .bash_profile .bashrc; do
-		#shellcheck disable=SC2043
-		for file in .bash_profile; do
-			if [[ -e "$file" ]]; then
-				# turn off undefined variable checking because
-				# scripts like bash completion reference undefined
-				# And ignore errors in profiles
-				set +u
-				# shellcheck disable=SC1090
-				source "$file" || true
-				set -u
-			fi
-		done
-		# need this on apps like basictex as it adds to the path without a .profile
-		eval "$(/usr/libexec/path_helper)"
-		popd || true
-		# rehash in case the path changes changes the execution order
-		hash -r
 	}
 
 	# check if a directory is empty

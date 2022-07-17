@@ -3,6 +3,7 @@
 ## configuration editing for Mac and Ubuntu
 ## inspired by raspiconfig
 ##
+
 #
 # Ubuntu https://superuser.com/questions/789448/choosing-between-bashrc-profile-bash-profile-etc/789705#789705
 # On startup:  GDM reads .profile as /bin/sh before and cannot be interactive or
@@ -21,13 +22,13 @@
 # .bashrc:  Should be used for non-exportables like history, aliases and
 #           functions. It should check if in [[ $- =~ i ]] before interactive
 #           displays.
-# .bash_profile: should just source .profile and .bashrc as it is only run on ssh
+# .bash_profile: should just source .profile (which in turn sources .bashrc) as it is only run on ssh
 #
 # config_setup: source .profile and .bashrc do not put things into .bash_profile
 # config_profile : set to .profile and guard $BASH checks no echo's or input allowed
 # config_profile_interactive: for interactive input use adds a guard to test if interactive
 # config_profile_nonexportable: set to .bashrc for alias and things that
-
+#
 # In MacOS, https://apple.stackexchange.com/questions/51036/what-is-the-difference-between-bash-profile-and-bashrc
 # is what happens is that .bash_profile is run for login shells, .bashrc is run
 # for non-login shells. If zsh is set then it sources.zprofile and then .zshrc for login shells and
@@ -51,11 +52,12 @@
 # Note: checking if you are login shell or not https://unix.stackexchange.com/questions/26676/how-to-check-if-a-shell-is-login-interactive-batch
 # can be done by checking for -l in $- in zsh or shopt -q login_shell for bash
 #
-# config_setup: In .bash_profile sources .profile and .bashrc
-#               In .zprofile source .profile and .zshrc
-# config_profile: Set to .profile (.zprofile if ZSH_VERSION) for non-interactive exports
-# config_profile_interactive: set to .bashrc (or .zshrc)and you should do an interactive check
-# config_profile_nonexportable: set to .bashrc (or .zshrc)for alias and things that
+# config_setup: In .bash_profile sources .profile
+#               In .zprofile source .profile (.zshrc is sourced automatically)
+#				In .profile source .bashrc
+# config_profile = .profile: (.zprofile if ZSH_VERSION) for non-interactive exports
+# config_profile_interactive = .bashrc: set to .bashrc (or .zshrc)and you should do an interactive check
+# config_profile_nonexportable = .bashrc: set to .bashrc (or .zshrc)for alias and things that
 # config_profile_shell: set to .bash_profile (or .zprofile if using zsh
 
 ## config_profile: returns the name of the profile to use for non-interactive command
@@ -66,7 +68,7 @@
 # set ZSH_VERSION to use .zshrc when zsh is not the login shell
 config_profile() {
 	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
-		echo ".zshrc"
+		echo "$HOME/.zshrc"
 	else
 		echo "$HOME/.profile"
 	fi
@@ -102,43 +104,44 @@ config_profile_zsh() {
 
 # config_profile_shell: set to .bash_profile (or .zprofile if using zsh
 config_profile_shell() {
-	if [[ $SHELL =~ zsh ]]; then
-		echo ".zprofile"
+	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
+		echo "$HOME/.zprofile"
 	else
-		echo ".bash_profile"
+		echo "$HOME/.bash_profile"
 	fi
 }
 
-## config_setup: sources the right profile based on os type
-# note safety we assume that /bin/sh syntax works for both bash and zsh
-# and whatever else comes later
-# for bash_profile, sources .profile and .bashrc. For zsh source .profile as
-# .zshrc is always sourced afterwads
-config_setup() {
-	if ! config_mark "$(config_profile_shell)"; then
-		config_add "$(config_profile_shell)" <<-EOF
-			[ -f "$(config_profile)" ] || source "$(config_profile)"
-		EOF
-		if [[ $SHELL =~ bash ]]; then
-			config_add "$(config_profile_shell)" <<-EOF
-				[ -f "$(config_profile_nonexportable)" ] || source "$(config_profile_nonexportable)"
-			EOF
+## source_profile: [ dir ]
+# Get the profiles from $dir and source it
+# needed when updating paths and want to immediately use the new
+# commands in the running script
+source_profile() {
+	if ! pushd "${1:-"$HOME"}" >/dev/null; then
+		return 1
+	fi
+	# since .bash_profile .zprofile is the full profile source it
+	#shellcheck disable=SC2043
+	# for file in "$(config_profile_shell)" do
+	file="$(config_profile_shell)"
+
+		if [[ -e "$file" ]]; then
+			# turn off undefined variable checking because
+			# scripts like bash completion reference undefined
+			# And ignore errors in profiles
+			set +u
+			# shellcheck disable=SC1090
+			source "$file" || true
+			set -u
 		fi
-	fi
-}
 
-## config_setup_end: run this at the end so .rc files run after all the paths are set
-# to do we should create a function that checks and makes sure this is always
-# last in the .profile ONly needed for bash as zsh does this automatically
-config_setup_end() {
-	if [[ $SHELL =~ zsh ]]; then
-		return
+	# done
+	# on Mac need this on apps like basictex as it adds to the path without a .profile
+	if [[ $OSTYPE =~ darwin ]]; then
+		 eval "$(/usr/libexec/path_helper)"
 	fi
-	if ! config_mark; then
-		config_add <<-EOF
-			if [[ $BASH_VERSION && -f $(config_profile_nonexportable) ]]; then source $(config_profile_nonexportable); fi
-		EOF
-	fi
+	popd || true
+	# rehash in case the path changes changes the execution order
+	hash -r
 }
 
 ## config_add_shell [new-shell-path]
@@ -454,8 +457,7 @@ config_replace() {
 # used config_replace but adds a line only if not present
 # usage: config_add_once [file| ""] line-to-add
 # null first parameter means take the default
-config_add_once() {
-	if (($# < 2)); then return 1; fi
+config_add_once() { if (($# < 2)); then return 1; fi
 	local file="${1:-"$(config_profile)"}"
 	shift
 	local line="$*"
@@ -465,6 +467,50 @@ config_add_once() {
 	fi
 	# do not use config replace much simpler to do the check here
 	# config_replace "$file" "$lines" "$lines"
+}
+
+# for bash_profile, sources .profile and .bashrc. For zsh source .profile as
+# .zshrc is always sourced afterwads
+# you should guard this with a config_mark_setup
+# typically config_profile_shell is .bash_profile
+# config_setup: In .bash_profile (aka .config_profile_shell) source .profile config_profile
+#               In .zprofile source .profile (.zshrc is sourced automatically)
+#				In .profile source .bashrc
+config_setup() {
+	if ! config_mark "$(config_profile_shell)"; then
+		config_add "$(config_profile_shell)" <<-EOF
+			# shellcheck disable=SC1091
+			[[ -f "$(config_profile)" ]] || source "$(config_profile)"
+		EOF
+		# now add the .zprofile source of .profiel 
+		ZSH_VERSION=true config_add "$(config_profile_shell)" <<-EOF
+			# shellcheck disable=SC1091
+			[[ -f "$(config_profile)" ]] || source "$(config_profile)"
+		EOF
+	fi
+	if ! config_mark; then
+		# .local has mainly pip installed utilities
+		# note .profile should only use /bin/sh syntax
+		config_add <<-EOF
+			# shellcheck disable=SC1091
+			if ! echo \$PATH | grep -q "\$HOME/.local/bin"; then PATH="\$HOME/.local/bin:\$PATH"; fi
+			if ! echo \$PATH | grep -q "$SOURCE_DIR/bin"; then PATH="$SOURCE_DIR/.local/bin:\$PATH"; fi
+		EOF
+	fi
+}
+
+## config_setup_end: run this at the end so .rc files run after all the paths are set
+# to do we should create a function that checks and makes sure this is always
+# last in the .profile ONly needed for bash as zsh does this automatically
+config_setup_end() {
+	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
+		return
+	fi
+	if ! config_mark; then
+		config_add <<-EOF
+			[ -n "\$BASH_VERSION" -a -f "$(config_profile_nonexportable)" ] || source "$(config_profile_nonexportable)"
+		EOF
+	fi
 }
 
 # params file variable value
@@ -493,8 +539,8 @@ local file=assert(io.open(fn))
 local made_change=false
 for line in file:lines() do
   if line:match("^#?%s*"..key.."=.*$") then
-    line=key.."="..value
-    made_change=true
+	line=key.."="..value
+	made_change=true
   end
   print(line)
 end
@@ -570,7 +616,7 @@ local fn=assert(arg[2])
 local file=assert(io.open(fn))
 for line in file:lines() do
   if line:match("^%s*"..key.."=.*$") then
-    line="#"..line
+	line="#"..line
   end
   print(line)
 end
@@ -593,9 +639,9 @@ local found=false
 for line in file:lines() do
   local val = line:match("^%s*"..key.."=(.*)$")
   if (val ~= nil) then
-    print(val)
-    found=true
-    break
+	print(val)
+	found=true
+	break
   end
 end
 if not found then
@@ -603,3 +649,4 @@ if not found then
 end
 EOF
 }
+
