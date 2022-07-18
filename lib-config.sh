@@ -485,7 +485,7 @@ config_setup() {
 		# now add the .zprofile source of .profiel 
 		ZSH_VERSION=true config_add "$(config_profile_shell)" <<-EOF
 			# shellcheck disable=SC1091
-			[[ -f "$(config_profile)" ]] || source "$(config_profile)"
+			if [[ -f "$(config_profile)" ]]; then source "$(config_profile); fi"
 		EOF
 	fi
 	if ! config_mark; then

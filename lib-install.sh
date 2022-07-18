@@ -103,33 +103,6 @@ if eval "[[ ! -v $lib_name ]]"; then
 		return "$missing"
 	}
 
-	## app_install [apps]: use snap if linux, brew cask otherwise
-	app_install() {
-		if [[ $OSTYPE =~ linux ]]; then
-			snap_install "$@"
-		else
-			cask_install "$@"
-		fi
-	}
-
-	## snap_install [snaps]: install with Ubuntu snap
-	snap_install() {
-		for SNAP in "$@"; do
-			sudo snap install "$SNAP"
-		done
-	}
-
-	## snap_is_installed [snaps]; returns number of not installed
-	snap_is_installed() {
-		local missing=0
-		for SNAP in "$@"; do
-			if ! snap list "$SNAP" &>/dev/null; then
-				((++missing))
-			fi
-		done
-		return "$missing"
-	}
-
 	# Mac Brew installations for full Mac applications called casks
 	# Note if the cask is already installed it will upgrade it
 	# this only works if the cask is already tapped
@@ -317,9 +290,10 @@ if eval "[[ ! -v $lib_name ]]"; then
 		return 1
 	}
 
-	## snap_install [ -flags.. ] [ packages... ]
+	## snap_install [ -flags.. ] [ packages... ]: return number of failed
 	snap_install() {
 		local flags=()
+		local failed=0
 		if (($# < 1)); then
 			return
 		fi
@@ -329,16 +303,42 @@ if eval "[[ ! -v $lib_name ]]"; then
 			shift
 		done
 		for package in "$@"; do
-			if ! snap list "$package"; then
-				snap install "${flags[@]}" "$package" || true
+			if snap search "$package" | cut -f 1 -d' ' | grep -q "^$package\$"&>/dev/null; then
+				log_verbose "$package snap found"
+				if ! sudo snap install "${flags[@]}" "$package"; then
+					((++failed))
+				fi
 			fi
 		done
+		log_verbose "failed $failed"
 	}
 
 	snap_uninstall() {
 		for package in "$@"; do
 			sudo snap remove "$package"
 		done
+	}
+
+	## snap_is_installed [snaps]; returns number of not installed
+	snap_is_installed() {
+		local missing=0
+		for SNAP in "$@"; do
+			if ! snap list "$SNAP" &>/dev/null; then
+				((++missing))
+			fi
+		done
+		return "$missing"
+	}
+
+	## app_install [apps]: use snap if linux, brew cask otherwise
+	app_install() {
+		log_verbose "app_install with $*"
+		if [[ $OSTYPE =~ linux ]]; then
+			log_verbose "Snap install $*"
+			snap_install "$@"
+		else
+			cask_install "$@"
+		fi
 	}
 
 	# Mercurial install into the current working directory
