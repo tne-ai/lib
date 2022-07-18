@@ -88,14 +88,13 @@ if eval "[[ ! -v $lib_name ]]"; then
 		done
 	}
 
-	# usage: cask_is_installed [ casks... ]
-	# returns: 0 if installed, otherwise number of casks not installed
+	## cask_is_installed [ casks... ]: returns number of casks not installed
 	cask_is_installed() {
 		# https://askubuntu.com/questions/385528/how-to-increment-a-variable-in-bash
 		# performance better if you declare an integer
 		declare -i missing=0
 		for cask in "$@"; do
-			if ! brew list --cask "$cask" >/dev/null 2>&1; then
+			if ! brew list --cask "$cask" &>/dev/null; then
 				# remember if the return value is a zero this fails or
 				# preincrement
 				((++missing))
@@ -103,6 +102,8 @@ if eval "[[ ! -v $lib_name ]]"; then
 		done
 		return "$missing"
 	}
+
+	## app_install [apps]: use snap if linux, brew cask otherwise
 	app_install() {
 		if [[ $OSTYPE =~ linux ]]; then
 			snap_install "$@"
@@ -110,10 +111,23 @@ if eval "[[ ! -v $lib_name ]]"; then
 			cask_install "$@"
 		fi
 	}
+
+	## snap_install [snaps]: install with Ubuntu snap
 	snap_install() {
 		for SNAP in "$@"; do
-			snap install "$SNAP"
+			sudo snap install "$SNAP"
 		done
+	}
+
+	## snap_is_installed [snaps]; returns number of not installed
+	snap_is_installed() {
+		local missing=0
+		for SNAP in "$@"; do
+			if ! snap list "$SNAP" &>/dev/null; then
+				((++missing))
+			fi
+		done
+		return "$missing"
 	}
 
 	# Mac Brew installations for full Mac applications called casks

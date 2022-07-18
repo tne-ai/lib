@@ -188,7 +188,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 	}
 
 	has_nvidia() {
-		if [[ $OSTYPE =~ linux ]] && lspci | grep -q 'VGA.*NVIDIA'; then
+		if [[ $OSTYPE =~ linux ]] && lspci | grep -q 'NVIDIA'; then
 			return 0
 		else
 			return 1
@@ -247,7 +247,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		fi
 	}
 
-	# usage: in_linux [ ubuntu | debian ]
+	## in_linux [ ubuntu | debian ]: returns 0 if that is the distribution
 	in_linux() {
 		if (($# < 1)); then
 			return 0
@@ -398,13 +398,13 @@ if eval "[[ ! -v $lib_name ]]"; then
 		if [[ ! $OSTYPE =~ linux ]]; then
 			return
 		# need the {-} construction so that when XDG is unbound we do not generate
-		# an error
+		# an error deprecated use the new -v to detect variables
 		elif in_ssh; then
 			return
-		elif [[ -n ${XDG_CURRENT_DESKTOP-} ]]; then
+		elif [[ -v XDG_CURRENT_DESKTOP ]]; then
 			echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]'
-		else
-			echo "${XDG_DATA_DIRS-}" | grep -Eo 'xfce|kde|gnome|unity'
+        elif [[ -v XDG_DATA_DIRS ]]; then
+			echo "$XDG_DATA_DIRS" | grep -Eo 'xfce|kde|gnome|unity'
 		fi
 	}
 
