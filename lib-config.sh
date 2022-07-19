@@ -68,7 +68,7 @@
 # set ZSH_VERSION to use .zshrc when zsh is not the login shell
 config_profile() {
 	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
-		echo "$HOME/.zshrc"
+		echo "$HOME/.zprofile"
 	else
 		echo "$HOME/.profile"
 	fi
@@ -100,6 +100,11 @@ config_profile_interactive() {
 ## config_zsh: returns the location of the zsh configuration profile
 config_profile_zsh() {
 	ZSH_VERSION=true config_profile
+}
+
+## config_zsh: returns the location of the zsh configuration profile
+config_profile_nonexportable_zsh() {
+	ZSH_VERSION=true config_profile_nonexportable
 }
 
 # config_profile_shell: set to .bash_profile (or .zprofile if using zsh
