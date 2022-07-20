@@ -277,9 +277,9 @@ if eval "[[ ! -v $lib_name ]]"; then
 			# echo ubuntu
 			# echo $(linux_version)
 			case $(linux_version) in
-            22.04)
-                echo jammy
-                ;;
+			22.04)
+				echo jammy
+				;;
 			21.10)
 				echo impish
 				;;
@@ -403,7 +403,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			return
 		elif [[ -v XDG_CURRENT_DESKTOP ]]; then
 			echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]'
-        elif [[ -v XDG_DATA_DIRS ]]; then
+		elif [[ -v XDG_DATA_DIRS ]]; then
 			echo "$XDG_DATA_DIRS" | grep -Eo 'xfce|kde|gnome|unity'
 		fi
 	}

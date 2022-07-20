@@ -129,20 +129,20 @@ source_profile() {
 	# for file in "$(config_profile_shell)" do
 	file="$(config_profile_shell)"
 
-		if [[ -e "$file" ]]; then
-			# turn off undefined variable checking because
-			# scripts like bash completion reference undefined
-			# And ignore errors in profiles
-			set +u
-			# shellcheck disable=SC1090
-			source "$file" || true
-			set -u
-		fi
+	if [[ -e "$file" ]]; then
+		# turn off undefined variable checking because
+		# scripts like bash completion reference undefined
+		# And ignore errors in profiles
+		set +u
+		# shellcheck disable=SC1090
+		source "$file" || true
+		set -u
+	fi
 
 	# done
 	# on Mac need this on apps like basictex as it adds to the path without a .profile
 	if [[ $OSTYPE =~ darwin ]]; then
-		 eval "$(/usr/libexec/path_helper)"
+		eval "$(/usr/libexec/path_helper)"
 	fi
 	popd || true
 	# rehash in case the path changes changes the execution order
@@ -462,7 +462,8 @@ config_replace() {
 # used config_replace but adds a line only if not present
 # usage: config_add_once [file| ""] line-to-add
 # null first parameter means take the default
-config_add_once() { if (($# < 2)); then return 1; fi
+config_add_once() {
+	if (($# < 2)); then return 1; fi
 	local file="${1:-"$(config_profile)"}"
 	shift
 	local line="$*"
@@ -487,7 +488,7 @@ config_setup() {
 			# shellcheck disable=SC1091
 			[[ -f "$(config_profile)" ]] || source "$(config_profile)"
 		EOF
-		# now add the .zprofile source of .profiel 
+		# now add the .zprofile source of .profiel
 		ZSH_VERSION=true config_add "$(config_profile_shell)" <<-EOF
 			# shellcheck disable=SC1091
 			if [[ -f "$(config_profile)" ]]; then source "$(config_profile); fi"
@@ -654,4 +655,3 @@ if not found then
 end
 EOF
 }
-

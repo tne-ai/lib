@@ -1,0 +1,44 @@
+# Place into .github
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+---
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directory: "/"  # Location of package manifests
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "dep(docker)"
+      include: "scope"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "dep(gha)"
+      include: "scope"
+
+  - package-ecosystem: "gitsubmodule"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "dep(gsm)"
+      include: "scope"
+
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "dep(pip)"
+      include: "scope"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "dep(npm)"
+      include: "scope"

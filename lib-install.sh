@@ -303,7 +303,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			shift
 		done
 		for package in "$@"; do
-			if snap search "$package" | cut -f 1 -d' ' | grep -q "^$package\$"&>/dev/null; then
+			if snap search "$package" | cut -f 1 -d' ' | grep -q "^$package\$" &>/dev/null; then
 				log_verbose "$package snap found"
 				if ! sudo snap install "${flags[@]}" "$package"; then
 					((++failed))
