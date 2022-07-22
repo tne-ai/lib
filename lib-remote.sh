@@ -76,7 +76,7 @@ remote_run() {
 	fi
 
 	# most of rich's scripts need surround.sh too
-	if [[ -e "$include_sh" ]]; then
+	if [[ -e $include_sh ]]; then
 		scp "$include_sh" "$remote:$remote_script_dir"
 	fi
 	ssh -t "$remote" $sudo "$remote_script" "$@"

@@ -23,7 +23,7 @@ ssh_install_dir() {
 	# create the target directory
 	sudo install -d -m 750 -o "$user" -g "$group" "$dest"
 
-	if [[ -d "$src" ]]; then
+	if [[ -d $src ]]; then
 		# Note we are doing backups as we blow away .ssh
 		# For Mac compatibility do not use the -- options
 		sudo install -C -b -m 600 -o "$user" -g "$group" "$src"/{authorized_keys,config,*.pub,known_hosts,*.fingerprint} "$dest"
@@ -119,7 +119,7 @@ ssh_move_and_link() {
 	fi
 	for dir in $target_dirs; do
 		source_dir="$home_dir/.$dir"
-		if [[ ! -d "$source_dir" ]]; then
+		if [[ ! -d $source_dir ]]; then
 			continue
 		fi
 		dest_dir="$private_dir/$dir"

@@ -22,7 +22,7 @@ remove_from_authorized_hosts() {
 # add .local domain if there is TLD
 # usage; add_local dns_name,...
 add_local() {
-	if [[ ! -e "$TLD_LIST" ]]; then
+	if [[ ! -e $TLD_LIST ]]; then
 		download_url "$TLD_URL" "$(dirname "$TLD_LIST")"
 	fi
 	for host in "$@"; do

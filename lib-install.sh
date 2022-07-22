@@ -352,7 +352,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		dir=${2:-"$WS_DIR/git"}
 		mkdir -p "$dir"
 		pushd "$dir" >/dev/null || return 1
-		if [[ ! -d "$repo" ]]; then
+		if [[ ! -d $repo ]]; then
 			hg clone "$url" "$repo"
 		else
 			pushd "$repo" >/dev/null || return 1
@@ -817,7 +817,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			# need to echo since the caller needs names of files
 			# even if already extracted
 			echo "$file"
-			if [[ ! -e "$file" ]]; then
+			if [[ ! -e $file ]]; then
 				tar -xf "$tar" "$file"
 			fi
 		done

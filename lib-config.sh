@@ -129,7 +129,7 @@ source_profile() {
 	# for file in "$(config_profile_shell)" do
 	file="$(config_profile_shell)"
 
-	if [[ -e "$file" ]]; then
+	if [[ -e $file ]]; then
 		# turn off undefined variable checking because
 		# scripts like bash completion reference undefined
 		# And ignore errors in profiles
@@ -172,7 +172,7 @@ config_change_default_shell() {
 	fi
 	log_verbose "Current default shell is $CURRENT_SHELL_PATH"
 	# https://stackoverflow.com/questions/16375519/how-to-get-the-default-shell
-	if [[ "$CURRENT_SHELL_PATH" != "$DESIRED_SHELL_PATH" ]]; then
+	if [[ $CURRENT_SHELL_PATH != "$DESIRED_SHELL_PATH" ]]; then
 		log_verbose "Default user shell is not $DESIRED_SHELL_PATH"
 		log_warning you only get one login opportunity to change the shell so type carefully.
 		log_warning "If you do not want to change the chsh just press enter"

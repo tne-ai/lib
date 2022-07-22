@@ -46,7 +46,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		echo "$result"
 		# https://stackoverflow.com/questions/6314679/in-bash-how-do-i-count-the-number-of-lines-in-a-variable
 		# no each way to coerce count to a integer return code
-		if [[ -z "$result" ]]; then
+		if [[ -z $result ]]; then
 			return 1
 		fi
 	}
