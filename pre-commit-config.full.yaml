@@ -203,6 +203,8 @@ repos:
     rev: v2.10.0
     hooks:
       # use if hadolint is local
-      #- id: hadolint
-      # using docker container because necktos act will not homebrew install
-      - id: hadolint-docker
+      - id: hadolint
+      # switch to docker container because necktos act will not homebrew install
+      # but this is much slower so leave oiut until act bug with pre-commit
+      # fixed
+      # - id: hadolint-docker
