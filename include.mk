@@ -69,9 +69,11 @@ pre-commit-install:
 	; fi
 
 ## act: Run Github actions as docker job on local machine only works as amd64
+# https://github.com/nektos/act/issues/285
+# --reuse make the cache work locally
 .PHONY: act
 act:
-	act --container-architecture linux/amd64
+	act --reuse --container-architecture linux/amd64
 
 ## git-lfs: installs git lfs
 .PHONY: git-lfs
