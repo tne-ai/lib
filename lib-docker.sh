@@ -105,8 +105,12 @@ docker_start() {
 	# there is docker machine but it is generic so must manually restart it
 	if docker-machine ls | grep "$host.*generic"; then
 		# assume if not systemd using systemctl then it is upstart
-		# using service command
-		docker-machine ssh "$host" "sudo \$(command -v systemctl || command -v service) restart docker"
+		# using service command this needs a disable since shfmt
+		# changes this to the single quote sudo but shellcheck throws
+		# an error, so just disable shellcheck
+		# shellcheck disable=SC2016
+		docker-machine ssh "$host" \
+			'sudo $(command -v systemctl || command -v service) restart docker'
 		return $?
 	fi
 
