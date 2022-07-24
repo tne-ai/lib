@@ -78,6 +78,13 @@ repos:
       # additional dependency bug in pre-commit v2.10
       # should be fixed now when doing a pre-commit all
       - id: shellcheck
+        # https://github.com/pre-commit/pre-commit/blob/main/.pre-commit-config.yaml
+        # exclude syntax is a regex so this says look for leading two
+        # directories
+        # exclude: ^(pre_commit/|testing/resources/python3_hooks_repo/)
+        # type. This is a YAML array of types from pip install identify
+        types: [bash]
+
       # additional_dependencies: []
 
   # this is bettert han the jumanji version as it uses go to build
@@ -85,6 +92,7 @@ repos:
     rev: v3.5.1-1
     hooks:
       - id: shfmt
+        types: [bash]
 
   # Use shellcheck instead
   # - repo: https://github.com/detailyang/pre-commit-shell
@@ -137,6 +145,7 @@ repos:
     rev: 6.1.1
     hooks:
       - id: pydocstyle
+        exclude: ^dotfiles/.*/settings.py
 
   # puts the isort.cfg at the root we do not want that
   # https://pypi.org/project/seed-isort-config/

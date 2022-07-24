@@ -514,7 +514,8 @@ config_setup_end() {
 	fi
 	if ! config_mark; then
 		config_add <<-EOF
-			[ -n "\$BASH_VERSION" -a -f "$(config_profile_nonexportable)" ] || source "$(config_profile_nonexportable)"
+			if echo "$BASH" | grep -q bash && [-f "$(config_profile_nonexportable)" ]; then
+				source "$(config_profile_nonexportable)"; fi
 		EOF
 	fi
 }
