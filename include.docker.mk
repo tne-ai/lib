@@ -53,12 +53,12 @@ VERSION ?= $(shell git rev-parse HEAD)
 
 SHELL := /usr/bin/env bash
 DOCKER_USER ?= docker
-HOST_DIR ?= /home/$(DOCKER_USER)/data
+HOST_DIR ?= ./data
 # https://stackoverflow.com/questions/18136918/how-to-get-current-relative-directory-of-your-makefile
 CONTAINER_DIR ?= /var/data
 # -v is deprecated
-# volumes ?= -v "$$(readlink -f "./data"):$(HOST_DIR)"
-VOLUMES ?= --mount "type=bind,source=$(HOST_DIR),target=$(CONTAINER_DIR)"
+# VOLUMES ?= -v "$$(readlink -f "./data"):$(HOST_DIR)"
+VOLUMES ?= --mount "type=bind,source=$(shell readlink -f "$(HOST_DIR)"),target=$(CONTAINER_DIR)"
 
 # no flags by default
 FLAGS ?=
@@ -195,7 +195,7 @@ xhost:
 DOCKER_ENV_FILE ?= docker-compose.env
 
 # these are only for docker build (deprecated use docker compose and DOCKER_ENV_FILE instead)
-DOCKER_FLAGS ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
+BUILD_FLAGS ?= --build-arg "DOCKER_USER=$(DOCKER_USER)" \
 				--build-arg "HOST_DIR=$(HOST_DIR)" \
 				--build-arg "NB_USER=$(DOCKER_USER)" \
 				--build-arg "ENV=$(DOCKER_ENV)" \
@@ -283,7 +283,7 @@ build: docker-start
 		if [[ $(DOCKER) =~ colima ]]; then \
 			docker buildx create --use "$(DOCKER)"; \
 		fi; \
-		docker buildx build --push --platform $(ARCH) -t "$(IMAGE):$(VERSION)" $(DOCKER_FLAGS) -f "$(DOCKERFILE)" $(BUILD_PATH); \
+		docker buildx build --push --platform $(ARCH) -t "$(IMAGE):$(VERSION)" $(BUILD_FLAGS) -f "$(DOCKERFILE)" $(BUILD_PATH); \
 	else \
 		for arch in $(ARCH); do \
 			$(DOCKER) build --arch=$$arch --pull \
@@ -315,6 +315,9 @@ docker-test: docker-start
 
 ## push: after a build will push the image up
 # note that with dockerx buildx push there is not --all-tags so only the $(VERSION) tag is pushed
+# and that you needs latest explicitly set
+# https://stackoverflow.com/questions/21928780/create-multiple-tag-docker-image
+# and you need the image name in your docker compose
 .PHONY: push
 push: build
 	# need to push and pull to make sure the entire cluster has the right images
@@ -322,7 +325,9 @@ push: build
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" push; \
 	elif [[ $(DOCKER_BUILD) =~ buildx ]]; then \
-	    docker buildx build --push --platform $(ARCH) -t "$(IMAGE):$(VERSION)" $(DOCKER_FLAGS) -f "$(DOCKERFILE)" $(BUILD_PATH); \
+		docker buildx build --push --platform $(ARCH) $(BUILD_FLAGS) \
+			-t "$(IMAGE):latest" -t "$(IMAGE):$(VERSION)" \
+			-f "$(DOCKERFILE)" $(BUILD_PATH); \
 	else \
 		$(DOCKER) push --all-tags $(IMAGE): ; \
 	fi
@@ -339,32 +344,29 @@ no-cache: $(DOCKERFILE) docker-start
 			--build-arg NB_USER=$(DOCKER_USER); \
 	else \
 		$(DOCKER) build --pull --no-cache \
-			$(DOCKER_FLAGS) \
+			$(BUILD_FLAGS) \
 			--build-arg NB_USER=$(DOCKER_USER) -f $(Dockerfile) -t $(IMAGE) $(BUILD_PATH); \
 		$(DOCKER) push $(IMAGE); \
 	fi
 
 # bash -c means the first argument is run and then the next are set as the $1,
 # to it and not that you use awk with the \$ in double quotes
-for_containers = bash -c 'for container in $$($(DOCKER) ps -qa --filter name="$$0"); \
+FOR_CONTAINERS := bash -c 'for container in $$($(DOCKER) ps -a --format {{.Names}} --filter name="$(NAME)"); \
 						  do \
-						  	$(DOCKER) $$1 "$$container" $$2 $$3 $$4 $$5 $$6 $$7 $$8 $$9; \
+						  	$(DOCKER) $$0 "$$container" $$*; \
 						  done'
 
 # we use https://stackoverflow.com/questions/12426659/how-to-extract-last-part-of-string-in-bash
 # Because of quoting issues with awk
-# bash -c uses $0 for the first argument
-# the first $0 is assumed to be flags to docker run then come the arguments
-# And that the last digit is separate by a dash to an underscore
-DOCKER_RUN = bash -c ' \
+# this command needs the container name as the first argument
+DOCKER_RUN := bash -c '\
 	export $(EXPORTS) && \
-	last=$$($(DOCKER) ps --format "{{.Names}}" | rev | tr - _ | cut -d "_" -f 1 | sort -r | head -n1) && \
-	$(DOCKER) run $$0 \
+	last=$$($(DOCKER) ps --format "{{.Names}}" --filter name=$(NAME) | rev | tr - _ | cut -d "_" -f 1 | sort -r | head -n1) && \
+	$(DOCKER) run \
 		--name $(CONTAINER)_$$((last+1)) \
-		$(VOLUMES) $(FLAGS) $(IMAGE) $$@ && \
-	sleep 4 && \
-	$(DOCKER) logs $(CONTAINER)_$$((last+1))'
-
+		$(VOLUMES) $(FLAGS) \
+		$$0 $$* \
+		"$(IMAGE)"'
 
 ## stop: halts all running containers (deprecated)
 .PHONY: stop
@@ -373,8 +375,8 @@ stop: docker-start
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" down \
 	; else \
-		$(for_containers) $(container) stop > /dev/null && \
-		$(for_containers) $(container) "rm -v" > /dev/null \
+		$(FOR_CONTAINERS) stop > /dev/null && \
+		$(FOR_CONTAINERS) "rm -v" > /dev/null \
 	; fi
 
 ## pull: pulls the latest image
@@ -387,8 +389,8 @@ pull: docker-start
 		$(DOCKER) pull $(IMAGE); \
 	fi
 
-## run [args]: stops all the containers and then runs in the background
-##             if there are flags than to a make -- run --flags [args]
+# run [args]: stops all the containers and then runs in the background
+#             if there are flags than to a make -- run --flags [args]
 # https://stackoverflow.com/questions/2214575/passing-arguments-to-make-run
 # Hack to allow parameters after run only works with GNU make
 # Note no indents allowed for ifeq
@@ -400,7 +402,6 @@ pull: docker-start
 ## and create phantom targets for all those args
 #$(eval $(RUN_ARGS):;@:)
 #endif
-
 # https://stackoverflow.com/questions/30137135/confused-about-docker-t-option-to-allocate-a-pseudo-tty
 # docker run flags
 # -i interactive connects the docker stdin to the terminal stdin
@@ -418,34 +419,25 @@ pull: docker-start
 # -rm remove the container when it exits
 
 
-## docker: Run the docker container in the background (for web apps like Jupyter)
+## run: Run the docker container in the background (for web apps like Jupyter)
 # we show the log after 5 second so you can see things like the security token
 # needs. the Host IP has to be passed in as it changes dynamically
 # and the .env file is static
-.PHONY: docker
-docker: stop  docker-start
+# Note we need the logs for things like jupyterlab where the access token is in
+# the log but need to wait for it to start up to get the it
+.PHONY: run
+run: stop  docker-start
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up -d  && \
 		sleep 5 && \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" logs \
 	; else \
-		$(DOCKER_RUN) $(FLAGS) -dt $(CMD) \
+		$(DOCKER_RUN) -dt && \
+		sleep 10 && \
+		$(FOR_CONTAINERS) logs \
 	; fi
 
-## exec: Run docker in foreground and then exit (treat like any Unix command)
-##       if you need to pass arguments down then use the form
-# note no --re needed we automaticaly do this and need for logs
-#
-.PHONY: exec
-exec: stop docker-start
-	export $(EXPORTS) && \
-	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
-		LOCAL_USER_ID=$(LOCAL_USER_ID) \
-		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up \
-	; else \
-		$(DOCKER_RUN) -t $(CMD) \
-	; fi
 
 # https://gist.github.com/mitchwongho/11266726
 # Need entrypoint to make sure we get something interactive
@@ -461,13 +453,25 @@ exec: stop docker-start
 shell: docker-start
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
-		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" run "$(DOCKER_COMPOSE_MAIN)" /bin/bash; \
-	else \
-		$(DOCKER) pull $(IMAGE); \
-		$(DOCKER) run -it \
-			--entrypoint /bin/bash \
-			--rm $(volumes) $(flags) $(IMAGE); \
-	fi
+		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" run "$(DOCKER_COMPOSE_MAIN)" /bin/bash \
+	; else \
+		$(DOCKER) pull $(IMAGE) && $(DOCKER_RUN) -it --rm --entrypoint /bin/bash \
+	; fi
+
+## exec: Run docker in foreground and then exit (treat like any Unix command)
+##       if you need to pass arguments down then use the form
+# note no --re needed we automaticaly do this and need for logs
+#
+.PHONY: exec
+# exec: stop docker-start
+exec:
+	export $(EXPORTS) && \
+	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
+		export LOCAL_USER_ID=$(LOCAL_USER_ID) && \
+		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up \
+	; else \
+		$(DOCKER_RUN) -t \
+	; fi
 
 ## resume: keep running an existing container
 .PHONY: resume
@@ -476,8 +480,8 @@ resume: docker-start
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" start; \
 	else \
-		$(DOCKER) start -ai $(container); \
-	fi
+		$(DOCKER) start -ai $(container) \
+	; fi
 
 # Note we say only the type file because otherwise it tries to delete $(docker_data) itself
 ## prune: Save some space on docker
