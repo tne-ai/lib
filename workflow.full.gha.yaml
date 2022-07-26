@@ -30,9 +30,15 @@ jobs:
       - name: Checkout action
         uses: actions/checkout@v3
         with:
+
           lfs: true
-          # so that from src we can check everything
-          submodules: recursive
+          # The default GITHUB_TOKEN token does note work for submodules
+          # https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token
+          # https://github.com/actions/checkout/issues/116
+          # but this requires a personal access token that you must create and
+          # store in GitHub secrets
+          # token: '{{ secrets.GITHUB_PAT }}'
+          # submodules: recursive
       # install latest python version
       - name: Setup python
         uses: actions/setup-python@v3
