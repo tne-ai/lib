@@ -3,11 +3,7 @@
 ##
 ##Installation works on either Mac OS X (Darwin) or Ubuntu
 ##
-## use package if the same package may be in brew, port, apt or snap
-## package_install [-flags ] [packages...] - smart about not reinstalling
-## package_uninstall [-flags] [packages...]
-## is_package_installed [packages] - almost never needed install
-##
+## package_install goes through multiple installers
 ## if you know what installer then its more efficient to just call the
 ## installer
 #
@@ -39,6 +35,18 @@ if eval "[[ ! -v $lib_name ]]"; then
 			fi
 		done
 	}
+	cask_is_installed() {
+		if ! command -v brew &>/dev/null; then return 1; fi
+		declare -i missing=0
+		for cask in "$@"; do
+			# if not in brew then then report it missing
+			if ! brew info "$package" &>/dev/null ||
+				! brew list --cask | grep -q "^$cask"; then
+				missing+=1
+			fi
+		done
+		return "$missing"
+	}
 	## cask_install [ casks... ]: returns number of casks not installed
 	cask_install() {
 		if ! command -v brew &>/dev/null; then return 1; fi
@@ -51,15 +59,11 @@ if eval "[[ ! -v $lib_name ]]"; then
 			shift
 		done
 		for cask in "$@"; do
-			if ! brew info "$package" &>/dev/null; then
-				# ignore casks we cannot find
-				continue
-			fi
-			if ! brew list --cask "$cask" &>/dev/null &&
+			if ! cask_is_installed "$cask" &&
 				brew install --cask "${flags[@]}" "$cask"; then
 				# remember if the return value is a zero this fails or
 				# preincrement
-				((++missing))
+				missing+=1
 			fi
 		done
 		return "$missing"
@@ -68,6 +72,15 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# Uses bash substring replacement
 	flags_to_grep() {
 		echo "${1//-/\\-}"
+	}
+	brew_is_installed() {
+		declare -i missing=0
+		for package in "$@"; do
+			if ! brew list "$package" &>/dev/null; then
+				((++missing))
+			fi
+		done
+		return "$missing"
 	}
 	# Mac Brew installations for simple packages called bottles
 	# for things like grep, this disables adding g to it
@@ -84,19 +97,24 @@ if eval "[[ ! -v $lib_name ]]"; then
 			shift
 		done
 		for package in "$@"; do
+			log_verbose "brew looking for $package"
 			if ! brew info "$package" &>/dev/null; then
 				# This is not a brew package skip it
+				log_verbose "$package is not in brew"
 				continue
 			fi
-			if brew list "$package" &>/dev/null; then
-				# install a new package
+			log_verbose "$package is in brew"
+			if ! brew_is_installed "$package"; then
+				log_verbose "$package is available but not installed in brew install now"
 				if ! brew install "${flags[@]}" "$package"; then
+					log_verbose "brew install $package failed"
 					((++failed))
 				fi
 			else
 				# package is already installed so upgrade it
 				# ignore upgrade errors
-				brew upgrade "$package" || true
+				log_verbose "$package installed try to upgrade it"
+				brew upgrade "$package" &>/dev/null || true
 			fi
 		done
 	}
@@ -128,6 +146,15 @@ if eval "[[ ! -v $lib_name ]]"; then
 	apt_uninstall() {
 		apt_run remove "$@"
 	}
+	apt_is_installed() {
+		declare -i missing=0
+		for package in "$@"; do
+			if ! apt list --installed "$package" | grep -q "$package"; then
+				((++missing))
+			fi
+		done
+		return "$missing"
+	}
 	apt_run() {
 		local flags=()
 		if ! command -v apt-get >/dev/null; then return 1; fi
@@ -141,8 +168,8 @@ if eval "[[ ! -v $lib_name ]]"; then
 		done
 		local failed
 		for package in "$@"; do
-			if apt list --installed "$package" | grep -q "$package" &&
-				sudo apt-get "$operation" -y "${flags[@]}" "$package"; then
+			if ! apt_is_installed "$package"; then
+				sudo apt-get "$operation" -y "${flags[@]}" "$package"
 				((++failed))
 			fi
 		done
@@ -271,14 +298,13 @@ if eval "[[ ! -v $lib_name ]]"; then
 		done
 		local failures=0
 		for package in "$@"; do
-			# do not check flags so do not quote
-			#shellcheck disable=SC2086
-			log_verbose "no package $package, try to install"
 			found=0
+			log_verbose "looking for $package"
 			# the order is important as we stop at first packager found
 			for packager in brew cask snap apt; do
-				log_verbose "Trying ${packager}_install ${flags[*]}$ package"
+				log_verbose "trying ${packager}_install $package"
 				if ${packager}_install "${flags[@]}" "$package"; then
+					log_verbose "${packager}_install $package succeeded"
 					((++found))
 					break
 				fi

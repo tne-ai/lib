@@ -132,18 +132,18 @@ source_profile() {
 	if [[ -e $file ]]; then
 		# turn off undefined variable checking because
 		# scripts like bash completion reference undefined
-		# And ignore errors in profiles
+		# as this is a common idium
 		set +u
 		# shellcheck disable=SC1090
 		source "$file" || true
 		set -u
 	fi
 
-	# done
-	# on Mac need this on apps like basictex as it adds to the path without a .profile
-	if [[ $OSTYPE =~ darwin ]]; then
-		eval "$(/usr/libexec/path_helper)"
-	fi
+	# do not do this as this inserts standard paths before the custom ones
+	#if [[ $OSTYPE =~ darwin ]] && [[ -e /usr/libexec/path_helper ]]; then
+	#    eval "$(/usr/libexec/path_helper)"
+	#fi
+
 	popd || true
 	# rehash in case the path changes changes the execution order
 	hash -r
