@@ -110,11 +110,12 @@ if eval "[[ ! -v $lib_name ]]"; then
 					log_verbose "brew install $package failed"
 					((++failed))
 				fi
-			else
-				# package is already installed so upgrade it
-				# ignore upgrade errors
-				log_verbose "$package installed try to upgrade it"
-				brew upgrade "$package" &>/dev/null || true
+			# no long try to upgrade do in bulk instae
+			#else
+			#    # package is already installed so upgrade it
+			#    # ignore upgrade errors
+			#    log_verbose "$package installed try to upgrade it"
+			#    brew upgrade "$package" &>/dev/null || true
 			fi
 		done
 	}
