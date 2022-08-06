@@ -281,12 +281,17 @@ build: docker-start
 		$(DOCKER_COMPOSE) --env-file "${DOCKER_ENV_FILE}" -f "$(DOCKER_COMPOSE_YML)" build; \
 	elif [[ $(DOCKER_BUILD) =~ buildx ]]; then \
 		if [[ $(DOCKER) =~ colima ]]; then \
-			docker buildx create --use "$(DOCKER)"; \
+			if ! docker buildx | grep -q "$(DOCKER)"; then \
+				docker buildx create --name "$(DOCKER)"; \
+			fi; \
+			docker buildx use "$(DOCKER)"; \
 		fi; \
-		docker buildx build --push --platform $(ARCH) -t "$(IMAGE):$(VERSION)" $(BUILD_FLAGS) -f "$(DOCKERFILE)" $(BUILD_PATH); \
+		docker buildx build --push --progress auto \
+			--platform $(ARCH) -t "$(IMAGE):$(VERSION)" $(BUILD_FLAGS) \
+			-f "$(DOCKERFILE)" $(BUILD_PATH); \
 	else \
 		for arch in $(ARCH); do \
-			$(DOCKER) build --arch=$$arch --pull \
+			$(DOCKER) build --platform $$arch --pull \
 						$(FLAGS) \
 						 -f "$(DOCKERFILE)" \
 						 -t "$(IMAGE):$(VERSION).$$arch" \
@@ -294,6 +299,24 @@ build: docker-start
 		    $(DOCKER) manifest add "$(IMAGE):$(VERSION)" "$(IMAGE):$(VERSION).$$arch"; \
 		done; \
 	fi
+
+## build-debug: run buildx in full debug mode with large log in plain progress
+.PHONY: build-debug
+build-debug: context-debug build context-default
+
+## context-debug: create a build context with large 100MBlog
+.PHONY: context-debug
+build-log:
+	if ! docker buildx ls | grep -q "^$(NAME)-debug"; then \
+		docker buildx create --name "$(NAME)-debug" --driver-opt \
+			env.BUILDKIT_STEP_LOG_MAX_SIZE=100000000; \
+	fi && \
+	docker buildx use "$(NAME)-debug"
+
+## context-default: switch to default build context
+.PHONY: context-default
+context-default:
+	docker buildx use default
 
 ## docker-lint: run the linter against the docker file (for podman requires socket connect)
 # LOCAL_USER_ID=$(LOCAL_USER_ID)
@@ -324,12 +347,9 @@ push: build
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" push; \
-	elif [[ $(DOCKER_BUILD) =~ buildx ]]; then \
-		docker buildx build --push --platform $(ARCH) $(BUILD_FLAGS) \
-			-t "$(IMAGE):latest" -t "$(IMAGE):$(VERSION)" \
-			-f "$(DOCKERFILE)" $(BUILD_PATH); \
 	else \
-		$(DOCKER) push --all-tags $(IMAGE): ; \
+		$(DOCKER) tag "$(IMAGE):$(VERSION)" "$(IMAGE):latest" && \
+		$(DOCKER) push --all-tags $(IMAGE) \
 	fi
 
 # for those times when we make a change in but the Dockerfile does not notice
@@ -426,7 +446,7 @@ pull: docker-start
 # Note we need the logs for things like jupyterlab where the access token is in
 # the log but need to wait for it to start up to get the it
 .PHONY: run
-run: stop  docker-start
+run: stop docker-start
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" up -d  && \

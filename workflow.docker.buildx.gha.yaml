@@ -1,0 +1,83 @@
+# vim: se ts=2 sw=2 et:
+# https://dev.to/cloudx/multi-arch-docker-images-the-easy-way-with-github-actions-4k54
+# https://docs.docker.com/ci-cd/github-actions/
+# assumes the image to build is the owner/current repo
+
+name: Build docker buildx image
+
+env:
+  IMAGE_REGISTRY: ghcr.io
+  IMAGE_USER: ${{ github.repository_owner }}
+  IMAGE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+# set for docker
+#    IMAGE_REGISTRY: docker.io
+#    IMAGE_USER: ${{ secrets.DOCKER_USERNAME }}
+#    IMAGE_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+# yamllint disable-line rule:truthy
+on:
+  push:
+    branches:
+      - main
+      - 'rich-*'
+  pull_request:
+    branches:
+      - main
+
+# need permissions to write to github repo artifacts
+permissions:
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Setup QEMU
+      uses: actions/setup-qemu@2
+    - name: Setup buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v1
+
+    # https://docs.docker.com/docker-hub/access-tokens/
+    # https://docs.github.com/en/actions/security-guides/encrypted-secrets
+    - name: Login to registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ env.IMAGE_REGISTRY }}
+        username: ${{ env.IMAGE_USER }}
+        password: ${{ env.IMAGE_PASSWORD }}
+    # this for docker.io registry
+    # create a Dockerhub access Token and put into github secret
+    # - name: Login to Docker Hub
+    #   uses: docker/login-action@v1
+    #   with:
+
+    - name: Docker meta tags
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        images: ghcr.io/${{GITHUB_REPOSITORY}}:latest
+        tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semvar,pattern={{version}}
+            type=semvar,pattern={{major}}
+            type=semvar,pattern={{major}.{{minor}}
+            type=semvar,pattern={{major}}.{{minor}}.{{patch}}
+            type=sha
+
+    - name: Build image and push
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        file: ./Dockerfile
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' }}
+        # instead of manual tgs use the metadata-action to generate them
+        #tags: ${{GITHUB_REPOSITORY}}:${{GITHUB_REF_NAME}}, ${{GITHUB_REPOSITORY}}:${{GITHUB_SHA}}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
