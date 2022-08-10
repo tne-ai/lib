@@ -6,6 +6,7 @@
 #
 # The makefiles are self documenting, you use two leading for make help to produce output
 
+SHELL := /usr/bin/env bash
 
 ## Change REPO and DOCKER_REGISTRY
 # Github Repo - Preferred
@@ -46,12 +47,12 @@ ARCH ?= linux/arm64,linux/amd64
 
 # You should note need the architecture since docker works with both intel and
 # m1 on Apple Silicon but by default we build both M1 and Intel
-ARCH ?=$(shell uname -m)
+# use this if you do not multiarch
+#ARCH ?=$(shell uname -m)
 #
 # Use the git commit by default
 VERSION ?= $(shell git rev-parse HEAD)
 
-SHELL := /usr/bin/env bash
 DOCKER_USER ?= docker
 HOST_DIR ?= ./data
 # https://stackoverflow.com/questions/18136918/how-to-get-current-relative-directory-of-your-makefile
@@ -150,6 +151,10 @@ BUILD_PATH ?= .
 MAIN ?= $(NAME).py
 DOCKER_ENV ?= docker
 CONDA_ENV ?= $(NAME)
+# https://github.com/docker/buildx/issues/166
+# the --load not compatible with multiarch images so do not
+# use with --platform=linux/arm64,linux/amd64 for example
+OUTPUT ?= $(if ($PUSH),--push,--load))
 
 # https://github.com/moby/moby/issues/7281
 
@@ -273,8 +278,7 @@ docker-stop:
 		#$(DOCKER) manifest create "$(IMAGE):$(VERSION)"; \
 .PHONY: build
 # https://github.com/abiosoft/colima/issues/44 to use buildx with colima
-# note in docker buildx we cannot have to push here because --load does not work with multi-arch manifests
-# it does not know how to export the manifest
+# note that for multiarch you must use --push and not --load in OUTPUT
 build: docker-start
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
@@ -286,8 +290,10 @@ build: docker-start
 			fi; \
 			docker buildx use "$(DOCKER)"; \
 		fi; \
-		docker buildx build --push --progress auto \
-			--platform $(ARCH) -t "$(IMAGE):$(VERSION)" $(BUILD_FLAGS) \
+		docker buildx build \
+			"$(OUTPUT)"\
+			--platform $(ARCH) \
+			-t "$(IMAGE):$(VERSION)" $(BUILD_FLAGS) \
 			-f "$(DOCKERFILE)" $(BUILD_PATH); \
 	else \
 		for arch in $(ARCH); do \

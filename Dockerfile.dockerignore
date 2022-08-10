@@ -1,0 +1,8 @@
+# Do not look for these files when docker builds
+# https://www.geeksforgeeks.org/how-to-use-a-dockerignore-file/
+*.md
+Dockerfile.*
+.git
+.vscode
+.gitignore
+Makefile
