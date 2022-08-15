@@ -93,19 +93,24 @@ if eval "[[ ! -v $lib_name ]]"; then
 		declare -i failed=0
 		declare -a flags
 		# find all the flags at the start
+		log_verbose "brew_install called with $*"
 		while [[ $1 =~ ^- ]]; do
+			log_verbose "adding flag $1"
 			flags+=("$1")
 			shift
 		done
+		log_verbose "installing packages $* with flags ${flags[*]}"
 		for package in "$@"; do
 			log_verbose "brew looking for $package"
 			if ! brew info "$package" &>/dev/null; then
 				log_verbose "$package is not in brew"
 				failed+=1
-			elif ! brew_is_installed "$package" ||
-			   ! brew install "${flags[@]}" "$package"; then
+			elif ! brew_is_installed "$package"; then
+				log_verbose "$package not installed"
+			   	if ! brew install ${flags[@]} "$package"; then
 					log_verbose "$package install failed"
-					((++failed))
+					failed+=1
+				fi
 			fi
 		done
 		return "$failed"
@@ -162,10 +167,11 @@ if eval "[[ ! -v $lib_name ]]"; then
 		for package in "$@"; do
 			if ! apt-cache show "$package" >/dev/null; then
 				failed+=1
-			elif ! apt_is_installed "$package" &&
-			    ! sudo apt-get "$operation" -y "${flags[@]}" "$package"; then
-				log_verbose "$package not an apt or install failed"
-				failed+=1
+			elif ! apt_is_installed "$package"; then 
+				if ! sudo apt-get "$operation" -y "${flags[@]}" "$package"; then
+					log_verbose "$package not an apt or install failed"
+					failed+=1
+				fi
 			fi
 		done
 		return "$failed"
@@ -218,10 +224,11 @@ if eval "[[ ! -v $lib_name ]]"; then
 			if ! snap search "$package" | cut -f 1 -d' ' | grep -q "^$package\$" &>/dev/null; then
 			   		log_verbose "$package not snap package"
 					((++failed))
-			elif ! snap list "$package" > /dev/null ||
-			     ! sudo snap install "${flags[@]}" "$package"; then
+			elif ! snap list "$package" > /dev/null; then 
+			    if ! sudo snap install "${flags[@]}" "$package"; then
 			   		log_verbose "$package installed failed"
 					((++failed))
+				fi
 			fi
 		done
 		log_verbose "failed $failed"
