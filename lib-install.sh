@@ -39,9 +39,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		if ! command -v brew &>/dev/null; then return 1; fi
 		declare -i missing=0
 		for cask in "$@"; do
-			# if not in brew then then report it missing
-			if ! brew info "$package" &>/dev/null ||
-				! brew list --cask | grep -q "^$cask"; then
+			if ! brew list --cask | grep -q "^$cask"; then
 				missing+=1
 			fi
 		done
@@ -59,13 +57,16 @@ if eval "[[ ! -v $lib_name ]]"; then
 			shift
 		done
 		for cask in "$@"; do
-			if ! cask_is_installed "$cask" &&
-				brew install --cask "${flags[@]}" "$cask"; then
-				# remember if the return value is a zero this fails or
-				# preincrement
+			if ! brew info "$package" &>/dev/null; then
+				log_verbose "$cask not a cask"
+				missing+=1
+		elif ! cask_is_installed "$cask" ||
+		      ! brew install --cask "${flags[@]}" "$cask"; then
+				log_verbose "$cask install failed"
 				missing+=1
 			fi
 		done
+		log_verbose "cask install return $missing"
 		return "$missing"
 	}
 	# https://unix.stackexchange.com/questions/265267/bash-converting-path-names-for-sed-so-they-escape
@@ -83,9 +84,9 @@ if eval "[[ ! -v $lib_name ]]"; then
 		return "$missing"
 	}
 	# Mac Brew installations for simple packages called bottles
-	# for things like grep, this disables adding g to it
 	# usage: brew_install [flags] [bottles...]
 	# returns: number of failed installed
+	# if the package is not in brew then count that as a failed installation
 	brew_install() {
 		if ! command -v brew &>/dev/null; then return 1; fi
 		if (($# < 1)); then return; fi
@@ -99,26 +100,15 @@ if eval "[[ ! -v $lib_name ]]"; then
 		for package in "$@"; do
 			log_verbose "brew looking for $package"
 			if ! brew info "$package" &>/dev/null; then
-				# This is not a brew package skip it
 				log_verbose "$package is not in brew"
-				continue
-			fi
-			log_verbose "$package is in brew"
-			if ! brew_is_installed "$package"; then
-				log_verbose "$package is available but not installed in brew install now"
-				if ! brew install "${flags[@]}" "$package"; then
-					log_verbose "brew install $package failed"
+				failed+=1
+			elif ! brew_is_installed "$package" ||
+			   ! brew install "${flags[@]}" "$package"; then
+					log_verbose "$package install failed"
 					((++failed))
-				fi
-				#else
-				# upgrade is slwo per item just do a `brew upgrade --greedy`
-				# instead
-				# package is already installed so upgrade it
-				# ignore upgrade errors
-				#log_verbose "$package installed try to upgrade it"
-				#brew upgrade "$package" &>/dev/null || true
 			fi
 		done
+		return "$failed"
 	}
 	brew_uninstall() {
 		if ! command -v brew &>/dev/null; then return 1; fi
@@ -151,14 +141,15 @@ if eval "[[ ! -v $lib_name ]]"; then
 	apt_is_installed() {
 		declare -i missing=0
 		for package in "$@"; do
-			if ! apt list --installed "$package" | grep -q "$package"; then
-				((++missing))
+			if ! dpkg  -l "$package" >/dev/null; then
+				missing+=1
 			fi
 		done
 		return "$missing"
 	}
 	apt_run() {
 		local flags=()
+		declare -i failed=0
 		if ! command -v apt-get >/dev/null; then return 1; fi
 		if (($# < 1)); then return 1; fi
 		operation="$1"
@@ -168,13 +159,16 @@ if eval "[[ ! -v $lib_name ]]"; then
 			flags+=("$1")
 			shift
 		done
-		local failed
 		for package in "$@"; do
-			if ! apt_is_installed "$package"; then
-				sudo apt-get "$operation" -y "${flags[@]}" "$package"
-				((++failed))
+			if ! apt-cache show "$package" >/dev/null; then
+				failed+=1
+			elif ! apt_is_installed "$package" &&
+			    ! sudo apt-get "$operation" -y "${flags[@]}" "$package"; then
+				log_verbose "$package not an apt or install failed"
+				failed+=1
 			fi
 		done
+		return "$failed"
 	}
 	# Apt repository install
 	# usage: apt_repository_install [ppa:team/repo | single_repo string]
@@ -221,14 +215,17 @@ if eval "[[ ! -v $lib_name ]]"; then
 			shift
 		done
 		for package in "$@"; do
-			if snap search "$package" | cut -f 1 -d' ' | grep -q "^$package\$" &>/dev/null; then
-				log_verbose "$package snap found"
-				if ! sudo snap install "${flags[@]}" "$package"; then
+			if ! snap search "$package" | cut -f 1 -d' ' | grep -q "^$package\$" &>/dev/null; then
+			   		log_verbose "$package not snap package"
 					((++failed))
-				fi
+			elif ! snap list "$package" > /dev/null ||
+			     ! sudo snap install "${flags[@]}" "$package"; then
+			   		log_verbose "$package installed failed"
+					((++failed))
 			fi
 		done
 		log_verbose "failed $failed"
+		return "$failed"
 	}
 	snap_uninstall() {
 		for package in "$@"; do
@@ -384,8 +381,11 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# we have one special flag -f which means run sudo and must be the first one
 	# usage: pip_install -f [python flags..] [packages...]
 	pip_install() {
-		if ! command -v pip >/dev/null; then return 1; fi
+		log_verbose "in pip_install with $*"
+		if ! command -v pip &>/dev/null; then return 1; fi
+		log_verbose "found pip"
 		if (($# < 1)); then return; fi
+		log_verbose "found $# parameters"
 		declare -a flags
 		local use_sudo=""
 		while [[ $1 =~ ^- ]]; do
