@@ -167,7 +167,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		for package in "$@"; do
 			if ! apt-cache show "$package" >/dev/null; then
 				failed+=1
-			elif ! apt_is_installed "$package"; then 
+			elif ! apt_is_installed "$package"; then
 				if ! sudo apt-get "$operation" -y "${flags[@]}" "$package"; then
 					log_verbose "$package not an apt or install failed"
 					failed+=1
@@ -224,7 +224,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			if ! snap search "$package" | cut -f 1 -d' ' | grep -q "^$package\$" &>/dev/null; then
 			   		log_verbose "$package not snap package"
 					((++failed))
-			elif ! snap list "$package" > /dev/null; then 
+			elif ! snap list "$package" > /dev/null; then
 			    if ! sudo snap install "${flags[@]}" "$package"; then
 			   		log_verbose "$package installed failed"
 					((++failed))
