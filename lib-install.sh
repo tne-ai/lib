@@ -107,6 +107,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 				failed+=1
 			elif ! brew_is_installed "$package"; then
 				log_verbose "$package not installed"
+				# shellcheck disable=SC2068
 			   	if ! brew install ${flags[@]} "$package"; then
 					log_verbose "$package install failed"
 					failed+=1
