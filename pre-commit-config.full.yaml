@@ -13,7 +13,7 @@
 # need this so gitlint only runs during commit-msg
 default_stages: [commit, push]
 # exclude deprecated files so we do not check them anymore
-exclude: (^archive/|^user/)
+exclude: (^archive/|^user/|^deprecated/)
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     # only language independent hooks
@@ -213,6 +213,7 @@ repos:
     hooks:
       # use if hadolint is local
       - id: hadolint
+        exclude: Dockerfile.dockerignore
       # switch to docker container because necktos act will not homebrew install
       # but this is much slower so leave oiut until act bug with pre-commit
       # fixed
