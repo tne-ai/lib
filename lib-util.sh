@@ -204,6 +204,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		fi
 	}
 
+    # linux service start and restart
 	service_start() {
 		local svc=${1:-docker}
 		local state
@@ -211,12 +212,12 @@ if eval "[[ ! -v $lib_name ]]"; then
 		case "$state" in
 		*running*)
 			# Try upstart first, if it fails try systemd
-			if ! sudo restart "$svc"; then
+			if ! sudo service "$svc" restart; then
 				sudo systemctl restart "$svc"
 			fi
 			;;
 		*stop*)
-			if ! sudo start "$svc"; then
+			if ! sudo service "$svc" start; then
 				sudo systemctl start "$svc"
 			fi
 			;;
