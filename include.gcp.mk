@@ -175,7 +175,11 @@ create-disk:
 .PHONY: mount-disk
 mount-disk:
 	$(GCP_SSH) \
-
+		'export DISK=$$(lsblk | grep ^sd | tail -n 1 | cut -d " " -f 1) && \
+		 eval $$(blkid -o export /dev/$$DISK) && \
+		 if ! grep -q "^$$UUID" /etc/fstab; then \
+		 	sudo tee -a /etc/fstab <<<"UUID=$$UUID /mnt/data $$TYPE discard,defaults,nofail"; \
+		 fi'
 
 ##
 ## warning this wipes out the contents of the disk!!!
