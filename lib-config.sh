@@ -66,21 +66,35 @@
 # shell is not zsh. That is if you have a Mac using bash and then escept to
 # zsh only sometimess
 # set ZSH_VERSION to use .zshrc when zsh is not the login shell
+
+config_profile_zsh() {
+	echo "$HOME/.zprofile"
+}
+config_profile_bash() {
+	echo "$HOME/.profile"
+}
 config_profile() {
 	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
-		echo "$HOME/.zprofile"
+		config_profile_zsh
 	else
-		echo "$HOME/.profile"
+		config_profile_sh
 	fi
 }
 
+
 ## config the non-login script run with every new shell
 # set ZSH_VERSION to use .zshrc
+config_profile_nonexportable_zsh() {
+	echo "$HOME/.zshrc"
+}
+config_profile_nonexportable_bash() {
+	echo "$HOME/.bashrc"
+}
 config_profile_nonexportable() {
 	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
-		echo "$HOME/.zshrc"
+		config_profile_nonexportable_zsh
 	else
-		echo "$HOME/.bashrc"
+		config_profile_nonexportable_bash
 	fi
 }
 
@@ -88,46 +102,42 @@ config_profile_nonexportable() {
 # this should have no output visible
 # not used for the Mac
 ## config_profile_interactive: Use this profile where uses need to see and type
+config_profile_interactive_zsh() {
+		echo "$HOME/.zshrc"
+}
+config_profile_interactive_bash() {
+		echo "$HOME/.bashrc"
+}
 config_profile_interactive() {
 	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
-		echo "$HOME/.zshrc"
+		config_profile_interactive_zsh
 	else
-		# guess it is like linux
-		echo "$HOME/.bashrc"
+		config_profile_interactive_bash
 	fi
 }
 
-## config_zsh: returns the location of the zsh configuration profile
-config_profile_zsh() {
-	ZSH_VERSION=true config_profile
+config_profile_shell_zsh() {
+	echo "$HOME/.zprofile"
 }
-
-## config_zsh: returns the location of the zsh configuration profile
-config_profile_nonexportable_zsh() {
-	ZSH_VERSION=true config_profile_nonexportable
+config_profile_shell_bash() {
+	echo "$HOME/.bash_profile"
 }
-
 # config_profile_shell: set to .bash_profile (or .zprofile if using zsh
 config_profile_shell() {
 	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
-		echo "$HOME/.zprofile"
+		config_profile_shell_zsh
 	else
-		echo "$HOME/.bash_profile"
+		config_profile_shell_bash
 	fi
 }
 
-## source_profile: [ dir ]
+## source_profile: $file
 # Get the profiles from $dir and source it
 # needed when updating paths and want to immediately use the new
 # commands in the running script
 source_profile() {
-	if ! pushd "${1:-"$HOME"}" >/dev/null; then
-		return 1
-	fi
-	# since .bash_profile .zprofile is the full profile source it
 	#shellcheck disable=SC2043
-	# for file in "$(config_profile_shell)" do
-	file="$(config_profile_shell)"
+	file="${1:-$(config_profile_shell)}"
 
 	if [[ -e $file ]]; then
 		# turn off undefined variable checking because
@@ -144,7 +154,6 @@ source_profile() {
 	#    eval "$(/usr/libexec/path_helper)"
 	#fi
 
-	popd || true
 	# rehash in case the path changes changes the execution order
 	hash -r
 }
