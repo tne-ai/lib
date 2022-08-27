@@ -45,9 +45,22 @@ tag:
 readme:
 	doctoc *.md
 
+## test-install: Install the pre-commit and GitHub Actions testing frameworks from $WS_DIR
+.PHONY: test-install
+test-install:
+	if [[ -e $(WS_DIR)/git/src/lib/pre-commit-config.full.yaml && \
+		! -e .pre-commit-config.yaml ]]; then \
+			cp "$(WS_DIR)/git/src/lib/pre-commit-config.full.yaml" .pre-commit-config.yaml; \
+	fi; \
+	if [[ -e $(WS_DIR)/git/src/lib/workflow.full.gha.yaml && \
+		! -e .github/workflow/workflow.full.gha.yaml ]]; then \
+			mkdir -p .github/workflow; \
+			cp "$(WS_DIR)/git/src/lib/workflow.full.gha.yaml" .github/workflow; \
+	fi
+
 ## pre-commit: Run pre-commit hooks and install if not there with update
 .PHONY: pre-commit
-pre-commit:
+pre-commit: pre-commit-install
 	@echo this does not work on WSL so you need to run pre-commit install manually
 	if [[ ! -e .pre-commit-config.yaml ]]; then \
 		echo "no .pre-commit-config.yaml found copy from ./lib"; \
@@ -58,13 +71,9 @@ pre-commit:
 
 ## pre-commit-install: Install precommit (get prebuilt .pre-commit-config.yaml from @richtong/lib)
 .PHONY: pre-commit-install
-pre-commit-install:
-	if [[ ! -e .pre-commit-config.yaml ]]; then \
-		echo "copy appropriate .pre-commit-config.yaml from ./lib" \
-	; else \
+pre-commit-install: test-install
+	if [[ -e .pre-commit-config.yaml ]]; then \
 		$(RUN) pre-commit install || true && \
-		mkdir -p .github/workflows && \
-		echo "copy the appropriate ./lib/workflows in .github/workflows" \
 		pre-commit install --hook-type commit-msg \
 	; fi
 

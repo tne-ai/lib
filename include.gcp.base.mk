@@ -6,13 +6,13 @@
 # https://cloud.google.com/about/locations/
 # us-west1: Oregon,  us-west2: LA, us-west3: SLC, us-west4: las vegas
 #
-SHELL := /usr/bin/env bash
+SHELL ?= /usr/bin/env bash
 REGION ?= us-west1
 ZONE= ?= $(REGION)-b
 CLUSTER ?= $(USER)
 # project id's must be 6-30 characters
 PROJECT_PREFIX ?= net
-PROJECTS ?= rich lucas guy
+PROJECTS ?= rich lucas guy deon rakuto
 # continaer.googleapis.com - GKE
 SERVICES ?= container.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com billingbudgets.googleapis.com
 
@@ -20,7 +20,7 @@ SERVICES ?= container.googleapis.com artifactregistry.googleapis.com cloudbuild.
 DEFAULT_USER ?= $(USER)
 DEFAULT_PROJECT ?= net-$(DEFAULT_USER)
 
-# used for gcloud creationg
+# used for gcloud creation
 MACHINE ?= net-$(DEFAULT_USER)
 ORG_DOMAIN ?= netdron.es
 
