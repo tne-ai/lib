@@ -8,11 +8,13 @@
 .DEFAULT_GOAL := help
 TIME := "$$(date +'%Y%m%d-%H%M%S')"
 SHELL ?= /usr/bin/env bash
+GCP_SSH ?= gcloud compute ssh $(INSTANCE) --zone $(ZONE) -- -A
+
 REGION ?= us-central1
 ZONE ?= $(REGION)-c
-PROJECT ?= netdrones
+PROJECT ?= tongfamily
 INSTANCE ?= a100-instance
-GCP_SSH ?= gcloud compute ssh $(INSTANCE) --zone $(ZONE) -- -A
+USERS ?= rich
 
 ## help: you are reading this now
 #.PHONY: help
@@ -175,11 +177,19 @@ create-disk:
 .PHONY: mount-disk
 mount-disk:
 	$(GCP_SSH) \
-		'export DISK=$$(lsblk | grep ^sd | tail -n 1 | cut -d " " -f 1) && \
-		 eval $$(blkid -o export /dev/$$DISK) && \
-		 if ! grep -q "^$$UUID" /etc/fstab; then \
-		 	sudo tee -a /etc/fstab <<<"UUID=$$UUID /mnt/data $$TYPE discard,defaults,nofail"; \
-		 fi'
+		' \
+			for ACCOUNT in $(USERS); do \
+				if ! group "$$ACCOUNT" | grep -q staff; then \
+					useradd -a -G staff "$$ACCOUNT" \
+				fi \
+			done && \
+			DISK=$$(lsblk | grep ^sd | tail -n 1 | cut -d " " -f 1) && \
+			eval "$$(blkid -o export $$DISK)" && \
+			 f ! grep -q "^$$UUID" /etc/fstab; then \
+				sudo tee -a /etc/fstab <<<"UUID=$$UUID /mnt/data $$TYPE discard,defaults,nofail"; \
+			fi \
+		'
+
 
 ##
 ## warning this wipes out the contents of the disk!!!
@@ -188,7 +198,9 @@ mount-disk:
 .PHONY: format-disk
 format-disk: create-disk
 	$(GCP_SSH) \
-		'DISK=$$(lsblk | grep ^sd | tail -n 1 | cut -d " " -f 1); \
-		sudo mkfs.ext4 -m 0 \
-			-E lazy_itable_init=0,lazy_journal_init=0,discard \
-			/dev/$$DISK'
+		' \
+			DISK=$$(lsblk | grep ^sd | tail -n 1 | cut -d " " -f 1); \
+			sudo mkfs.ext4 -m 0 \
+				-E lazy_itable_init=0,lazy_journal_init=0,discard \
+				/dev/$$DISK \
+		'
