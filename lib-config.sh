@@ -77,7 +77,7 @@ config_profile() {
 	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
 		config_profile_zsh
 	else
-		config_profile_sh
+		config_profile_bash
 	fi
 }
 
