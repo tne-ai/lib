@@ -15,6 +15,7 @@ ZONE ?= $(REGION)-c
 PROJECT ?= tongfamily
 INSTANCE ?= a100-instance
 USERS ?= rich
+DISK ?= /mnt/data
 
 ## help: you are reading this now
 #.PHONY: help
@@ -22,7 +23,8 @@ USERS ?= rich
 #    @sed -n 's/^##//p' $(MAKEFILE_LIST)
 
 # https://stackoverflow.com/questions/35599414/get-the-default-gcp-project-id-with-a-cloud-sdk-cli-one-liner
-## default: set default zone and region and project
+## default: set default zone and region and project and configure ssh with local forwarding
+##          for applications like jupyter notebook add LocalForward 8888 localhost:8888
 .PHONY: default
 default:
 	if [[ -z $$(gcloud config get compute/region) ]]; then \
@@ -35,7 +37,8 @@ default:
 		gcloud config set project $(PROJECT); \
 	fi; \
 	gcloud compute project-info add-metadata \
-		--metadata google-compute-default-region=$(REGION),google-compute-default-zone=$(ZONE)
+		--metadata google-compute-default-region=$(REGION),google-compute-default-zone=$(ZONE); \
+	gcloud compute config-ssh
 
 
 ## gcp-central-2a: create an Ubuntu 2xV100 instance in central-2a region
@@ -173,7 +176,7 @@ create-disk:
 				--zone $(ZONE); \
 	fi
 
-## mount-disk: mount a formatted disk into $INSTANCE
+## mount-disk: mount a formatted disk into $INSTANCE then reboot
 .PHONY: mount-disk
 mount-disk:
 	$(GCP_SSH) \
@@ -185,11 +188,11 @@ mount-disk:
 			done && \
 			DISK=$$(lsblk | grep ^sd | tail -n 1 | cut -d " " -f 1) && \
 			eval "$$(blkid -o export $$DISK)" && \
-			 f ! grep -q "^$$UUID" /etc/fstab; then \
-				sudo tee -a /etc/fstab <<<"UUID=$$UUID /mnt/data $$TYPE discard,defaults,nofail"; \
+			mkdir -p $(DATA_DISK) && chmod a+w $(DATA_DISK) && \
+			if  ! grep -q "^$$UUID" /etc/fstab; then \
+				sudo tee -a /etc/fstab <<<"UUID=$$UUID $(DATA_DISK) $$TYPE discard,defaults,nofail"; \
 			fi \
 		'
-
 
 ##
 ## warning this wipes out the contents of the disk!!!
