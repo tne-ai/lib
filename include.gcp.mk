@@ -7,7 +7,7 @@
 
 .DEFAULT_GOAL := help
 TIME := "$$(date +'%Y%m%d-%H%M%S')"
-SHELL ?= /usr/bin/env bash
+SHELL := /usr/bin/env bash
 GCP_SSH ?= gcloud compute ssh $(INSTANCE) --zone $(ZONE) -- -A
 
 REGION ?= us-central1
