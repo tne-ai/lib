@@ -7,7 +7,7 @@ TAG ?= v1
 # https://www.gnu.org/software/make/manual/make.html#Flavors
 # Use simple expansion for most and not ?= since default is /bin/bash
 # which is bash v3 for MacOS
-SHELL ?= /usr/bin/env bash
+SHELL := /usr/bin/env bash
 GIT_ORG ?= richtong
 SUBMODULE_HOME ?= "$(HOME)/ws/git/src"
 NEW_REPO ?=
@@ -53,9 +53,9 @@ test-install:
 			cp "$(WS_DIR)/git/src/lib/pre-commit-config.full.yaml" .pre-commit-config.yaml; \
 	fi; \
 	if [[ -e $(WS_DIR)/git/src/lib/workflow.full.gha.yaml && \
-		! -e .github/workflow/workflow.full.gha.yaml ]]; then \
-			mkdir -p .github/workflow; \
-			cp "$(WS_DIR)/git/src/lib/workflow.full.gha.yaml" .github/workflow; \
+		! -e .github/workflows/workflow.full.gha.yaml ]]; then \
+			mkdir -p .github/workflows; \
+			cp "$(WS_DIR)/git/src/lib/workflow.full.gha.yaml" .github/workflows; \
 	fi
 
 ## pre-commit: Run pre-commit hooks and install if not there with update
