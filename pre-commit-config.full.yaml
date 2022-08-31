@@ -13,7 +13,7 @@
 # need this so gitlint only runs during commit-msg
 default_stages: [commit, push]
 # exclude deprecated files so we do not check them anymore
-exclude: (^archive/|^user/|^deprecated/)
+exclude: (^archive/|^user/)
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     # only language independent hooks
@@ -65,8 +65,11 @@ repos:
       - id: check-docstring-first
 
   - repo: https://github.com/jumanjihouse/pre-commit-hooks
-    rev: 2.1.6
+    rev: 3.0.0
     hooks:
+      # dependent on local shellcheck install
+      - id: shellcheck
+        args: [-x]
       # Generating a ruby error with run with all-files
       # this is using the ruby mdl utility so switching to the node version
       # because it has per line disabling of checks
@@ -77,34 +80,25 @@ repos:
       # https://github.com/jumanjihouse/pre-commit-hooks/issues/82
       # additional dependency bug in pre-commit v2.10
       # should be fixed now when doing a pre-commit all
-      - id: shellcheck
-        # https://github.com/pre-commit/pre-commit/blob/main/.pre-commit-config.yaml
-        # exclude syntax is a regex so this says look for leading two
-        # directories
-        # exclude: ^(pre_commit/|testing/resources/python3_hooks_repo/)
-        # type. This is a YAML array of types from pip install identify
-        types: [bash]
-
       # additional_dependencies: []
+
+  # this hook requires docker to get shellcheck
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.8.0
+    hooks:
+      - id: shellcheck
+        args: [-x]
 
   # this is bettert han the jumanji version as it uses go to build
   - repo: https://github.com/scop/pre-commit-shfmt
     rev: v3.5.1-1
     hooks:
       - id: shfmt
-        types: [bash]
-
-  # Use shellcheck instead
-  # - repo: https://github.com/detailyang/pre-commit-shell
-  #  rev: 1.0.5
-  #  hooks:
-  #    - id: shell-lint
-  #      args: [--format=json]
 
   # https://github.com/igorshubovych/markdownlint-cli
   # node version of markdownlint with better disabling of checks by line
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.32.0
+    rev: v0.32.2
     hooks:
       - id: markdownlint
 
@@ -138,14 +132,13 @@ repos:
     hooks:
       - id: mypy
   - repo: https://github.com/pycqa/flake8
-    rev: 4.0.1
+    rev: 5.0.4
     hooks:
       - id: flake8
   - repo: https://github.com/pycqa/pydocstyle
     rev: 6.1.1
     hooks:
       - id: pydocstyle
-        exclude: ^dotfiles/.*/settings.py
 
   # puts the isort.cfg at the root we do not want that
   # https://pypi.org/project/seed-isort-config/
@@ -176,7 +169,7 @@ repos:
   # sync all notebooks with their corresponding markdown files
   # use black to format the python code
   - repo: https://github.com/mwouts/jupytext
-    rev: v1.14.0
+    rev: v1.14.1
     hooks:
       - id: jupytext
         args: [--sync, --pipe, black]
@@ -212,9 +205,6 @@ repos:
     rev: v2.10.0
     hooks:
       # use if hadolint is local
-      - id: hadolint
-        exclude: Dockerfile.dockerignore
-      # switch to docker container because necktos act will not homebrew install
-      # but this is much slower so leave oiut until act bug with pre-commit
-      # fixed
-      # - id: hadolint-docker
+      #- id: hadolint
+      # using docker container because necktos act will not homebrew install
+      - id: hadolint-docker
