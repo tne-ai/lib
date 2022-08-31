@@ -60,8 +60,8 @@ if eval "[[ ! -v $lib_name ]]"; then
 			if ! brew info "$package" &>/dev/null; then
 				log_verbose "$cask not a cask"
 				missing+=1
-		elif ! cask_is_installed "$cask" ||
-		      ! brew install --cask "${flags[@]}" "$cask"; then
+			elif ! cask_is_installed "$cask" ||
+				! brew install --cask "${flags[@]}" "$cask"; then
 				log_verbose "$cask install failed"
 				missing+=1
 			fi
@@ -108,7 +108,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			elif ! brew_is_installed "$package"; then
 				log_verbose "$package not installed"
 				# shellcheck disable=SC2068
-			   	if ! brew install ${flags[@]} "$package"; then
+				if ! brew install ${flags[@]} "$package"; then
 					log_verbose "$package install failed"
 					failed+=1
 				fi
@@ -147,7 +147,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 	apt_is_installed() {
 		declare -i missing=0
 		for package in "$@"; do
-			if ! dpkg  -l "$package" >/dev/null; then
+			if ! dpkg -l "$package" >/dev/null; then
 				missing+=1
 			fi
 		done
@@ -223,11 +223,11 @@ if eval "[[ ! -v $lib_name ]]"; then
 		done
 		for package in "$@"; do
 			if ! snap search "$package" | cut -f 1 -d' ' | grep -q "^$package\$" &>/dev/null; then
-			   		log_verbose "$package not snap package"
-					((++failed))
-			elif ! snap list "$package" > /dev/null; then
-			    if ! sudo snap install "${flags[@]}" "$package"; then
-			   		log_verbose "$package installed failed"
+				log_verbose "$package not snap package"
+				((++failed))
+			elif ! snap list "$package" >/dev/null; then
+				if ! sudo snap install "${flags[@]}" "$package"; then
+					log_verbose "$package installed failed"
 					((++failed))
 				fi
 			fi

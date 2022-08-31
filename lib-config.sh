@@ -81,7 +81,6 @@ config_profile() {
 	fi
 }
 
-
 ## config the non-login script run with every new shell
 # set ZSH_VERSION to use .zshrc
 config_profile_nonexportable_zsh() {
@@ -103,10 +102,10 @@ config_profile_nonexportable() {
 # not used for the Mac
 ## config_profile_interactive: Use this profile where uses need to see and type
 config_profile_interactive_zsh() {
-		echo "$HOME/.zshrc"
+	echo "$HOME/.zshrc"
 }
 config_profile_interactive_bash() {
-		echo "$HOME/.bashrc"
+	echo "$HOME/.bashrc"
 }
 config_profile_interactive() {
 	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then

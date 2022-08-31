@@ -204,7 +204,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		fi
 	}
 
-    # linux service start and restart
+	# linux service start and restart
 	service_start() {
 		local svc=${1:-docker}
 		local state

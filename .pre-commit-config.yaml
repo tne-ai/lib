@@ -208,3 +208,4 @@ repos:
       #- id: hadolint
       # using docker container because necktos act will not homebrew install
       - id: hadolint-docker
+        exclude: Dockerfile.dockerignore
