@@ -30,18 +30,24 @@ jobs:
       - name: Checkout action
         uses: actions/checkout@v3
         with:
+
           lfs: true
-          # so that from src we can check everything
-          submodules: recursive
+          # The default GITHUB_TOKEN token does note work for submodules
+          # https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token
+          # https://github.com/actions/checkout/issues/116
+          # but this requires a personal access token that you must create and
+          # store in GitHub secrets
+          # token: '{{ secrets.GITHUB_PAT }}'
+          # submodules: recursive
       # install latest python version
       - name: Setup python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
       - name: Display Python version
         run: python --version
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v2
         with:
           # Ubuntu specific path
           path: ~/.cache/pip
@@ -73,7 +79,7 @@ jobs:
           # submodules: recursive
       # pre-commit needs python
       - name: Setup python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v3
         with:
           python-version: 3.9
       # # https://snapcraft.io/install/shfmt/ubuntu
@@ -95,7 +101,7 @@ jobs:
       # #run: |
       #   #gem install mdl
       - name: Install node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v2
         with:
           node-version: '14'
       - name: Install markdownlint-cli
@@ -106,6 +112,8 @@ jobs:
         uses: artemnovichkov/action-homebrew@0.1.0
       - name: Install hadolint
         run: brew install hadolint
+      - name: Install shellcheck
+        run: shellcheck --version && brew install shellcheck && shellcheck --version
 
       # https://github.com/pre-commit/action
       # if you are using public repo then you can use pre-commit.ci
