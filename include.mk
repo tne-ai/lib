@@ -46,9 +46,12 @@ tag:
 readme:
 	doctoc *.md
 
-## test-install: Install the pre-commit and GitHub Actions tests from $WS_DIR use $FORCE it you want to overwrite
+## test-install: Install pre-commit, GitHub Actions and prereq tfrom $WS_DIR use $FORCE it you want to overwrite
 .PHONY: test-install
 test-install:
+	for PREREQ in markdownlint-cli shellcheck shfmt hadolint; do \
+		if ! command -v "$$PREREQ" >/dev/null; then brew install "$$PREREQ"; fi \
+	done && \
 	if [[ -e $(WS_DIR)/git/src/lib/pre-commit-config.full.yaml && \
 		($(FORCE) ||  ! -e .pre-commit-config.yaml) ]]; then \
 			cp "$(WS_DIR)/git/src/lib/pre-commit-config.full.yaml" .pre-commit-config.yaml; \
