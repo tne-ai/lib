@@ -12,8 +12,8 @@
 ---
 # need this so gitlint only runs during commit-msg
 default_stages: [commit, push]
-# exclude deprecated files so we do not check them anymore
-exclude: (^archive/|^user/)
+# python regex https://www.programiz.com/python-programming/regex
+exclude: (^archive/|^user/|^deprecated/)
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     # only language independent hooks
@@ -54,7 +54,7 @@ repos:
       - id: destroyed-symlinks
       # include.sh and surround.sh
       - id: check-symlinks
-        exclude: (include.sh|surround.sh)
+        exclude: (include.sh$|surround.sh$)
       # https://github.com/pre-commit/pre-commit-hooks/blob/master/pre_commit_hooks/detect_aws_credentials.py
       - id: name-tests-test
       - id: requirements-txt-fixer
@@ -70,6 +70,7 @@ repos:
       # dependent on local shellcheck install
       - id: shellcheck
         args: [-x]
+        exclude: (.*\.zsh$|\.zshrc$|\.zprofile$|\.fzf\.bash$|\.bashrc$|\.bash_profile$)
       # Generating a ruby error with run with all-files
       # this is using the ruby mdl utility so switching to the node version
       # because it has per line disabling of checks
@@ -88,12 +89,14 @@ repos:
     hooks:
       - id: shellcheck
         args: [-x]
+        exclude: (.*\.zsh$|\.zshrc$|\.zprofile$|\.fzf\.bash$|\.bashrc$|\.bash_profile$)
 
   # this is bettert han the jumanji version as it uses go to build
   - repo: https://github.com/scop/pre-commit-shfmt
     rev: v3.5.1-1
     hooks:
       - id: shfmt
+        exclude: (.*\.zsh$|\.zprofile|\.zshrc)
 
   # https://github.com/igorshubovych/markdownlint-cli
   # node version of markdownlint with better disabling of checks by line
@@ -139,6 +142,7 @@ repos:
     rev: 6.1.1
     hooks:
       - id: pydocstyle
+        exclude: thefuck/settings\.py$
 
   # puts the isort.cfg at the root we do not want that
   # https://pypi.org/project/seed-isort-config/

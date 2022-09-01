@@ -15,6 +15,7 @@ name ?= $$(basename "$(PWD)")
 # if you have include.python installed then it uses the environment but by
 # default we assume we are using the raw environment
 RUN ?=
+FORCE ?= false
 
 .DEFAULT_GOAL := help
 .PHONY: help
@@ -45,15 +46,15 @@ tag:
 readme:
 	doctoc *.md
 
-## test-install: Install the pre-commit and GitHub Actions testing frameworks from $WS_DIR
+## test-install: Install the pre-commit and GitHub Actions tests from $WS_DIR use $FORCE it you want to overwrite
 .PHONY: test-install
 test-install:
 	if [[ -e $(WS_DIR)/git/src/lib/pre-commit-config.full.yaml && \
-		! -e .pre-commit-config.yaml ]]; then \
+		($(FORCE) ||  ! -e .pre-commit-config.yaml) ]]; then \
 			cp "$(WS_DIR)/git/src/lib/pre-commit-config.full.yaml" .pre-commit-config.yaml; \
 	fi; \
 	if [[ -e $(WS_DIR)/git/src/lib/workflow.full.gha.yaml && \
-		! -e .github/workflows/workflow.full.gha.yaml ]]; then \
+		($(FORCE) || ! -e .github/workflows/workflow.full.gha.yaml) ]]; then \
 			mkdir -p .github/workflows; \
 			cp "$(WS_DIR)/git/src/lib/workflow.full.gha.yaml" .github/workflows; \
 	fi
