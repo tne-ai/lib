@@ -228,10 +228,10 @@ vi:
 	cd $(ED_DIR) && $(RUN) "$$VISUAL" $(ED)
 
 # https://www.technologyscout.net/2017/11/how-to-install-dependencies-from-a-requirements-txt-file-with-conda/
-## install: install into python environment set by $(ENV)
+## instal-envl: install into python environment set by $(ENV)
 # https://stackoverflow.com/questions/9008649/gnu-make-conditional-function-if-inside-a-user-defined-function-always-ev
-.PHONY: install
-install: $(INSTALL_REQ)
+.PHONY: install-env
+install-env: $(INSTALL_REQ)
 ifeq ($(ENV),conda)
 	@echo "conda preamble"
 	conda env list | grep ^$(NAME) || conda create -y --name $(NAME)
