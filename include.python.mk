@@ -228,7 +228,7 @@ vi:
 	cd $(ED_DIR) && $(RUN) "$$VISUAL" $(ED)
 
 # https://www.technologyscout.net/2017/11/how-to-install-dependencies-from-a-requirements-txt-file-with-conda/
-## instal-envl: install into python environment set by $(ENV)
+## install-env: install into python environment set by $(ENV)
 # https://stackoverflow.com/questions/9008649/gnu-make-conditional-function-if-inside-a-user-defined-function-always-ev
 .PHONY: install-env
 install-env: $(INSTALL_REQ)

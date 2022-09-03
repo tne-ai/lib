@@ -46,12 +46,16 @@ tag:
 readme:
 	doctoc *.md
 
-## test-install: Install pre-commit, GitHub Actions and prereq tfrom $WS_DIR use $FORCE it you want to overwrite
-.PHONY: test-install
-test-install:
+## install-repo: Install repo basics like gitignore pre-commit, GitHub Actions and prereq tfrom $WS_DIR use $FORCE it you want to overwrite
+.PHONY: install-repo
+install-repo:
 	for PREREQ in markdownlint-cli shellcheck shfmt hadolint; do \
 		if ! command -v "$$PREREQ" >/dev/null; then brew install "$$PREREQ"; fi \
-	done && \
+	done; \
+	if [[ -e $(WS_DIR)/git/src/lib/gitignore.base && \
+		($(FORCE) ||  ! -e .pre-commit-config.yaml) ]]; then \
+			cp "$(WS_DIR)/git/src/lib/.gitignore" .pre-commit-config.yaml; \
+	fi; \
 	if [[ -e $(WS_DIR)/git/src/lib/pre-commit-config.full.yaml && \
 		($(FORCE) ||  ! -e .pre-commit-config.yaml) ]]; then \
 			cp "$(WS_DIR)/git/src/lib/pre-commit-config.full.yaml" .pre-commit-config.yaml; \
@@ -64,7 +68,7 @@ test-install:
 
 ## pre-commit: Run pre-commit hooks and install if not there with update
 .PHONY: pre-commit
-pre-commit: pre-commit-install
+pre-commit: install-pre-commit
 	@echo this does not work on WSL so you need to run pre-commit install manually
 	if [[ ! -e .pre-commit-config.yaml ]]; then \
 		echo "no .pre-commit-config.yaml found copy from ./lib"; \
@@ -73,9 +77,9 @@ pre-commit: pre-commit-install
 		$(RUN) pre-commit run --all-files || true \
 	; fi
 
-## pre-commit-install: Install precommit (get prebuilt .pre-commit-config.yaml from @richtong/lib)
-.PHONY: pre-commit-install
-pre-commit-install: test-install
+## install-pre-commit: Install precommit (get prebuilt .pre-commit-config.yaml from @richtong/lib)
+.PHONY: install-pre-commit
+install-pre-commit: install-test
 	if [[ -e .pre-commit-config.yaml ]]; then \
 		$(RUN) pre-commit install || true && \
 		pre-commit install --hook-type commit-msg \
@@ -98,17 +102,17 @@ git-lfs:
 	# this will fail if you are not already committed
 	$(RUN) git lfs pull
 
-## repo-install: creates a repo and sets up pre-commits and creates default submodules
-.PHONY: repo-install
-repo-install: git-lfs pre-commit-install
+## install-src: creates repo and submodules ./{bin,lib,docker}
+.PHONY: install-repo
+install:-src git-lfs install-repo
 	$(RUN) for repo in bin lib docker; do git submodule add git@github.com:$(GIT_ORG)/$$repo; done
 	$(RUN) git submodule update --init --recursive --remote
 
-## git: createe a git repo
-.PHONY: git
-git:
+## install-submodule: installs a new submodule $(GIT_ORG)/$(NEW_REPO)
+.PHONY: install-submodule
+install-submodule:
 ifeq ($(NEW_REPO),)
-	@echo "create with NEW_REPO=_name_ make git "
+	@echo "create with make git NEW_REPO=_name_"
 else
 	gh repo create git@github.com:$(GIT_ORG)/$(NEW_REPO)
 	cd $(SUBMODULE_HOME)
@@ -127,10 +131,10 @@ direnv:
 	touch .envrc
 	direnv allow .envrc
 
-## brew-install: install brew packages
+## install-brew: install brew packages
 # quote needed in case BREW is not set
-.PHONY: brew-install
-brew-install:
+.PHONY: install-brew
+install-brew:
 	if [[ -n "$(BREW)" ]]; then \
 		brew install $(BREW) \
 	; fi

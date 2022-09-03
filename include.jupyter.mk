@@ -58,10 +58,10 @@ pdf:
 	pandoc -F mermaid-filter -s -o "$(MARKDOWN:md=pdf)" $(MARKDOWN)
 
 
-## jupyter-install: installs jupyterlab extensions after python packages
-.PHONY: jupyter-install
-jupyter-install: install
-	$(RUN) jupyter labextension install $(LAB)
+## install-jupyter: installs jupyterlab extensions after python packages
+.PHONY: install-jupyter
+install-jupyter: install-env
+	if [[ -n "$(LAB)" ]]; then $(RUN) jupyter labextension install $(LAB); fi
 	$(RUN) jupyter lab build
 ## jupyter: run jupyter
 # if include.python.mk is added will run in the environment defined assuming
