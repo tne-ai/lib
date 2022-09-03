@@ -46,14 +46,18 @@ tag:
 readme:
 	doctoc *.md
 
-## install-repo: Install repo basics like gitignore pre-commit, GitHub Actions and prereq tfrom $WS_DIR use $FORCE it you want to overwrite
+## install-repo: Install repo basics like gitattributes, gitignore pre-commit, GitHub Actions and prereq tfrom $WS_DIR use $FORCE it you want to overwrite
 .PHONY: install-repo
 install-repo:
-	for PREREQ in markdownlint-cli shellcheck shfmt hadolint; do \
+	for PREREQ in markdownlint-cli shellcheck shfmt hadolint git-lfs; do \
 		if ! command -v "$$PREREQ" >/dev/null; then brew install "$$PREREQ"; fi \
 	done; \
+	if [[ -e $(WS_DIR)/git/src/lib/gitattributes.base && \
+		($(FORCE) ||  ! -e .gitattributes) ]]; then \
+			cp "$(WS_DIR)/git/src/lib/gitattributes.base" .gitattributes; \
+	fi; \
 	if [[ -e $(WS_DIR)/git/src/lib/gitignore.base && \
-		($(FORCE) ||  ! -e .pre-commit-config.yaml) ]]; then \
+		($(FORCE) ||  ! -e .gitignore) ]]; then \
 			cp "$(WS_DIR)/git/src/lib/.gitignore" .pre-commit-config.yaml; \
 	fi; \
 	if [[ -e $(WS_DIR)/git/src/lib/pre-commit-config.full.yaml && \
