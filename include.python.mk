@@ -21,9 +21,9 @@ SHELL := /usr/bin/env bash
 EXCLUDE := -not \( -path "./extern/*" -o -path "./.git/*" \)
 ALL_PY := $$(find . -name "*.py" $(EXCLUDE) )
 ALL_YAML := $$(find . -name "*.yaml" $(EXCLUDE))
-# gitpod needs three digits
-PYTHON ?= 3.9
-PYTHON_MINOR ?= $(PYTHON).7
+# gitpod needs three digits so this will fail
+PYTHON ?= 3.10
+PYTHON_MINOR ?= $(PYTHON).6
 DOC ?= doc
 LIB ?= lib
 NAME ?= $(notdir $(PWD))
