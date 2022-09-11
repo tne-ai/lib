@@ -19,11 +19,33 @@ NOTEBOOK ?= $(DATA)/$(notdir $(PWD)).ipynb
 # https://stackoverflow.com/questions/12069457/how-to-change-the-extension-of-each-file-in-a-list-with-multiple-extensions-in-g
 MARKDOWN ?= $(NOTEBOOK:ipynb=md)
 
-# ENV is the environment used by include.python.mkkk
-PIP ?= nbdime
-ENV ?= pipenv
-# LAB are the jupyterlab extensions
-LAB ?=
+# ENV is the environment used by include.python.mk
+
+# notebook have vim mode take from ./src/docker/image/jupyterlab
+# and https://neptune.ai/blog/jupyterlab-extensions-for-machine-learning
+# https://medium.com/data-for-everyone/best-extensions-for-jupyterlab-185ab5f3e05c
+# will eventually merge the two
+PIP += 	\
+		"jupyterlab>=3.3" \
+		"jupyterlab_latex>=3.1.0" \
+		"lckr-jupyterlab-variableInspector" \
+	   	"jupyter_tensorboard>=0" \
+	   	"jupyterlab-system-monitor>=0.8" \
+	   	"jupyterlab-vim>=0.15" \
+	   	"nbdime>=1.1.1" \
+       	"jupyterlab-git>=0.37" \
+       	"jupyterlab-github>=3.0" \
+       	"jupyterlab-lsp>=3.10" \
+       	"python-lsp-server[all]>=1.5.0" \
+        "aquirdturtle_collapsible_headings>=3.1" \
+        "jupyter-dash>=0.4.2" \
+        "jupyter_bokeh>=3.0.4" \
+        "jupyterlab_widgets>=1.1" \
+		"ipyleaflet>=0.17" \
+        'ipywidgets>=7.5'
+
+
+# LAB are the jupyterlab extensions LAB ?=
 
 ## jupytext: sync notebook and markdown with latest edits
 .PHONY: jupytext

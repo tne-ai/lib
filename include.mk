@@ -28,6 +28,24 @@ FORCE ?= false
 help: $(MAKEFILE_LIST)
 	@sed -n 's/^##//p' $(MAKEFILE_LIST)
 
+# https://stackoverflow.com/questions/4728810/how-to-ensure-makefile-variable-is-set-as-a-prerequisite/7367903#7367903
+# Clever trick using replacement where the % means match all targets that look
+# like this and ${*} means provide me with the targets
+# So a dependency on guard-PIPENV_ACTIVE would make sure you are in pipenv
+.PHONY: unset-%
+unset-%:
+	@if [[ -n "${${*}}" ]]; then \
+		echo "Environment variable $* must not be set for this Make rule to run"; \
+		exit 1; \
+	fi
+
+.PHONY: set-%
+set-%:
+	@if [[ -z "${${*}}" ]]; then \
+		echo "Environment variable $* must set for this Make rule to run"; \
+		exit 1; \
+	fi
+
 ## These are required tags from checkmate stubs are here you should overwrite
 #.PHONY: test
 #test:
@@ -58,7 +76,7 @@ install-repo:
 	fi; \
 	if [[ -e $(WS_DIR)/git/src/lib/gitignore.base && \
 		($(FORCE) ||  ! -e .gitignore) ]]; then \
-			cp "$(WS_DIR)/git/src/lib/.gitignore" .pre-commit-config.yaml; \
+			cp "$(WS_DIR)/git/src/lib/gitignore.base" .gitignore; \
 	fi; \
 	if [[ -e $(WS_DIR)/git/src/lib/pre-commit-config.full.yaml && \
 		($(FORCE) ||  ! -e .pre-commit-config.yaml) ]]; then \
@@ -83,7 +101,7 @@ pre-commit: install-pre-commit
 
 ## install-pre-commit: Install precommit (get prebuilt .pre-commit-config.yaml from @richtong/lib)
 .PHONY: install-pre-commit
-install-pre-commit: install-test
+install-pre-commit: install-repo
 	if [[ -e .pre-commit-config.yaml ]]; then \
 		$(RUN) pre-commit install || true && \
 		pre-commit install --hook-type commit-msg \
@@ -108,7 +126,7 @@ git-lfs:
 
 ## install-src: creates repo and submodules ./{bin,lib,docker}
 .PHONY: install-repo
-install:-src git-lfs install-repo
+install-src: git-lfs install-repo
 	$(RUN) for repo in bin lib docker; do git submodule add git@github.com:$(GIT_ORG)/$$repo; done
 	$(RUN) git submodule update --init --recursive --remote
 

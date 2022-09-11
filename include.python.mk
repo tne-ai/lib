@@ -22,8 +22,8 @@ EXCLUDE := -not \( -path "./extern/*" -o -path "./.git/*" \)
 ALL_PY := $$(find . -name "*.py" $(EXCLUDE) )
 ALL_YAML := $$(find . -name "*.yaml" $(EXCLUDE))
 # gitpod needs three digits so this will fail
-PYTHON ?= 3.10
-PYTHON_MINOR ?= $(PYTHON).6
+PYTHON ?= 3.9
+PYTHON_MINOR ?= $(PYTHON).12
 DOC ?= doc
 LIB ?= lib
 NAME ?= $(notdir $(PWD))
@@ -57,10 +57,10 @@ PIP_ONLY ?=
 PIP_DEV += \
 		bandit \
 		beautysh \
-		black \
+		"black>=22.6" \
 		build \
 		flake8 \
-		isort \
+		"isort>=5.10.1" \
 		mypy \
 		neovim \
 		pdoc3 \
@@ -95,10 +95,13 @@ ARCH ?= $(shell uname -m)
 # https://github.com/numpy/numpy/issues/17784
 # https://github.com/pypa/packaging/pull/319
 # These may have been fixed
+#
+# only need the compat for the switch from 10.x to 11.x with Big Surn
+#PIPENV := SYSTEM_VERSION_COMPAT=1 pipenv
+# Use this Monterey as the version compat is fixed
+# conditional dependency https://stackoverflow.com/questions/59867140/conditional-dependencies-in-gnu-make
+# install h5py right after the clean
 ifeq ($(ENV),pipenv)
-	# only need the compat for the switch from 10.x to 11.x with Big Surn
-	#PIPENV := SYSTEM_VERSION_COMPAT=1 pipenv
-	# Use this Monterey as the version compat is fixed
 	PIPENV := pipenv
 	RUN := $(PIPENV) run
 	UPDATE := $(PIPENV) update
@@ -106,9 +109,7 @@ ifeq ($(ENV),pipenv)
 	INSTALL_PRE := $(PIPENV) install --pre
 	INSTALL_DEV := $(INSTALL) --dev --pre
 	INSTALL_PIP_ONLY := $(INSTALL)
-	# conditional dependency https://stackoverflow.com/questions/59867140/conditional-dependencies-in-gnu-make
-	# install h5py right after the clean
-	INSTALL_REQ := pipenv-clean $(if $(strip $(INSTALL_H5PY)),install-h5py)
+	INSTALL_REQ := pipenv-python $(if $(strip $(INSTALL_H5PY)),install-h5py)
 else ifeq ($(ENV),conda)
 	RUN := conda run -n $(NAME)
 	INIT := eval "$$(conda shell.bash hook)"
@@ -253,7 +254,7 @@ ifeq ($(ENV),pipenv)
 	$(PIPENV) lock && $(PIPENV) update
 endif
 ifeq ($(ENV),conda)
-	@echo "conda posamble"
+	@echo "conda postamble"
 	[[ -r environment.yml ]] && conda env update --name $(NAME) -f environment.yml || true
 	# echo $$SHELL
 	[[ -r requirements.txt ]] && \
@@ -369,16 +370,17 @@ pipenv-lint: lint
 # looking for one, so on clean recreate one
 # we do not explicitly clean anymore so subdirectories of a pipenv can add
 # their dependencies
+# the unset-% is a dynamic target from include.mk that ensure PIPENV_ACTIVE is
+# set and replaces the manual
+# if [[ -n $$PIPENV_ACTIVE ]]; then echo "Cannot run inside pipenv shell exit first"; exit 1; fi
 .PHONY: pipenv-python
-pipenv-python: pipenv-super-clean pipenv-clean
-	@echo currently using python $(PYTHON) override changing PYTHON make flag
+pipenv-python: pipenv-super-clean pipenv-clean unset-PIPENV_ACTIVE
+	@echo "currently using python $(PYTHON) override changing PYTHON make flag"
 	brew upgrade python@$(PYTHON) pipenv
-	@echo pipenv sometimes corrupts after python $(PYTHON) install so reinstall if needed
+	@echo "pipenv sometimes corrupts after python $(PYTHON) install so reinstall if needed"
 	$(PIPENV) --version || brew reinstall pipenv
-
-	if [[ -n $$PIPENV_ACTIVE ]]; then echo "Cannot run inside pipenv shell exit first"; exit 1; fi
 	PIPENV_IGNORE_VIRTUALENVS=1 $(PIPENV) install --python $(PYTHON)
-	@echo use .env to ensure we can see all packages
+	@echo "use .env to ensure we can see all packages"
 	grep ^PYTHONPATH .env ||  echo "PYTHONPATH=." >> .env
 
 ## pipenv-clean: cleans the pipenv completely
