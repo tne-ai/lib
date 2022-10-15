@@ -15,13 +15,16 @@
 # ssh in: Note no .profile exports are available. Runs
 #         .bash_profile only because it is an interactive login shell # start non-GUI
 # console with CTRL-ALT-F5: .bash_profile because it is an interactive login shell
+# pipenv shell: this runs like Terminal and just runs bashrc
 #
 # The Linux strategy:
 # .profile: Can be execed directly by /bin/sh so should only run sh commands
 #           or check $BASH if it has to run Bash and source .bashrc
+#           This should be used to set the PATH and other environment variables
+#           like EDITOR or VISUAL
 # .bashrc:  Should be used for non-exportables like history, aliases and
 #           functions. It should check if in [[ $- =~ i ]] before interactive
-#           displays.
+#           displays. Command completions which are bash specific go here
 # .bash_profile: should just source .profile (which in turn sources .bashrc) as it is only run on ssh
 #
 # config_setup: source .profile and .bashrc do not put things into .bash_profile
@@ -39,15 +42,19 @@
 # Subshell: results of .bash_profile exports plus .bashrc run or .zprofile
 #           results of .zprofile and .zshrc and then .zshrc is sourced
 # ssh in: .bash_profile run or .zprofile and then .zshrc is sourced
+# pipenv shell: this works like Linux so it only runs .bashrc and skips
+#               .bash_profile
 #
 # The MacOS strategy: be as similar to Linus as possible. Be aware that
 # .profile: Put the PATH and other variables you want to be set in .profile use
-# /bin/sh syntax and detect ZSH_VERSION and run emulate sh to make this work.
+#		    /bin/sh syntax and detect ZSH_VERSION and run emulate sh to make this work.
 # .bash_profile: Sources .profile and .bashrc like Ubuntu.
 # .bashrc: Same strategy, it should only do non-exportables like history, aliases and functions
-#           and check if in [[ $- =~ i ]] before interactive displays.
-# .zprofile: source .profile with no need to source .zshrc as this is alway done
-# .zshrc: handles non-exportablesa nd check to see if it is interactive or not.
+#           and check if in [[ $- =~ i ]] before interactive displays. It gets
+#           completions because of the pipenv problem since .bash_profile is
+#           not run
+# .zprofile: source .profile manually with no need to source .zshrc as this is alway done
+# .zshrc: handles non-exportables and check to see if it is interactive or not.
 #
 # Note: checking if you are login shell or not https://unix.stackexchange.com/questions/26676/how-to-check-if-a-shell-is-login-interactive-batch
 # can be done by checking for -l in $- in zsh or shopt -q login_shell for bash
@@ -129,6 +136,25 @@ config_profile_shell() {
 		config_profile_shell_bash
 	fi
 }
+
+## config_profile_for_bash: put bash specific profile in right files for Ubuntu and Mac
+# General commands for path setting should be in .profile in /bin/sh syntax
+# Bash specific entries should go to .bash_profile for Mac and .bashrc for
+# Ubuntu if you are not using pipenv. But if you are using pipenv, then you
+# also have to use .bashrc because you will get completions otherwise
+#
+#
+config_profile_for_bash() {
+	if in_os mac; then
+		# switch to using .bashrc because pipenv only runs .bashrc and you lose
+		# completions otherwise
+		#config_profile_shell_bash
+		config_profile_shell_interactive
+	else
+		config_profile_shell_interactive
+	fi
+}
+
 
 ## source_profile: $file
 # Get the profiles from $dir and source it
