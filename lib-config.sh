@@ -6,25 +6,32 @@
 
 #
 # Ubuntu https://superuser.com/questions/789448/choosing-between-bashrc-profile-bash-profile-etc/789705#789705
-# On startup:  GDM reads .profile as /bin/sh before and cannot be interactive or
-#              display text # New terminal window: .profile exports and .bashrc because it is
-#              interactive non-login
-# Terminal: results of .profile and sources .bashrc
-# Terminal subshell: results of .profile and .sources bashrc is run becase it is
-#          interactive non-login
-# ssh in: Note no .profile exports are available. Runs
-#         .bash_profile only because it is an interactive login shell # start non-GUI
-# console with CTRL-ALT-F5: .bash_profile because it is an interactive login shell
-# pipenv shell: this runs like Terminal and just runs bashrc
+# On startup:
+#	  GDM reads .profile as /bin/sh before.
+#	  .profile cannot be interactive and you will not see it display
+#     display text
+# Terminal:
+#	  results of .profile and then sources .bashrc
+# Terminal subshell:
+#	  results of .profile and .sources bashrc is run because it is
+#     interactive non-login
+# ssh:
+#	  no .profile exports are available. Runs
+#    .bash_profile only because it is an interactive login shell
+# start non-GUI console with CTRL-ALT-F3 of F5:
+#	  .bash_profile because it is an interactive login shell
+# pipenv shell:
+#	  this runs like Terminal and just runs bashrc
 #
 # The Linux strategy:
-# .profile: Can be execed directly by /bin/sh so should only run sh commands
-#           or check $BASH if it has to run Bash and source .bashrc
+# .profile: Is sourced directly by /bin/sh so should only run sh commands
 #           This should be used to set the PATH and other environment variables
-#           like EDITOR or VISUAL
+#           like EDITOR or VISUAL. It can check $BASH to see if it run from
+#           bash and if so then source .bashrc
 # .bashrc:  Should be used for non-exportables like history, aliases and
 #           functions. It should check if in [[ $- =~ i ]] before interactive
-#           displays. Command completions which are bash specific go here
+#           displays in case it is run with ssh -c. Command completions which are bash specific go here as
+#           these do not get exported to subshells.
 # .bash_profile: should just source .profile (which in turn sources .bashrc) as it is only run on ssh
 #
 # config_setup: source .profile and .bashrc do not put things into .bash_profile
@@ -33,24 +40,31 @@
 # config_profile_nonexportable: set to .bashrc for alias and things that
 #
 # In MacOS, https://apple.stackexchange.com/questions/51036/what-is-the-difference-between-bash-profile-and-bashrc
-# is what happens is that .bash_profile is run for login shells, .bashrc is run
-# for non-login shells. If zsh is set then it sources.zprofile and then .zshrc for login shells and
-# .zshrc is for non-login shells. So in a typical configuration where bash is
+# is what happens is that:
+# .bash_profile is run for login shells
+# .bashrc is run for non-login shells.
+# 
+# If zsh is set then it sources.zprofile and then .zshrc for login shells and
+# .zshrc is for non-login shells.
+#
+# So in a typical configuration where bash is
 # the login shell you should put all the path and other changes just in .zshrc
 # on startup: Nothing is run before the GUI starts
+#
 # New terminal window: .bash_profile or .zprofile and then .zshrc (and not .bashrc like in Ubuntu)
-# Subshell: results of .bash_profile exports plus .bashrc run or .zprofile
+# Subshell: results of .bash_profile exports plus source of .bashrc
 #           results of .zprofile and .zshrc and then .zshrc is sourced
 # ssh in: .bash_profile run or .zprofile and then .zshrc is sourced
-# pipenv shell: this works like Linux so it only runs .bashrc and skips
-#               .bash_profile
+# pipenv shell: this works like Linux so it only runs .bashrc and skips .bash_profile
 #
-# The MacOS strategy: be as similar to Linus as possible. Be aware that
+# The MacOS strategy: be as similar to Linus as possible. The profile strategy is:
 # .profile: Put the PATH and other variables you want to be set in .profile use
 #		    /bin/sh syntax and detect ZSH_VERSION and run emulate sh to make this work.
-# .bash_profile: Sources .profile and .bashrc like Ubuntu.
+#		    It should source .bashrc if bash is being run.
+# .bash_profile: Sources .profile like Ubuntu.
 # .bashrc: Same strategy, it should only do non-exportables like history, aliases and functions
-#           and check if in [[ $- =~ i ]] before interactive displays. It gets
+#           and check if in [[ $- =~ i ]] before interactive displays so it
+#           doesn't run with ssh -c. It gets
 #           completions because of the pipenv problem since .bash_profile is
 #           not run
 # .zprofile: source .profile manually with no need to source .zshrc as this is alway done
