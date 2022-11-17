@@ -135,7 +135,7 @@ gcp-a100:
 	  --maintenance-policy TERMINATE \
 	  --restart-on-failure \
 	  --boot-disk-size=200 \
-	  --source-machine-image a100-vm \
+	  --source-machine-image nerf-server \
 	  --scopes https://www.googleapis.com/auth/cloud-platform \
 	  --service-account process@netdrones.iam.gserviceaccount.com
 
