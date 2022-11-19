@@ -43,7 +43,7 @@
 # is what happens is that:
 # .bash_profile is run for login shells
 # .bashrc is run for non-login shells.
-# 
+#
 # If zsh is set then it sources.zprofile and then .zshrc for login shells and
 # .zshrc is for non-login shells.
 #
@@ -168,7 +168,6 @@ config_profile_for_bash() {
 		config_profile_shell_interactive
 	fi
 }
-
 
 ## source_profile: $file
 # Get the profiles from $dir and source it
