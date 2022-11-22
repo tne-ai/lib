@@ -210,7 +210,18 @@ if eval "[[ ! -v $lib_name ]]"; then
 		sudo dpkg -i "$dest_dir/$dest"
 	}
 
-	## snap_install [ -flags.. ] [ packages... ]: return number of failed
+	snap_is_installed() {
+		if ! command -v snap &>/dev/null; then return 1; fi
+		declare -i missing=0
+		for package in "$@"; do
+			if ! snap list "$package" &>/dev/null; then
+				((++missing))
+			fi
+		done
+		log_verbose "search for $@ returning $missing"
+		return "$missing"
+	}
+	## nap_install [ -flags.. ] [ packages... ]: return number of failed
 	snap_install() {
 		if ! command -v snap &>/dev/null; then return 1; fi
 		if (($# < 1)); then return; fi
@@ -221,18 +232,23 @@ if eval "[[ ! -v $lib_name ]]"; then
 			flags+=("$1")
 			shift
 		done
+		log_verbose "snap install $*"
 		for package in "$@"; do
+			log_verbose "snap $package search"
+			# shellcheck disable=SC2068
 			if ! snap search "$package" | cut -f 1 -d' ' | grep -q "^$package\$" &>/dev/null; then
 				log_verbose "$package not snap package"
 				((++failed))
-			elif ! snap list "$package" >/dev/null; then
-				if ! sudo snap install "${flags[@]}" "$package"; then
-					log_verbose "$package installed failed"
-					((++failed))
-				fi
+			elif snap_is_installed "$package" &>/dev/null; then
+				log_verbose "snap $package already installed"
+				continue
+			elif ! sudo snap install ${flags[@]} "$package"; then
+				log_verbose "$package installed failed"
+				((++failed))
+			else
+				log_verbose "$package installed"
 			fi
 		done
-		log_verbose "failed $failed"
 		return "$failed"
 	}
 	snap_uninstall() {

@@ -162,10 +162,15 @@ if eval "[[ ! -v $lib_name ]]"; then
 			shift
 		done
 		for package in "$@"; do
+			log_verbose "snap search $package"
 			if snap search "$package" | cut -f 1 -d' ' | grep -q "^$package\$" &>/dev/null; then
-				log_verbose "$package snap found"
-				if ! sudo snap install "${flags[@]}" "$package"; then
-					((++failed))
+				log_verbose "snap $package available"
+				if ! is_snap_installed "$package"; then
+					log_verbose "snap $package installed started"
+					if ! sudo snap install "${flags[@]}" "$package"; then
+						log_verbose "snap $package failed"
+						((++failed))
+					fi
 				fi
 			fi
 		done
