@@ -218,7 +218,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 				((++missing))
 			fi
 		done
-		log_verbose "search for $@ returning $missing"
+		log_verbose "search for $* returning $missing"
 		return "$missing"
 	}
 	## nap_install [ -flags.. ] [ packages... ]: return number of failed
