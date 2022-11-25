@@ -68,24 +68,31 @@ readme:
 .PHONY: install-repo
 install-repo:
 	for PREREQ in markdownlint-cli shellcheck shfmt hadolint git-lfs; do \
-		if ! command -v "$$PREREQ" >/dev/null; then brew install "$$PREREQ"; fi \
-	done; \
+		if ! command -v "$$PREREQ" >/dev/null; then brew install "$$PREREQ"; fi ;\
+	done && \
+	for PREREQ_PIP in pynvim; do \
+	    pip install "$$PREREQ_PIP"; \
+	done && \
 	if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/gitattributes.base && \
-		-e .gitattributes ]]; then \
+		! -e .gitattributes ]]; then \
 			cp "$(WS_DIR)/git/src/lib/gitattributes.base" .gitattributes; \
-	fi; \
+	fi && \
 	if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/gitignore.base && \
-		($(FORCE) ||  ! -e .gitignore ]]; then \
+		! -e .gitignore ]]; then \
 			cp "$(WS_DIR)/git/src/lib/gitignore.base" .gitignore; \
-	fi; \
+	fi && \
 	if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/pre-commit-config.full.yaml && \
-		||  ! -e .pre-commit-config.yaml ]]; then \
+		! -e .pre-commit-config.yaml ]]; then \
 			cp "$(WS_DIR)/git/src/lib/pre-commit-config.full.yaml" .pre-commit-config.yaml; \
-	fi; \
-	if $(FORCE ) || [[ -e $(WS_DIR)/git/src/lib/workflow.full.gha.yaml && \
-		|| ! -e .github/workflows/workflow.full.gha.yaml ]]; then \
+	fi && \
+	if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/workflow.full.gha.yaml && \
+		! -e .github/workflows/workflow.full.gha.yaml ]]; then \
 			mkdir -p .github/workflows; \
 			cp "$(WS_DIR)/git/src/lib/workflow.full.gha.yaml" .github/workflows; \
+	fi && \
+	if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/tool-versions.full && \
+		! -e .tool-versions ]]; then \
+			cp "$(WS_DIR)/git/src/lib/tool-versions.full" .tool-versions; \
 	fi
 
 ## pre-commit: Run pre-commit hooks and install if not there with update
