@@ -93,6 +93,10 @@ install-repo:
 	if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/tool-versions.full && \
 		! -e .tool-versions ]]; then \
 			cp "$(WS_DIR)/git/src/lib/tool-versions.full" .tool-versions; \
+	fi && \
+	if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/envrc.full && \
+		! -e .envrc ]]; then \
+			cp "$(WS_DIR)/git/src/lib/envrc.full" .envrc; \
 	fi
 
 ## pre-commit: Run pre-commit hooks and install if not there with update
