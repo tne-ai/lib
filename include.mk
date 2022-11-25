@@ -70,20 +70,20 @@ install-repo:
 	for PREREQ in markdownlint-cli shellcheck shfmt hadolint git-lfs; do \
 		if ! command -v "$$PREREQ" >/dev/null; then brew install "$$PREREQ"; fi \
 	done; \
-	if [[ -e $(WS_DIR)/git/src/lib/gitattributes.base && \
-		($(FORCE) ||  ! -e .gitattributes) ]]; then \
+	if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/gitattributes.base && \
+		-e .gitattributes ]]; then \
 			cp "$(WS_DIR)/git/src/lib/gitattributes.base" .gitattributes; \
 	fi; \
-	if [[ -e $(WS_DIR)/git/src/lib/gitignore.base && \
-		($(FORCE) ||  ! -e .gitignore) ]]; then \
+	if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/gitignore.base && \
+		($(FORCE) ||  ! -e .gitignore ]]; then \
 			cp "$(WS_DIR)/git/src/lib/gitignore.base" .gitignore; \
 	fi; \
-	if [[ -e $(WS_DIR)/git/src/lib/pre-commit-config.full.yaml && \
-		($(FORCE) ||  ! -e .pre-commit-config.yaml) ]]; then \
+	if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/pre-commit-config.full.yaml && \
+		||  ! -e .pre-commit-config.yaml ]]; then \
 			cp "$(WS_DIR)/git/src/lib/pre-commit-config.full.yaml" .pre-commit-config.yaml; \
 	fi; \
-	if [[ -e $(WS_DIR)/git/src/lib/workflow.full.gha.yaml && \
-		($(FORCE) || ! -e .github/workflows/workflow.full.gha.yaml) ]]; then \
+	if $(FORCE ) || [[ -e $(WS_DIR)/git/src/lib/workflow.full.gha.yaml && \
+		|| ! -e .github/workflows/workflow.full.gha.yaml ]]; then \
 			mkdir -p .github/workflows; \
 			cp "$(WS_DIR)/git/src/lib/workflow.full.gha.yaml" .github/workflows; \
 	fi
@@ -95,7 +95,6 @@ pre-commit: install-pre-commit
 	if [[ ! -e .pre-commit-config.yaml ]]; then \
 		echo "no .pre-commit-config.yaml found copy from ./lib"; \
 	else \
-		$(RUN) pre-commit autoupdate || true && \
 		$(RUN) pre-commit run --all-files || true \
 	; fi
 
@@ -106,6 +105,11 @@ install-pre-commit: install-repo
 		$(RUN) pre-commit install || true && \
 		pre-commit install --hook-type commit-msg \
 	; fi
+
+## pre-commit-update: Bump all pre-commit versions
+.PHONY: pre-commit-update
+pre-commit-update:
+		$(RUN) pre-commit autoupdate || true
 
 ## act: Run Github actions as docker job on local machine only works as amd64
 # https://github.com/nektos/act/issues/285
