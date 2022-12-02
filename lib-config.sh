@@ -477,7 +477,7 @@ config_replace() {
 	echo grep -q "^$target" "$file"
 	if ! grep -q "^$target" "$file"; then
 		# did not find the target so just add the entire line
-		#echo no line so add with tee
+		log_verbose "did not find ^$target in $file adding $lines"
 		# do not quote need_sudo as it can be null if not needed
 		$need_sudo tee -a "$file" <<<"$lines" >/dev/null
 	elif ! $MULTILINE; then
