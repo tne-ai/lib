@@ -248,6 +248,14 @@ if eval "[[ ! -v $lib_name ]]"; then
 		fi
 	}
 
+	# linux_model: returns the model of the machine as manufacturer is set to Notebook 
+	# typical model is NV14J for Juno Neptune 14J
+	linux_model() {
+		if command -v dmidecode >/dev/null; then
+			sudo dmidecode -t system | awk 'BEGIN { FS = ":" }; /Product Name/{print $2}'
+		fi
+	}
+
 	## in_linux [ ubuntu | debian ]: returns 0 if that is the distribution
 	in_linux() {
 		if (($# < 1)); then
