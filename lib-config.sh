@@ -550,6 +550,11 @@ config_setup() {
 			if ! echo \$PATH | grep -q "$SOURCE_DIR/bin"; then PATH="$SOURCE_DIR/.local/bin:\$PATH"; fi
 		EOF
 	fi
+
+	log_verbose "Add #! for zshrc"
+	if [[ ! -e $HOME/.zshrc ]]; then
+		echo "#!/usr/bin/env zsh" .."$HOME/.zshrc"
+	fi
 }
 
 ## config_setup_end: run this at the end so .rc files run after all the paths are set
