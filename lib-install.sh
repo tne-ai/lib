@@ -541,6 +541,21 @@ if eval "[[ ! -v $lib_name ]]"; then
 		return 1
 	}
 
+	# clone the repo into this file location
+	# git_clone repo [location]
+	# return code: 0 on success, 1 on failure
+	# echos the location of the
+	git_clone() {
+		if (($# < 1)); then return 1; fi
+		local repo="$1"
+		local dest_dir="${2:-$WS_DIR/git}"
+		local repo_path
+		repo_path="$2/$(basename "$1")"
+		if [[ ! -e $repo_path ]]; then
+			git clone "$1" "$2"
+		fi
+	}
+
 	# will always download unless the md5sum matches or sha256sum
 	# To use sha256 add it as the last argument and it overrides
 	# the md5 value

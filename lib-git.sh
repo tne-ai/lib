@@ -109,7 +109,9 @@ git_set_config() {
 ## examples git_install_or_update -f src
 ##          git_install_or_update rpi-motion-mmal jritsma
 ##          git_install_or_update flash hypriot "$WS_DIR/cache"
-##          git_install_or_update "https://gist.github.com/schickling/2c48da462a7def0a577e" docker-machine-import-export
+##          git_install_or_update "https://gist.github.com/schickling/2c48da462a7def0a577e" schickling docker-machine-import-export
+## returns: 0 for success, 1 for failure
+## output: location of repo
 ##
 git_install_or_update() {
 	local return_code=0
@@ -170,6 +172,6 @@ git_install_or_update() {
 		echo >&2 "${FUNCNAME[*]}: no $git_dir found"
 		return_code=4
 	fi
-
+	echo "$git_dir/$repo"
 	return "$return_code"
 }
