@@ -57,7 +57,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			shift
 		done
 		for cask in "$@"; do
-			if ! brew info "$package" &>/dev/null; then
+			if ! brew info "$cask" &>/dev/null; then
 				log_verbose "$cask not a cask"
 				missing+=1
 			elif ! cask_is_installed "$cask" ||
