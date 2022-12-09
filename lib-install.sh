@@ -39,7 +39,9 @@ if eval "[[ ! -v $lib_name ]]"; then
 		if ! command -v brew &>/dev/null; then return 1; fi
 		declare -i missing=0
 		for cask in "$@"; do
-			if ! brew list --cask | grep -q "^$cask"; then
+			# cask output can be case sensitive so brew info 1password
+			# returns 1Password but no longer as the first entry
+			if ! brew list --cask | grep -qi "$cask"; then
 				missing+=1
 			fi
 		done

@@ -163,7 +163,7 @@ config_profile_for_bash() {
 		# switch to using .bashrc because pipenv only runs .bashrc and you lose
 		# completions otherwise
 		#config_profile_shell_bash
-		config_profile_interactive
+		config_profile_shell_bash
 	else
 		config_profile_interactive
 	fi
