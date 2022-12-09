@@ -124,7 +124,7 @@ git_install_or_update() {
 	# -f means force reset to origin/master
 	if [[ $1 == -f ]]; then
 		git_command='git fetch --all &&
-				 git reset --hard origin/master &&
+				 git reset --hard origin/master >/dev/null &&
 				 git checkout master &&
 				 git pull'
 		shift
@@ -133,9 +133,9 @@ git_install_or_update() {
 		# http://git-blame.blogspot.com/2013/06/checking-current-branch-programatically.html
 		git_command='if ! git symbolic-ref HEAD;
 				 then
-					 git checkout master;
+					 git checkout master >/dev/null;
 				 fi &&
-				 git pull'
+				 git pull >/dev/null'
 	fi
 	if [[ $1 =~ ^https ]]; then
 		local repo="${2:-$(basename "$1")}"
@@ -148,24 +148,24 @@ git_install_or_update() {
 
 	mkdir -p "$git_dir"
 
-	if cd "$git_dir/$repo" 2>/dev/null; then
-		if ! eval "$git_command"; then
+	if cd "$git_dir/$repo" &>/dev/null; then
+		if ! eval "$git_command" &>/dev/null; then
 			echo >&2 "${FUNCNAME[*]}: in $repo, $git_command failed"
 			return_code=2
 		fi
-		if ! cd -; then
+		if ! cd - >/dev/null; then
 			return 3
 		fi
-	elif cd "$git_dir"; then
+	elif cd "$git_dir" &>/dev/null; then
 		if [[ ! $full_repo_name =~ ^https ]]; then
 			full_repo_name="git@github.com:$full_repo_name"
 		fi
 
-		if ! git clone "$full_repo_name" "$repo"; then
+		if ! git clone "$full_repo_name" "$repo" &>/dev/null; then
 			echo >&2 "${FUNCNAME[*]}: git clone $full_repo_name failed"
 			return_code=3
 		fi
-		if ! cd -; then
+		if ! cd - &>/dev/null; then
 			return 4
 		fi
 	else
