@@ -39,12 +39,15 @@ if eval "[[ ! -v $lib_name ]]"; then
 		if ! command -v brew &>/dev/null; then return 1; fi
 		declare -i missing=0
 		for cask in "$@"; do
+			log_verbose "is $cask installed?"
 			# cask output can be case sensitive so brew info 1password
 			# returns 1Password but no longer as the first entry
-			if ! brew list --cask | grep -qi "$cask"; then
+			if ! brew list --cask "$cask" | grep -qi "$cask"; then
+				log_verbose "no $cask found"
 				missing+=1
 			fi
 		done
+		log_verbose "$missing casks are missing"
 		return "$missing"
 	}
 	## cask_install [ casks... ]: returns number of casks not installed
@@ -59,11 +62,12 @@ if eval "[[ ! -v $lib_name ]]"; then
 			shift
 		done
 		for cask in "$@"; do
+			log_verbose "brew --cask $cask exists?"
+			# shellcheck disable=SC2068
 			if ! brew info "$cask" &>/dev/null; then
 				log_verbose "$cask not a cask"
 				missing+=1
-			elif ! cask_is_installed "$cask" ||
-				! brew install --cask "${flags[@]}" "$cask"; then
+			elif ! cask_is_installed "$cask" && ! brew install --cask ${flags[@]} "$cask"; then
 				log_verbose "$cask install failed"
 				missing+=1
 			fi
