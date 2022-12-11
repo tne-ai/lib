@@ -501,4 +501,14 @@ if eval "[[ ! -v $lib_name ]]"; then
 		fi
 	}
 
+    # machine independent open a url in a browser
+    # util_web_open url
+    util_web_open() {
+        if in_os mac; then
+            open "$@"
+        elif in_os linux; then
+            xdg-open "$@"
+        fi
+    }
+
 fi
