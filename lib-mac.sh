@@ -51,9 +51,9 @@ mac_is_arm() {
 # https://en.wikipedia.org/wiki/MacOS
 mac_codename() {
 	case $(mac_version) in
-    13.*)
-        echo Ventura
-        ;;
+	13.*)
+		echo Ventura
+		;;
 	12.*)
 		echo Monterey
 		;;
