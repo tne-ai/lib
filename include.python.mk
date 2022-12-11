@@ -373,10 +373,12 @@ pipenv-lint: lint
 # the unset-% is a dynamic target from include.mk that ensure PIPENV_ACTIVE is
 # set and replaces the manual
 # if [[ -n $$PIPENV_ACTIVE ]]; then echo "Cannot run inside pipenv shell exit first"; exit 1; fi
+# note we do an install of python@$(PYTHON) in case it is not there
+# upgrade does not work
 .PHONY: pipenv-python
 pipenv-python: pipenv-super-clean pipenv-clean unset-PIPENV_ACTIVE
 	@echo "currently using python $(PYTHON) override changing PYTHON make flag"
-	brew upgrade python@$(PYTHON) pipenv
+	brew install python@$(PYTHON) pipenv
 	@echo "pipenv sometimes corrupts after python $(PYTHON) install so reinstall if needed"
 	$(PIPENV) --version || brew reinstall pipenv
 	PIPENV_IGNORE_VIRTUALENVS=1 $(PIPENV) install --python $(PYTHON)
