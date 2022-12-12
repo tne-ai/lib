@@ -207,12 +207,16 @@ if eval "[[ ! -v $lib_name ]]"; then
 		local url="$2"
 		local dest="${3:-"$(basename "$url")"}"
 		local dest_dir="${4:-"$WS_DIR/cache"}"
-		if dpkg-query -l | awk '{print $2}' | grep -q "^$package"; then
+		log_verbose "check $package is already installed"
+		# for some reason grep -q does not work here it always fails
+		if dpkg-query -l | awk '{print $2}' | grep "^$package" >/dev/null; then
+			log_verbose "Package $package already installed"
 			return
-		else
-			shift
-			download_url "$@"
 		fi
+		shift
+		log_verbose "call download_url $*"
+		download_url "$@"
+		log_verbose "dpkg install from  $dest_dir finding $dest"
 		sudo dpkg -i "$dest_dir/$dest"
 	}
 
@@ -572,8 +576,8 @@ if eval "[[ ! -v $lib_name ]]"; then
 	download_url() {
 		if (($# < 1)); then return 1; fi
 		local url="$1"
-		local dest_dir="${3:-"$WS_DIR/cache"}"
 		local dest="${2:-$dest_dir/$(basename "$url")}"
+		local dest_dir="${3:-"$WS_DIR/cache"}"
 		local md5="${4:-0}"
 		local sha256="${5:-0}"
 		mkdir -p "$dest_dir"
