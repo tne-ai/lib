@@ -576,8 +576,8 @@ if eval "[[ ! -v $lib_name ]]"; then
 	download_url() {
 		if (($# < 1)); then return 1; fi
 		local url="$1"
-		local dest="${2:-$dest_dir/$(basename "$url")}"
 		local dest_dir="${3:-"$WS_DIR/cache"}"
+		local dest="${2:-$dest_dir/$(basename "$url")}"
 		local md5="${4:-0}"
 		local sha256="${5:-0}"
 		mkdir -p "$dest_dir"
@@ -592,7 +592,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		fi
 		# Use the resume feature to make sure you got it by first trying and if
 		# http://www.cyberciti.biz/faq/curl-command-resume-broken-download/
-		log_verbose "curl -C - -L $url -o $dest_dir/dest"
+		log_verbose "curl -C - -L $url -o $dest_dir/$dest"
 		mkdir -p "$dest_dir"
 		if ! curl -C - -L "$url" -o "$dest_dir/$dest"; then
 			# if we fail see if the return code doesn't allow -C for resume and retry
