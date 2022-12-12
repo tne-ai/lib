@@ -7,7 +7,7 @@
 ## On Ubuntu 22.04 and later the native Gnome keyring supports id_ed25519
 
 ## usage use_openssh_keychain [key1 key2...]
-## if no parameters, look for all i .ssh 
+## if no parameters, look for all i .ssh
 ## returns 0 if no reboot required other wise returns 1
 use_openssh_keychain() {
 	local no_keychain_found=0
@@ -18,7 +18,7 @@ use_openssh_keychain() {
 		return
 	fi
 
-    if (( $# == 0 )); then
+	if (($# == 0)); then
 		mapfile -d '' KEYS < <(find "$HOME/.ssh" -name "*id_ed25519" -o -name "*id_rsa")
 	else
 		KEYS=("$@")
