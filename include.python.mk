@@ -53,11 +53,12 @@ PIP ?=
 # These cannot be installed in the environment must use pip install
 # build, twine and setuptools for PIP packaging only but install since
 # most of what we do will end up packaged
+# black > 22.12 for security
 PIP_ONLY ?=
 PIP_DEV += \
 		bandit \
 		beautysh \
-		"black>=22.6" \
+		"black>=22.12" \
 		build \
 		flake8 \
 		"isort>=5.10.1" \
