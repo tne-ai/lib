@@ -20,6 +20,30 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# how to do an indirect reference
 	eval "$lib_name=true"
 
+	# brew_profile_install brew shell profile
+	brew_profile_install() {
+		# pre-install may have added this or otherwise, so if
+		# we see this variable assume something else installed it
+		if [[ ! -v HOMEBREW_PROFILE ]]; then return; fi
+
+		# Assume that if brew is set we do not need to do this
+
+		if ! config_mark; then
+			config_add <<-EOF
+				# Added by $SCRIPTNAME on $(date)
+				if [ -z "$HOMEBREW_PREFIX" ]; then
+					HOMEBREW_PREFIX="/opt/homebrew"
+					if  uname | grep -q Linux; then
+						HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
+					elif uname | grep -q Darwin && uname -m | grep -q x86_64; then
+						HOMEBREW_PREFIX="/usr/local"
+					fi
+					eval "\$(\$HOMEBREW_PREFIX/bin/brew shellenv)"
+				fi
+			EOF
+		fi
+	}
+
 	# usage: tap_install [ -flags...] [ taps... ]
 	tap_install() {
 		if ! command -v brew &>/dev/null; then return 1; fi
