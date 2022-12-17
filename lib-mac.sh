@@ -114,45 +114,6 @@ mac_codename() {
 	esac
 }
 
-# install_app application [location]
-install_in_dir() {
-	if [[ ! $OSTYPE =~ darwin ]]; then return 0; fi
-	if (($# < 1)); then return 1; fi
-	src="$1"
-	dir="${2:-/Application}"
-	# move the app if it does not already exist
-	if [[ ! -e "$dir/$(basename "$src")" ]]; then
-		sudo mv "$src" "$dir"
-	fi
-}
-
-# find a file in the /Volumes and you can use the wild card at the end
-# usage: find_in_volume filename [volume with wild carding]
-find_in_volume() {
-	if [[ ! $OSTYPE =~ darwin ]]; then return 0; fi
-	if (($# < 1)); then return 1; fi
-	local path="/Volumes"
-	if (($# > 1)); then local path="$path/$2"; fi
-	# Find the first volume that has the app
-	# Note that we use $path so there are can be multiple directories here
-	# http://askubuntu.com/questions/444551/get-absolute-path-of-files-using-find-command
-	# but readlink -f not availabe on Mac OS, so use feeding find an absolute path
-	# returns an absolute path trick
-	find "$path"* -name "$1" -print -quit 2>/dev/null
-}
-
-# install_app application [location]
-install_in_dir() {
-	if [[ ! $OSTYPE =~ darwin ]]; then return 0; fi
-	if (($# < 1)); then return 1; fi
-	src="$1"
-	dir="${2:-/Application}"
-	# move the app if it does not already exist
-	if [[ ! -e "$dir/$(basename "$src")" ]]; then
-		sudo mv "$src" "$dir"
-	fi
-}
-
 # find a file in the /Volumes and you can use the wild card at the end
 # usage: find_in_volume filename [volume with wild carding]
 find_in_volume() {

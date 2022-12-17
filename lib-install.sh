@@ -588,6 +588,19 @@ if eval "[[ ! -v $lib_name ]]"; then
 		fi
 	}
 
+	# install_mac_app application [location]
+	install_mac_app() {
+		if [[ ! $OSTYPE =~ darwin ]]; then return 0; fi
+		if (($# < 1)); then return 1; fi
+		src="$1"
+		dir="${2:-/Applications}"
+		# move the app if it does not already exist
+		if [[ ! -e "$dir/$(basename "$src")" ]]; then
+			log_verbose "move $src to $dir"
+			sudo mv "$src" "$dir"
+		fi
+	}
+
 	# will always download unless the md5sum matches or sha256sum
 	# To use sha256 add it as the last argument and it overrides
 	# the md5 value
@@ -605,7 +618,8 @@ if eval "[[ ! -v $lib_name ]]"; then
 		local md5="${4:-0}"
 		local sha256="${5:-0}"
 		mkdir -p "$dest_dir"
-		# If file exists and there is md5 sum, we assume the file download worked
+		# If file exists and there is md5 sum, we assume the file download wo
+		rked
 		if [[ -e $dest ]]; then
 			# if no md5 or sha supplied assume it worked
 			# check_md5 succeeds on a zero so last test is
@@ -643,10 +657,13 @@ if eval "[[ ! -v $lib_name ]]"; then
 		mkdir -p "$dest"
 		local extension="${file##*.}"
 		log_verbose "curl from $url to $dest/$file open $extension"
+		log_verbose "go to $dest"
 		pushd "$dest" >/dev/null || return 1
 		download_url "$url" "$file" "$dest"
+		log_verbose "download successful check what we got in $dest/$file looking at $extension"
 		case "$extension" in
 		deb)
+			log_verbose
 			sudo dpkg -i "$file"
 			;;
 		dmg)
@@ -661,6 +678,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			;;
 		pkg)
 			# packages can be batch installed
+			log_verbose "package install $file"
 			sudo installer -pkg "$file" -target /
 			;;
 		tar)
@@ -669,42 +687,62 @@ if eval "[[ ! -v $lib_name ]]"; then
 		gz)
 			open "$file"
 			;;
+		app)
+			log_verbose "Found $file as an app"
+			install_mac_app "$file"
+			;;
 		zip)
 			# unpack the file
-			log_verbose "unzip $file"
+			log_verbose "unzip $file into $target"
 			unzip "$file" -d "$target"
+
 			# If the file unpacked into an app move it
 			local app="${file%.*}.app"
+			log_verbose "Looking for $app"
 			if [[ -e $app ]]; then
-				install_in_dir "$app"
+				log_verbose "try to install $app"
+				install_mac_app "$app"
 			fi
 			# try again trying to strip version numbers and junk from name
-			app=${app%.*}.app
+			local app="${app%.*}.app"
+			log_verbose "looking for $app"
 			if [[ -e $app ]]; then
-				install_in_dir "$app"
+				log_verbose "try to install $app"
+				install_mac_app "$app"
 			fi
+			directory="${file%.*}"
+			log_verbose "is $directory a directory"
+			if [[ -d $directory ]]; then
+				log_verbose "$directory is a directory the user should try"
+				return
+			fi
+
+			# check to see if this is a pkg
 			# could be a hammerspoon. spoon file which self installs
-			local spoon=${file%.*}
+			local spoon="${file%.*}"
 			log_verbose "looking for $spoon"
 			if [[ -e $spoon ]]; then
 				open "$spoon"
 			fi
-			pref=${file%.*}.prefPane
+
+			pref="${file%.*}.prefPane"
+			log_verbose "Looking for $pref"
 			if [[ -e $pref ]]; then
-				install_in_dir "$pref" "/Library/PreferencePanes"
+				install_mac_app "$pref" "/Library/PreferencePanes"
 			fi
 			# try again trying to strip version numbers and junk from name
-			pref=${pref%_*}.prefPane
+			pref="${pref%_*}.prefPane"
+			log_verbose "Looking for $pref"
 			if [[ -e $pref ]]; then
-				install_in_dir "$pref" "/Library/PreferencePanes"
+				install_mac_app "$pref" "/Library/PreferencePanes"
 			fi
-			# check to see if this is a pkg
 			# https://stackoverflow.com/questions/407184/how-to-check-the-extension-of-a-filename-in-a-bash-script
 			# https://apple.stackexchange.com/questions/72226/installing-pkg-with-terminal
 			# see if the zip file is a package
-			pkg=${file%.*}
+			pkg="${file%.*}"
+			log_verbose "Looking for $pkg"
 			if [[ -e $pkg ]]; then
-				echo "trying pkg install of $pkg"
+				log_verbose "trying pkg install of $pkg"
 				sudo installer -pkg "$pkg" -target /
 			fi
 			;;
