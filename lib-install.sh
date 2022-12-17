@@ -106,11 +106,17 @@ if eval "[[ ! -v $lib_name ]]"; then
 	}
 	brew_is_installed() {
 		declare -i missing=0
+		log_verbose "are $# package(s) $*"
 		for package in "$@"; do
-			if ! brew list "$package" &>/dev/null; then
+			log_verbose "looking for $package"
+			# for some reason piping stdout to /dev/null
+			# means brew list always returns successful
+			if ! brew list -q "$package" 2>/dev/null; then
+				log_verbose "did not find $package"
 				((++missing))
 			fi
 		done
+		log_verbose "missing $missing packages"
 		return "$missing"
 	}
 	# Mac Brew installations for simple packages called bottles
