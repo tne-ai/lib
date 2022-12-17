@@ -28,7 +28,7 @@ xcode_license_accept() {
 
 # xcode_cli_install: check for the tools and install them
 xcode_cli_install() {
-	if ! xcode-select -p && ! pkgutil --pkg-info=com.apple.pkg.CLTools_Executables; then
+	if ! xcode-select -p >/dev/null && ! pkgutil --pkg-info=com.apple.pkg.CLTools_Executables >/dev/null; then
 		xcode-select --install
 	fi
 }
