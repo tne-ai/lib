@@ -625,8 +625,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		local md5="${4:-0}"
 		local sha256="${5:-0}"
 		mkdir -p "$dest_dir"
-		# If file exists and there is md5 sum, we assume the file download wo
-		rked
+		# If file exists and there is md5 sum, we assume the file download worked
 		if [[ -e $dest ]]; then
 			# if no md5 or sha supplied assume it worked
 			# check_md5 succeeds on a zero so last test is
