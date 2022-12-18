@@ -115,7 +115,6 @@ zfs_disk_configuration() {
 		# $disks is same as ${disks[0]}
 		echo -ne "spare ${disks[*]}"
 	fi
-	return
 
 	case $# in
 	0)

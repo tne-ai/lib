@@ -124,15 +124,6 @@ remove_account_and_local() {
 	done
 }
 
-# get_mac_address hostnames,..
-get_mac_address() {
-	for host in "$@"; do
-		host=$(add_local "$(remove_account "$host")")
-		ip=$(ping -c 1 "$host" | head -1 | awk '{print $3}' | grep -o "[0-9.]*")
-		arp -n -a | grep "$ip" | awk '{print $4}'
-	done
-}
-
 # http://superuser.com/questions/894424/is-there-an-easy-way-to-do-a-host-lookup-by-mac-address-on-a-lan
 # get_ip dns_name
 get_ip() {

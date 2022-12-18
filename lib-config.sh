@@ -623,27 +623,6 @@ modify_config_var() {
 	local current_value="$2"
 	local new_value="$3"
 	local file="$4"
-	local marker="${5:-"Added by $SCRIPTNAME"}"
-	local current_line
-	current_line=$(get_config_var "$key" "$file")
-	# do not need eval because you can use variables in bash substitutions
-	log_verbose "current $current_line change from $current_value to \"$new_value\""
-	local new_line="${current_line/$current_value/$new_value}"
-	log_verbose "new_line is $new_line"
-	set_config_var "$key" "$new_line" "$file" "$marker"
-}
-
-# change part of a  configuration variable
-# most useful when there is a long string and you just want to delete one item
-# GRUB_CMGLINE is an example where you just want to remove the variable QUIET in
-# the string
-# usage: modify_config_var key old_value new_value file [marker]
-modify_config_var() {
-	if (($# < 4)); then return 1; fi
-	local key="$1"
-	local current_value="$2"
-	local new_value="$3"
-	local file="$4"
 	local marker="${$:-"Added by $SCRIPTNAME"}"
 	local current_line
 	current_line=$(get_config_var "$key" "$file")

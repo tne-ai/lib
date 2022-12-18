@@ -66,7 +66,8 @@ if eval "[[ ! -v $lib_name ]]"; then
 			log_verbose "is $cask installed?"
 			# cask output can be case sensitive so brew info 1password
 			# returns 1Password but no longer as the first entry
-			if ! brew list --cask "$cask" | grep -qi "$cask"; then
+			# As of Dec 2022 brew list now crashes when piped to grep???!
+			if ! brew list --cask "$cask" &>/dev/null; then
 				log_verbose "no $cask found"
 				missing+=1
 			fi
