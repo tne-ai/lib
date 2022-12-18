@@ -100,6 +100,9 @@ if eval "[[ ! -v $lib_name ]]"; then
 		log_verbose "cask install return $missing"
 		return "$missing"
 	}
+	cask_uninstall() {
+		brew_uninstall "$@"
+	}
 	# https://unix.stackexchange.com/questions/265267/bash-converting-path-names-for-sed-so-they-escape
 	# Uses bash substring replacement
 	flags_to_grep() {
