@@ -44,7 +44,7 @@ mac_arch() {
 }
 
 mac_is_arm() {
-	in_os mac && mac_arch | grep -q arm64
+	[[ $OSTYPE =~ darwin ]] && mac_arch | grep -q arm64
 }
 
 #  converst version to the code name used for things like install-macports.sh which needs names
