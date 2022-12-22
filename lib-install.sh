@@ -639,9 +639,9 @@ if eval "[[ ! -v $lib_name ]]"; then
 		fi
 		# Use the resume feature to make sure you got it by first trying and if
 		# http://www.cyberciti.biz/faq/curl-command-resume-broken-download/
-		log_verbose "curl -C - -L $url -o $dest_dir/$dest"
+		log_verbose "curl -C - -L $url -o $dest"
 		mkdir -p "$dest_dir"
-		if ! curl -C - -L "$url" -o "$dest_dir/$dest"; then
+		if ! curl -C - -L "$url" -o "$dest"; then
 			# if we fail see if the return code doesn't allow -C for resume and retry
 			# Amazon AWS for instance doesn't allow resume and returns 31
 			# Private Internet Access servers return 33 for same issue
