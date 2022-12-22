@@ -27,15 +27,15 @@ avahi_publish() {
 		return
 	fi
 
-	# Ubuntu 14.04 does not like this header and throws an error
-	#<?xml version="1.0" standalone='no'?><!--*-nxml-*-->
-	#<!DOCTYPE service=group SYSTEM "avahi-service.dtd">
+	log_verbose "Ubuntu 14.04 does not like this header and throws an error"
 	sudo tee "$service_file" <<-EOF
-		<service-group>
-		  <name replace-wildcards="yes">$name</name>
-		  <service>
-		     <type>$protocol</type>
-		     <port>$port</port>
+		        <?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+		        <!DOCTYPE service=group SYSTEM "avahi-service.dtd">
+				<service-group>
+				  <name replace-wildcards="yes">$name</name>
+				  <service>
+				     <type>$protocol</type>
+				     <port>$port</port>
 	EOF
 	# optionally put in  a text record
 	if [[ -n $text ]]; then
