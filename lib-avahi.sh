@@ -6,10 +6,10 @@
 ## Use the later when the service is only up temporarily
 ##
 
-# avahi_publish service name type port [text]
+# avahi_publish service hostname protocol port [text]
 # Adds an nice Mac icon as well
 avahi_publish() {
-	if [[ $OSTYPE =~ darwin ]]; then
+	if [[ ! $OSTYPE =~ linux ]]; then
 		log_verbose for linux only
 		return
 	fi
@@ -52,10 +52,10 @@ avahi_publish() {
 		</service-group>
 	EOF
 
-	log_verbose added avahi nfs and check now for success
+	log_verbose "added avahi $name and check now for success in log"
 	# with Ubuntu 16.04 the name comes out as capital letters use -i
 	# http://droptips.com/using-grep-and-ignoring-case-case-insensitive-grep
-	if ! sudo grep -i "$name" /var/log/syslog; then
+	if ! sudo grep -qi "$name" /var/log/syslog; then
 		return 1
 	fi
 
