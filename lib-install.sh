@@ -108,6 +108,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 	flags_to_grep() {
 		echo "${1//-/\\-}"
 	}
+
 	brew_is_installed() {
 		declare -i missing=0
 		log_verbose "are $# package(s) $*"
@@ -123,6 +124,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		log_verbose "missing $missing packages"
 		return "$missing"
 	}
+
 	# Mac Brew installations for simple packages called bottles
 	# usage: brew_install [flags] [bottles...]
 	# returns: number of failed installed
@@ -175,6 +177,27 @@ if eval "[[ ! -v $lib_name ]]"; then
 			return
 		fi
 		return 1
+	}
+	# Mac App Store
+	mas_install() {
+		if ! command -v mas &>/dev/null; then return 1; fi
+		mas install "$@"
+	}
+	mas_uninstal() {
+		if ! command -v mas &>/dev/null; then return 1; fi
+		mas uninstall "$@"
+	}
+	mas_is_installed() {
+		if ! command -v mas &>/dev/null; then return 1; fi
+		log_verbose "are $# package(s) $*"
+		declare -i missing=0
+		for MAS in "$@"; do
+			if ! mas list | grep -q "$MAS"; then
+				missing+=1
+			fi
+		done
+		log_verbose "missing $missing packages"
+		return "$missing"
 	}
 
 	# install a apt-get package uses apt_run underneath
