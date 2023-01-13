@@ -153,9 +153,9 @@ debug:
 # https://docs.github.com/en/actions/guides/building-and-testing-python
 # https://pytest-cov.readthedocs.io/en/latest/config.html
 # https://docs.pytest.org/en/stable/usage.html
-## test: unit test for Python non-PIP packages
-.PHONY: test
-test:
+## pytest: unit test for Python non-PIP packages
+.PHONY: pytest
+pytest:
 	pytest --doctest-modules "--cov=$(MAIN_PATH)"
 
 ## test-pip: test pip installed packages
