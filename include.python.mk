@@ -54,7 +54,12 @@ PIP ?=
 # build, twine and setuptools for PIP packaging only but install since
 # most of what we do will end up packaged
 # black > 22.12 for security
-# kfp - Kubeflow Pipeline CLI
+# mkdocs, mkdocs-material for static documentation
+# kfp - Kubeflow Pipeline CLI need --pre
+PIP_PRE += \
+		mkdocs \
+		mkdocs-material
+
 PIP_ONLY ?=
 PIP_DEV += \
 		bandit \
@@ -63,7 +68,6 @@ PIP_DEV += \
 		build \
 		flake8 \
 		"isort>=5.10.1" \
-		kfp \
 		mypy \
 		neovim \
 		pdoc3 \
