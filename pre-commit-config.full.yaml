@@ -107,14 +107,14 @@ repos:
 
   # https://jorisroovers.com/gitlint/#using-gitlint-through-pre-commit
   - repo: https://github.com/jorisroovers/gitlint
-    rev: v0.17.0
+    rev: v0.18.0
     hooks:
       - id: gitlint
         stages: [commit-msg]
 
   # https://yamllint.readthedocs.io/en/stable/integration.html#integration-with-pre-commit
   - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.27.1
+    rev: v1.28.0
     hooks:
       - id: yamllint
         # use relaxed because .pre-commit-config has truthy value warning
@@ -131,7 +131,7 @@ repos:
   # https://ljvmiranda921.github.io/notebook/2018/06/21/precommits-using-black-and-flake8/
   # https://github.com/pre-commit/mirrors-mypy
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v0.971'
+    rev: 'v0.991'
     hooks:
       - id: mypy
   - repo: https://github.com/pycqa/flake8
@@ -163,7 +163,7 @@ repos:
   # #rev: 20.8b1
 
   - repo: https://github.com/psf/black
-    rev: 22.6.0
+    rev: 22.10.0
     hooks:
       - id: black
         language_version: python3.9
@@ -205,11 +205,13 @@ repos:
   #     - id: nbstripout
 
   # lint Dockerfiles with hadolint
+  # https://github.com/hadolint/hadolint/blob/master/docs/INTEGRATION.md
   - repo: https://github.com/hadolint/hadolint
-    rev: v2.10.0
+    rev: v2.12.0
     hooks:
       # use if hadolint is local
-      #- id: hadolint
-      # using docker container because necktos act will not homebrew install
-      - id: hadolint-docker
+      - id: hadolint
+      # use docker container because necktos act will not homebrew install
+      # necktos does not work anyway
+      #- id: hadolint-docker
         exclude: Dockerfile.dockerignore

@@ -205,11 +205,13 @@ repos:
   #     - id: nbstripout
 
   # lint Dockerfiles with hadolint
+  # https://github.com/hadolint/hadolint/blob/master/docs/INTEGRATION.md
   - repo: https://github.com/hadolint/hadolint
-    rev: v2.12.1-beta
+    rev: v2.12.0
     hooks:
       # use if hadolint is local
-      #- id: hadolint
-      # using docker container because necktos act will not homebrew install
-      - id: hadolint-docker
+      - id: hadolint
+      # use docker container because necktos act will not homebrew install
+      # necktos does not work anyway
+      #- id: hadolint-docker
         exclude: Dockerfile.dockerignore
