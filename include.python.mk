@@ -54,11 +54,13 @@ PIP ?=
 # build, twine and setuptools for PIP packaging only but install since
 # most of what we do will end up packaged
 # black > 22.12 for security
-# mkdocs, mkdocs-material for static documentation
+# mkdocs, mkdocs-material, pymdown-extensions, fontawesome for static documentation
 # kfp - Kubeflow Pipeline CLI need --pre
 PIP_PRE += \
 		mkdocs \
-		mkdocs-material
+		mkdocs-material \
+		pymdown-extensions \
+		fontawesome-markdown
 
 PIP_ONLY ?=
 PIP_DEV += \
