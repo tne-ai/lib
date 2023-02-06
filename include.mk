@@ -64,9 +64,40 @@ tag:
 readme:
 	doctoc *.md
 
-## install-repo: Install repo basics like gitattributes, gitignore pre-commit, GitHub Actions and prereq tfrom $WS_DIR use $FORCE it you want to overwrite
-.PHONY: install-repo
+## install-repo2: installation
+# set these to the destination FILE and the source TEMPLATE if the file does
+# not exist are you are using FORCE to overwrite
+.PHONY: install-repo2
+FILE ?=     .gitattributes \
+			.gitignore \
+			.pre-commit-config.yaml \
+			.github/workflows/workflow.full.gha.yaml \
+			.tool-versions \
+			.envrc \
+			pyproject.toml
+TEMPLATE ?= gitattributes.base \
+			gitignore.base \
+			pre-commit-config.full.yaml \
+			workflow.full.gha.yaml \
+			tool-versions.full \
+			envrc.full \
+			pyproject.full.toml
+
 install-repo:
+	FILE=( $(FILE) ) && \
+	TEMPLATE=( $(TEMPLATE) ) && \
+	for (( i=0; i<$${#FILE[@]}; i++ )); do \
+		if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/$${FILE[i]} && \
+			! -e $${TEMPLATE[i]} ]]; then \
+				cp "$(WS_DIR)/git/src/lib/$${FILE[i]}" $${TEMPLATE[i]}; \
+	    else \
+			echo "skipped $$i $${FILE[i]} $${TEMPLATE[i]}"; \
+		fi; \
+	done
+
+## install-repo-old: deprecated Install repo basics like gitattributes, gitignore pre-commit, GitHub Actions and prereq tfrom $WS_DIR use $FORCE it you want to overwrite
+.PHONY: install-repo-old
+install-repo-old:
 	for PREREQ in markdownlint-cli shellcheck shfmt hadolint git-lfs; do \
 		if ! command -v "$$PREREQ" >/dev/null; then brew install "$$PREREQ"; fi ;\
 	done && \
@@ -97,6 +128,10 @@ install-repo:
 	if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/envrc.full && \
 		! -e .envrc ]]; then \
 			cp "$(WS_DIR)/git/src/lib/envrc.full" .envrc; \
+	fi &&
+	if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/pyproject.full.toml && \
+		! -e pyproject.toml ]]; then \
+			cp "$(WS_DIR)/git/src/lib/pyproject.full.toml" pyproject.toml; \
 	fi
 
 ## pre-commit: Run pre-commit hooks and install if not there with update

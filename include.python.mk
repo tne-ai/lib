@@ -12,6 +12,12 @@
 # These should be overridden in the makefile that includes this, but this sets
 # defaults use to add comments when running make help
 #
+# https://frostming.com/2019/01-04/pipenv-poetry/
+# Supports 	Pipenv (deprecated it is slow and dependency problems)
+# 			Pip to the system environment (deprecated with project conflicts)
+# 			Conda (deprecated this is a single shared environment)
+# 			Poetry (in development, like pipenv but faster)
+#
 FLAGS ?=
 SHELL := /usr/bin/env bash
 # does not work the EXCLUDEd directories are still listed
@@ -56,25 +62,30 @@ PIP ?=
 # black > 22.12 for security
 # mkdocs, mkdocs-material, pymdown-extensions, fontawesome for static documentation
 # kfp - Kubeflow Pipeline CLI need --pre
-PIP_PRE += \
-		mkdocs \
-		mkdocs-material \
-		pymdown-extensions \
-		fontawesome-markdown
+#
+# PIP_PRE are pre-development or non stable versions used by pipenv
+#
+PIP_PRE +=
 
-PIP_ONLY ?=
+# PIP_ONLY for packages that do not conda install as conda has a limited repo
+PIP_ONLY +=
+
 PIP_DEV += \
+		"black>=22.12" \
 		bandit \
 		beautysh \
-		"black>=22.12" \
 		build \
 		flake8 \
+		fontawesome-markdown \
 		"isort>=5.10.1" \
+		mkdocs \
+		mkdocs-material \
 		mypy \
 		neovim \
 		pdoc3 \
 		pre-commit \
 		pydocstyle \
+		pymdown-extensions \
 		seed-isort-config \
 		setuptools \
 		twine \
@@ -87,8 +98,8 @@ CONDA_CHANNEL ?= conda-forge
 CONDA_ONLY ?=
 
 # https://stackoverflow.com/questions/589276/how-can-i-use-bash-syntax-in-makefile-targets
-# The virtual environment [ pipenv | conda | none ]
-ENV ?= pipenv
+# The virtual environment [ poetry | pipenv | conda | none ]
+ENV ?= poetry
 RUN ?=
 INIT ?=
 ACTIVATE ?=
@@ -105,12 +116,24 @@ ARCH ?= $(shell uname -m)
 # https://github.com/pypa/packaging/pull/319
 # These may have been fixed
 #
-# only need the compat for the switch from 10.x to 11.x with Big Surn
+# only need the compat for the switch from 10.x to 11.x with Big Sur
 #PIPENV := SYSTEM_VERSION_COMPAT=1 pipenv
 # Use this Monterey as the version compat is fixed
 # conditional dependency https://stackoverflow.com/questions/59867140/conditional-dependencies-in-gnu-make
 # install h5py right after the clean
-ifeq ($(ENV),pipenv)
+#
+# Note that poetry init is an interactive creation of pyproject.toml which you
+# usually do not want
+ifeq ($(ENV),poetry)
+	INIT := poetry install
+	UPDATE := poetry update
+	RUN := poetry run
+	INSTALL := poetry add
+	INSTALL_PRE := $(INSTALL)
+	INSTALL_DEV := $(INSTALL)
+	INSTALL_PIP_ONLY := $(INSTALL)
+	INSTALL_REQ :=
+else ifeq ($(ENV),pipenv)
 	PIPENV := pipenv
 	RUN := $(PIPENV) run
 	UPDATE := $(PIPENV) update
@@ -258,11 +281,14 @@ endif
 	$(if $(strip $(PIP_DEV)), $(INSTALL_DEV) $(PIP_DEV))
 	$(if $(strip $(PIP_ONLY)), $(INSTALL_PIP_ONLY) $(PIP_ONLY) || true)
 
-ifeq ($(ENV),pipenv)
+
+ifeq ($(ENV),poetry)
+	@echo "poetry postamble install from pyproject.toml"
+	$(INIT)
+else ifeq ($(ENV),pipenv)
 	@echo "pipenv postamble"
 	$(PIPENV) lock && $(PIPENV) update
-endif
-ifeq ($(ENV),conda)
+else ifeq ($(ENV),conda)
 	@echo "conda postamble"
 	[[ -r environment.yml ]] && conda env update --name $(NAME) -f environment.yml || true
 	# echo $$SHELL
