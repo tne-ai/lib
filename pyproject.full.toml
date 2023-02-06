@@ -1,4 +1,5 @@
 [tool.poetry]
+# note that the name must *not* be an existing pip package
 name = "lib"
 version = "0.1.0"
 description = "Rich's Fine Utility Library"

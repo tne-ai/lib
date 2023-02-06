@@ -411,7 +411,7 @@ pipenv-lint: lint
 # note we do an install of python@$(PYTHON) in case it is not there
 # upgrade does not work
 .PHONY: pipenv-python
-pipenv-python: pipenv-super-clean pipenv-clean unset-PIPENV_ACTIVE
+pipenv-python: pipenv-clean unset-PIPENV_ACTIVE
 	@echo "currently using python $(PYTHON) override changing PYTHON make flag"
 	brew install python@$(PYTHON) pipenv
 	@echo "pipenv sometimes corrupts after python $(PYTHON) install so reinstall if needed"
@@ -430,15 +430,15 @@ pipenv-python: pipenv-super-clean pipenv-clean unset-PIPENV_ACTIVE
 # https://github.com/pypa/pipenv/issues/3827
 # Remove caches
 .PHONY: pipenv-clean
-pipenv-clean:
+pipenv-clean: pipenv-super-clean
+	touch Pipfile
 	rm -rf "$$HOME/Library/Caches/pipenv"
-	$(PIPENV) --rm || true
 
-## pipenv-super-clean: Remove the Pipfile and reinstall all packages
+## pipenv-super-clean: Remove the entire Pipefile environment
 .PHONY: pipenv-super-clean
 pipenv-super-clean:
+	pipenv --rm || true
 	rm Pipfile* || true
-	touch Pipfile
 
 ## python-asdf: Install local python vrsion with asdf
 # note asdf needs fully qualified including minor release
