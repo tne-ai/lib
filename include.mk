@@ -59,29 +59,48 @@ tag:
 	git tag -a "$(TAG)" -m "$(COMMENT)" && \
 	git push origin "$(TAG)"
 
-## readme: generate toc for markdowns at the top level
-.PHONY: readme
-readme:
+## mkdocs: Generate a mkdocs web server at http://localhost:8000
+.PHONY: mkdocs
+mkdocs:
+	mkdocs serve & \
+	sleep 2 && \
+    open http://localhost:8000
+
+
+## mkdocs-stop: Kill the mkdocs server at http://localhost:8000
+.PHONY: mkdocs-stop
+mkdocs-stop:
+	pkill mkdocs
+
+
+## doctoc: generate toc for markdowns at the top level (deprecated)
+.PHONY: doctoc
+doctoc:
 	doctoc *.md
 
-## install-repo2: installation
+## install-repo: installation
 # set these to the destination FILE and the source TEMPLATE if the file does
 # not exist are you are using FORCE to overwrite
-.PHONY: install-repo2
+.PHONY: install-repo
 FILE ?=     .gitattributes \
 			.gitignore \
 			.pre-commit-config.yaml \
 			.github/workflows/workflow.full.gha.yaml \
 			.tool-versions \
 			.envrc \
-			pyproject.toml
+			pyproject.toml \
+			runtime.txt \
+			netlify.toml
+
 TEMPLATE ?= gitattributes.base \
 			gitignore.base \
 			pre-commit-config.full.yaml \
 			workflow.full.gha.yaml \
 			tool-versions.full \
 			envrc.full \
-			pyproject.full.toml
+			pyproject.full.toml \
+			runtime.full.txt \
+			netlify.full.toml
 
 install-repo:
 	FILE=( $(FILE) ) && \

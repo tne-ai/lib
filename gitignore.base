@@ -34,5 +34,8 @@ venv/
 # Local Netlify folder
 .netlify
 
+# Mkdocs site output
+site/
+
 # Nodes folders
 node_modules

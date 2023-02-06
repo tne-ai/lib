@@ -1,0 +1,11 @@
+# https://squidfunk.github.io/mkdocs-material/creating-your-site/
+# https://www.mkdocs.org/getting-started/
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+
+site_name: Rich's Fine Utility Library
+site_url: https://lib.docs.tongfamily.com
+theme: material
+nav:
+  - Home: index.md
+  - Install: install.md
+  - Files: files.md
