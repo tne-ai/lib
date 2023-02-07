@@ -1,9 +1,14 @@
 # Netlify build to private site
+# https://www.nileshdalvi.com/blog/deploy-static-web-mkdocs-netlify/
 [build]
 publish = "site"
-command = """
-    pip3 install -q poetry &&
-    poetry config virtualenvs.in-project ture &&
-    poetry install -v &&
-    mkdocs build -d site
-"""
+command = "mkdocs build"
+
+# https://dev.to/ajeetraina/how-to-deploy-a-static-site-using-mkdocs-and-netlify-43f8
+# this from ajeetraina does not work
+#command = """
+#    pip3 install -q poetry &&
+#    poetry config virtualenvs.in-project ture &&
+#    poetry install -v &&
+#    mkdocs build -d site
+#"""

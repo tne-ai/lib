@@ -37,3 +37,7 @@ open http://locahost:800w
 # when you are documentation
 make mkdocs-stop
 ```
+
+## Status
+
+[![Netlify Status](https://api.netlify.com/api/v1/badges/35c1b75c-3ebb-448d-ba0f-318e70fe16c8/deploy-status)](https://app.netlify.com/sites/guileless-donut-fb8630/deploys)

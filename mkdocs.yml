@@ -4,7 +4,10 @@
 
 site_name: Rich's Fine Utility Library
 site_url: https://lib.docs.tongfamily.com
-theme: material
+theme:
+  name: material
+  palette:
+    primary: blue
 nav:
   - Home: index.md
   - Install: install.md

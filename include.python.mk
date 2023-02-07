@@ -125,8 +125,9 @@ ARCH ?= $(shell uname -m)
 # Note that poetry init is an interactive creation of pyproject.toml which you
 # usually do not want
 ifeq ($(ENV),poetry)
-	INIT := poetry install
-	UPDATE := poetry update
+	EXPORT := poetry export -f requirements.txt --without-hashes > requirement.txt
+	INIT := poetry install && $(EXPORT)
+	UPDATE := poetry update && $(EXPORT)
 	RUN := poetry run
 	INSTALL := poetry add
 	INSTALL_PRE := $(INSTALL)
