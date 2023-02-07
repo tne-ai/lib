@@ -288,7 +288,7 @@ ifeq ($(ENV),poetry)
 	$(INIT)
 else ifeq ($(ENV),pipenv)
 	@echo "pipenv postamble"
-	$(PIPENV) lock && $(PIPENV) update
+	$(PIPENV) lock -r > requirements.txt && $(PIPENV) update
 else ifeq ($(ENV),conda)
 	@echo "conda postamble"
 	[[ -r environment.yml ]] && conda env update --name $(NAME) -f environment.yml || true
