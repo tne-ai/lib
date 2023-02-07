@@ -9,3 +9,4 @@ nav:
   - Home: index.md
   - Install: install.md
   - Files: files.md
+  - Documentation: doc.md
