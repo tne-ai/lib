@@ -1,4 +1,3 @@
-#
 ##
 ## Base commands
 ## -------------
@@ -65,10 +64,23 @@ tag:
 doctoc:
 	doctoc *.md
 
-## install-repo: installation
+
+## install-repo: installation of all template files for a new repo
 # set these to the destination FILE and the source TEMPLATE if the file does
 # not exist are you are using FORCE to overwrite
-.PHONY: install-repo
+TEMPLATE ?= gitattributes.base \
+			gitignore.base \
+			pre-commit-config.full.yaml \
+			workflow.full.gha.yaml \
+			tool-versions.base \
+			envrc.base \
+			pyproject.base.toml \
+			runtime.base.txt \
+			netlify.base.toml \
+			mkdocs.base.yml \
+			Makefile.base \
+			mkdocs.index.md
+
 FILE ?=     .gitattributes \
 			.gitignore \
 			.pre-commit-config.yaml \
@@ -79,27 +91,20 @@ FILE ?=     .gitattributes \
 			runtime.txt \
 			netlify.toml \
 			mkdocs.yml \
-			Makefile
+			Makefile \
+			docs/index.md
 
-TEMPLATE ?= gitattributes.base \
-			gitignore.base \
-			pre-commit-config.full.yaml \
-			workflow.full.gha.yaml \
-			tool-versions.full \
-			envrc.full \
-			pyproject.full.toml \
-			runtime.full.txt \
-			netlify.full.toml \
-			mkdocs.base.yml \
-			Makefile.base
-
+# use install instead to create sub-directories
+# https://stackoverflow.com/questions/1529946/linux-copy-and-create-destination-dir-if-it-does-not-exist
+#				cp "$(WS_DIR)/git/src/lib/$${TEMPLATE[i]}" $${FILE[i]};
 install-repo:
+.PHONY: install-repo
 	FILE=( $(FILE) ) && \
 	TEMPLATE=( $(TEMPLATE) ) && \
 	for (( i=0; i<$${#FILE[@]}; i++ )); do \
 		if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/$${FILE[i]} && \
 			! -e $${TEMPLATE[i]} ]]; then \
-				cp "$(WS_DIR)/git/src/lib/$${FILE[i]}" $${TEMPLATE[i]}; \
+				install -d -m 664 "$(WS_DIR)/git/src/lib/$${TEMPLATE[i]}" $${FILE[i]}; \
 	    else \
 			echo "skipped $$i $${FILE[i]} $${TEMPLATE[i]}"; \
 		fi; \
