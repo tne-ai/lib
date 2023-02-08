@@ -478,3 +478,8 @@ mkdocs:
 	mkdocs serve & \
 	sleep 2 && \
     open http://localhost:8000
+
+## mkdocs-stop: Mkdocs server stopped
+.PHONY: mkdocs-stop
+mkdocs-stop:
+	pkill -f mkdocs
