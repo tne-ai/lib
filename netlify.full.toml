@@ -1,9 +1,0 @@
-# Netlify build to private site
-[build]
-publish = "site"
-command = """
-    pip3 install -q poetry &&
-    poetry config virtualenvs.in-project ture &&
-    poetry install -v &&
-    mkdocs build -d site
-"""
