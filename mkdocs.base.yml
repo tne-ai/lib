@@ -1,0 +1,15 @@
+# https://squidfunk.github.io/mkdocs-material/creating-your-site/
+# https://www.mkdocs.org/getting-started/
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+
+site_name: Rich's Fine Sample
+site_url: https://sample.docs.tongfamily.com
+theme:
+  name: material
+  palette:
+    primary: blue
+nav:
+  - Home: index.md
+  - Install: install.md
+  - Files: files.md
+  - Documentation: doc.md

@@ -90,7 +90,8 @@ FILE ?=     .gitattributes \
 			.envrc \
 			pyproject.toml \
 			runtime.txt \
-			netlify.toml
+			netlify.toml \
+			mkdocs.yml
 
 TEMPLATE ?= gitattributes.base \
 			gitignore.base \
@@ -100,7 +101,8 @@ TEMPLATE ?= gitattributes.base \
 			envrc.full \
 			pyproject.full.toml \
 			runtime.full.txt \
-			netlify.full.toml
+			netlify.full.toml \
+			mkdocs.base.yml
 
 install-repo:
 	FILE=( $(FILE) ) && \

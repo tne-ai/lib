@@ -1,8 +1,8 @@
 [tool.poetry]
 # note that the name must *not* be an existing pip package
-name = "lib"
+name = "sample"
 version = "0.1.0"
-description = "Rich's Fine Utility Library"
+description = "Sample Poetry Project"
 authors = ["Rich Tong <1782087+richtong@users.noreply.github.com>"]
 readme = "README.md"
 
