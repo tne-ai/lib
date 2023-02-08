@@ -59,19 +59,6 @@ tag:
 	git tag -a "$(TAG)" -m "$(COMMENT)" && \
 	git push origin "$(TAG)"
 
-## mkdocs: Generate a mkdocs web server at http://localhost:8000
-.PHONY: mkdocs
-mkdocs:
-	mkdocs serve & \
-	sleep 2 && \
-    open http://localhost:8000
-
-
-## mkdocs-stop: Kill the mkdocs server at http://localhost:8000
-.PHONY: mkdocs-stop
-mkdocs-stop:
-	pkill mkdocs
-
 
 ## doctoc: generate toc for markdowns at the top level (deprecated)
 .PHONY: doctoc

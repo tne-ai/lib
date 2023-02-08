@@ -471,3 +471,10 @@ pypi: dist
 		-u __token__ \
 		-p "pypi-$$PYPI_API_TOKEN" \
 		dist/*
+
+## mkdocs: Generate a mkdocs web server at http://localhost:8000 and kill process
+.PHONY: mkdocs
+mkdocs:
+	mkdocs serve & \
+	sleep 2 && \
+    open http://localhost:8000
