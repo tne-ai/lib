@@ -78,7 +78,8 @@ FILE ?=     .gitattributes \
 			pyproject.toml \
 			runtime.txt \
 			netlify.toml \
-			mkdocs.yml
+			mkdocs.yml \
+			Makefile
 
 TEMPLATE ?= gitattributes.base \
 			gitignore.base \
@@ -89,7 +90,8 @@ TEMPLATE ?= gitattributes.base \
 			pyproject.full.toml \
 			runtime.full.txt \
 			netlify.full.toml \
-			mkdocs.base.yml
+			mkdocs.base.yml \
+			Makefile.base
 
 install-repo:
 	FILE=( $(FILE) ) && \
