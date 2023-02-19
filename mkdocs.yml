@@ -1,6 +1,7 @@
 # https://squidfunk.github.io/mkdocs-material/creating-your-site/
 # https://www.mkdocs.org/getting-started/
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+# Thje line above allows yaml validation by editors
 
 site_name: Rich's Fine Utility Library
 site_url: https://lib.docs.tongfamily.com
@@ -12,4 +13,4 @@ nav:
   - Home: index.md
   - Install: install.md
   - Files: files.md
-  - Documentation: doc.md
+  - Doc: doc.md

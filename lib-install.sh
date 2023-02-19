@@ -324,6 +324,20 @@ if eval "[[ ! -v $lib_name ]]"; then
 		done
 	}
 
+	## appimage_install url [ full_dest_path [ dest_dir ]]: Puts an App image in the home directory Applications
+	#
+	appimage_install() {
+		if (($# < 1)); then return 1; fi
+		local url="$1"
+		local dest_dir="${3:-"$HOME/Applications"}"
+		local dest="${2:-"$dest_dir/$(basename "$1")"}"
+		log_verbose "appimage_install: download $url to $dest_dir as $dest"
+		mkdir -p "$dest_dir"
+		download_url "$url" "$dest" "$dest_dir"
+		chmod +x "$dest"
+
+	}
+
 	## app_install [apps]: use snap if linux, brew cask otherwise
 	app_install() {
 		log_verbose "app_install with $*"
@@ -650,6 +664,8 @@ if eval "[[ ! -v $lib_name ]]"; then
 		local dest="${2:-$dest_dir/$(basename "$url")}"
 		local md5="${4:-0}"
 		local sha256="${5:-0}"
+
+		log_verbose "download $url to $dest_dir as $dest"
 		mkdir -p "$dest_dir"
 		# If file exists and there is md5 sum, we assume the file download worked
 		if [[ -e $dest ]]; then
