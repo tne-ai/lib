@@ -120,7 +120,7 @@ install-repo:
 	for (( i=0; i<$${#FILE[@]}; i++ )); do \
 		if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/$${TEMPLATE[i]} && \
 			! -e $${FILE[i]} ]]; then \
-				install -d -m 664 "$(WS_DIR)/git/src/lib/$${TEMPLATE[i]}" $${FILE[i]}; \
+				install -D -m 664 "$(WS_DIR)/git/src/lib/$${TEMPLATE[i]}" $${FILE[i]}; \
 	    else \
 			echo "skipped $$i $${FILE[i]} $${TEMPLATE[i]}"; \
 		fi; \
