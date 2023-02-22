@@ -346,9 +346,11 @@ format:
 	$(RUN) black -l 79 *.py
 
 ## shell: Run interactive commands in Pipenv environment
-.PHONY: pipenv-shell
-pipenv-shell:
-ifeq ($(strip $(ENV)),pipenv)
+.PHONY: shell
+shell:
+ifeq ($(strip $(ENV)), poetry)
+	poetry shell
+else ifeq ($(strip $(ENV)),pipenv)
 	$(PIPENV) shell
 else ifeq ($(strip $(ENV)),conda)
 	@echo "run conda activate $(NAME) in your shell make cannot run"
