@@ -16,6 +16,10 @@ name ?= $$(basename "$(PWD)")
 RUN ?=
 FORCE ?= false
 
+# The base installation packages needed
+BASE_PREREQ ?= markdownlint-cli shellcheck shfmt hadolint git-lfs
+BASE_PREREQ_PIP ?= pynvim mkdocs mkdocs-material pymdown-extensions fontawesone-markdown
+
 .DEFAULT_GOAL := help
 .PHONY: help
 # https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html does not
@@ -113,10 +117,10 @@ install-repo:
 ## install-repo-old: deprecated Install repo basics like gitattributes, gitignore pre-commit, GitHub Actions and prereq tfrom $WS_DIR use $FORCE it you want to overwrite
 .PHONY: install-repo-old
 install-repo-old:
-	for PREREQ in markdownlint-cli shellcheck shfmt hadolint git-lfs; do \
+	for PREREQ in $(BASE_PREREQ); do \
 		if ! command -v "$$PREREQ" >/dev/null; then brew install "$$PREREQ"; fi ;\
 	done && \
-	for PREREQ_PIP in pynvim; do \
+	for PREREQ_PIP in $(BASE_PREREQ_PIP); do \
 	    pip install "$$PREREQ_PIP"; \
 	done && \
 	if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/gitattributes.base && \
