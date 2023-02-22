@@ -113,13 +113,13 @@ FILE ?=     .gitattributes \
 # use install instead to create sub-directories
 # https://stackoverflow.com/questions/1529946/linux-copy-and-create-destination-dir-if-it-does-not-exist
 #				cp "$(WS_DIR)/git/src/lib/$${TEMPLATE[i]}" $${FILE[i]};
-install-repo:
 .PHONY: install-repo
+install-repo:
 	FILE=( $(FILE) ) && \
 	TEMPLATE=( $(TEMPLATE) ) && \
 	for (( i=0; i<$${#FILE[@]}; i++ )); do \
-		if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/$${FILE[i]} && \
-			! -e $${TEMPLATE[i]} ]]; then \
+		if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/$${TEMPLATE[i]} && \
+			! -e $${FILE[i]} ]]; then \
 				install -d -m 664 "$(WS_DIR)/git/src/lib/$${TEMPLATE[i]}" $${FILE[i]}; \
 	    else \
 			echo "skipped $$i $${FILE[i]} $${TEMPLATE[i]}"; \
