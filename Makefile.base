@@ -16,5 +16,6 @@ clean:
 ## all: build all
 .PHONY: all
 
-include include.python.mk
-include include.mk
+# Adjust these assuming this is a ./src submodule
+include ../lib/include.python.mk
+include ../lib/include.mk
