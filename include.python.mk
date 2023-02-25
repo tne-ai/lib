@@ -1,7 +1,9 @@
 ##
 ## Python Commands (cloned from https://github.com/richtong/libi/include.python.mk)
 ## -------------------
-# Configure by setting PIP for pip packages and optionally name
+## ENV=poetry to use poetry for packages and python versions
+## ENV=pipenv to use pipenv (deprecated very slow)
+## ENV=conda to use conda (not per project)
 # requires include.mk
 #
 # Remember makefile *must* use tabs instead of spaces so use this vim line
@@ -28,8 +30,8 @@ EXCLUDE := -not \( -path "./extern/*" -o -path "./.git/*" \)
 ALL_PY := $$(find . -name "*.py" $(EXCLUDE) )
 ALL_YAML := $$(find . -name "*.yaml" $(EXCLUDE))
 # gitpod needs three digits so this will fail
-PYTHON ?= 3.9
-PYTHON_MINOR ?= $(PYTHON).12
+PYTHON ?= 3.10
+PYTHON_MINOR ?= $(PYTHON).8
 DOC ?= doc
 LIB ?= lib
 NAME ?= $(notdir $(PWD))
@@ -123,7 +125,8 @@ ARCH ?= $(shell uname -m)
 # install h5py right after the clean
 #
 # Note that poetry init is an interactive creation of pyproject.toml which you
-# usually do not want
+# usually do not want but is included here. You need to manually add the python
+# version requirement in the poetry section such as python = "^3.10"
 ifeq ($(ENV),poetry)
 	EXPORT := poetry export -f requirements.txt --without-hashes > requirement.txt
 	INIT := poetry install && $(EXPORT)
@@ -272,6 +275,8 @@ ifeq ($(ENV),conda)
 	conda config --env --add channels conda-forge
 	conda config --env --set channel_priority strict
 	$(INSTALL) python=$(PYTHON) $(CONDA_ONLY)
+else ifeq ($(ENV),poetry)
+	poetry env use "$(PYTHON_MINOR)"
 endif
 
 	# using conditional in function form if first is not null, then insert

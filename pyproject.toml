@@ -5,7 +5,7 @@ description = "Rich's Fine Utility Library"
 authors = ["Rich Tong <1782087+richtong@users.noreply.github.com>"]
 readme = "README.md"
 
-# python 3.8.1 is now needed due to bugs
+# python 3.8.1 is now needed due to bugs and the python line must be added manually
 [tool.poetry.dependencies]
 python = "^3.8.1"
 black = ">=22.12"
