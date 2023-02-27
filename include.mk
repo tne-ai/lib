@@ -95,7 +95,8 @@ TEMPLATE ?= gitattributes.base \
 			netlify.base.toml \
 			mkdocs.base.yml \
 			Makefile.base \
-			mkdocs.index.md
+			mkdocs.index.md \
+			requirements.base.txt
 
 FILE ?=     .gitattributes \
 			.gitignore \
@@ -108,7 +109,8 @@ FILE ?=     .gitattributes \
 			netlify.toml \
 			mkdocs.yml \
 			Makefile \
-			docs/index.md
+			docs/index.md \
+			requirements.txt
 
 # use install instead to create sub-directories
 # https://stackoverflow.com/questions/1529946/linux-copy-and-create-destination-dir-if-it-does-not-exist
