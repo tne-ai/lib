@@ -128,7 +128,7 @@ ARCH ?= $(shell uname -m)
 # usually do not want but is included here. You need to manually add the python
 # version requirement in the poetry section such as python = "^3.10"
 ifeq ($(ENV),poetry)
-	EXPORT := poetry export -f requirements.txt --without-hashes > requirement.txt
+	EXPORT := poetry export -f requirements.txt --without-hashes > requirements.txt
 	INIT := poetry install && $(EXPORT)
 	UPDATE := poetry update && $(EXPORT)
 	RUN := poetry run
