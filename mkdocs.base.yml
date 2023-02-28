@@ -4,13 +4,13 @@
 
 site_name: Rich's Fine Sample
 site_url: https://sample.docs.tongfamily.com
-# make sure you have logo's loaded here
-logo: media/logo_big.png
-favicon: media/logo_small.png
 features:
   - header.autohide
 theme:
   name: material
+  # make sure you have logo's loaded here
+  logo: media/logo_big.png
+  favicon: media/logo_small.png
   palette:
     primary: deep-purple
     scheme: slate

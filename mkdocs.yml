@@ -7,6 +7,9 @@ site_name: Rich's Fine Utility Library
 site_url: https://lib.docs.tongfamily.com
 theme:
   name: material
+  # make sure you have logo's loaded here
+  logo: media/logo_big.png
+  favicon: media/logo_small.png
   features:
     # https://squidfunk.github.io/mkdocs-material/setup/setting-up-navigation/
     # no more roundtrips to the server
