@@ -1,4 +1,4 @@
-# Creation and Publishing of documentation
+# Documentation
 
 The main documentation lives in
 [README.md](https://github.com/richtong/README.md) and you can browse in

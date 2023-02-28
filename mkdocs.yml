@@ -7,10 +7,21 @@ site_name: Rich's Fine Utility Library
 site_url: https://lib.docs.tongfamily.com
 theme:
   name: material
+  features:
+    # https://squidfunk.github.io/mkdocs-material/setup/setting-up-navigation/
+    # no more roundtrips to the server
+    - navigation.instant
+    # the address bar changes to nearest tag
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
   palette:
-    primary: blue
+    primary: deep purple
+    scheme: slate
 nav:
   - Home: index.md
-  - Install: install.md
-  - Files: files.md
-  - Doc: doc.md
+  - install.md
+  - files.md
+  - doc.md
