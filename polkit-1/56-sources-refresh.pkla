@@ -1,0 +1,6 @@
+[Authorize package updates]
+Identity=unix-group:sudo
+Action=org.freedesktop.packagekit.system-sources-refresh
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes
