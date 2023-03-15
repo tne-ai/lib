@@ -12,7 +12,7 @@ theme:
   favicon: media/logo_small.png
   features:
     # https://squidfunk.github.io/mkdocs-material/setup/setting-up-navigation/
-    # no more roundtrips to the server
+    # no more round trips to the server
     - navigation.instant
     # the address bar changes to nearest tag
     - navigation.tracking

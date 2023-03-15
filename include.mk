@@ -67,14 +67,20 @@ tag:
 ## mkdocs: Generate a mkdocs web server at http://localhost:8000
 .PHONY: mkdocs
 mkdocs:
-	mkdocs serve & \
-	sleep 2 && \
-    open http://localhost:8000
+	open http://localhost:8000 && \
+	echo "refresh the browser in five seconds after mkdocs start, CTRL-C to stop" && \
+	mkdocs serve
 
 ## mkdocs-stop: Kill the mkdocs server at http://localhost:8000
 .PHONY: mkdocs-stop
 mkdocs-stop:
 	pkill mkdocs
+
+## install-netlify: Generate a netlify configuration
+.PHONY: install-netlify
+install-netlify:
+	netlify link
+	netlify env:set GIT_LFS_ENABLED true
 
 ## doctoc: generate toc for markdowns at the top level (deprecated)
 .PHONY: doctoc
