@@ -4,6 +4,7 @@
 
 site_name: Rich's Fine Sample
 site_url: https://sample.docs.tongfamily.com
+
 theme:
   name: material
   # make sure you have logo's loaded here
@@ -24,8 +25,13 @@ theme:
     - navigation.expand
     - navigation.indexes
     - navigation.top
+
+plugins:
+  - mkdocstrings
+
 nav:
   - index.md
   - install.md
   - files.md
   - doc.md
+  - ref.md

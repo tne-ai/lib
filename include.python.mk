@@ -82,6 +82,7 @@ PIP_DEV += \
 		"isort>=5.10.1" \
 		mkdocs \
 		mkdocs-material \
+		"mkdocstrings[python]" \
 		mypy \
 		neovim \
 		pdoc3 \
