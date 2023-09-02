@@ -31,7 +31,7 @@ ALL_PY := $$(find . -name "*.py" $(EXCLUDE) )
 ALL_YAML := $$(find . -name "*.yaml" $(EXCLUDE))
 # gitpod needs three digits so this will fail
 PYTHON ?= 3.10
-PYTHON_MINOR ?= $(PYTHON).8
+PYTHON_MINOR ?= $(PYTHON).11
 DOC ?= doc
 LIB ?= lib
 NAME ?= $(notdir $(PWD))
