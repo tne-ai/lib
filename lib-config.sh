@@ -142,9 +142,9 @@ config_profile_shell_zsh() {
 config_profile_shell_bash() {
 	echo "$HOME/.bash_profile"
 }
-# config_profile_shell: set to .bash_profile (or .zprofile if using zsh
+# config_profile_shell: set to .bash_profile or .zprofile if using zsh
 config_profile_shell() {
-	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
+	if [[ -v ZSH_VERSION ]]; then
 		config_profile_shell_zsh
 	else
 		config_profile_shell_bash
@@ -533,12 +533,12 @@ config_setup() {
 	if ! config_mark "$(config_profile_shell)"; then
 		config_add "$(config_profile_shell)" <<-EOF
 			# shellcheck disable=SC1091
-			[[ -f "$(config_profile)" ]] || source "$(config_profile)"
+			if [[ -f "$(config_profile)" ]]; then source "$(config_profile)"; fi
 		EOF
-		# now add the .zprofile source of .profiel
+		# now add the .zprofile source of .profile
 		ZSH_VERSION=true config_add "$(config_profile_shell)" <<-EOF
 			# shellcheck disable=SC1091
-			if [[ -f "$(config_profile)" ]]; then source "$(config_profile); fi"
+			if [[ -f "$(config_profile)" ]]; then source "$(config_profile)"; fi
 		EOF
 	fi
 	if ! config_mark; then
