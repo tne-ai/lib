@@ -9,7 +9,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.8.1"
 black = ">=22.12"
-bandit = "^1.7.4"
+bandit = "^1.7.7"
 beautysh = "^6.2.1"
 build = "^0.10.0"
 flake8 = "^6.0.0"
