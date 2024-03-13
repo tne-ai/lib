@@ -41,37 +41,38 @@ In here is the process:
 1. Now install the basic tooling files with make install-repo. This will only add
   files and blow anything away. Now you should edit the mkdocs.yaml so that the
   entries for the file and where it lives are correct, by convention it will be
-  [<repo>.docs.tongfamily.ai](https://docs.tongfamily.com) or whatever your org
+  [_repo_.docs.tongfamily.ai](https://docs.tongfamily.com) or whatever your org
   is.
 1. Edits your documentation starting at ./docs/index.md and add files as
    needed. To set the navigation edit mkdocs.yaml
 1. Test this works by running make mkdocs which will create a local server
-   which yyou can access at [http://localhost:8000](http://localhost:8000) and debug your site.
+   which you can access at [http://localhost:8000](http://localhost:8000) and
+   debug your site.
 1. Now if you are a command line jockey install the netlify cli with `npm
    install -g netlify`
-1. Or just go to [Netlify](https://netlify.com) and login as admin@netdrones.ai and the
-   password is 1Password
+1. Or just go to [Netlify](https://netlify.com) and login as [admin](admin@tne.ai)
+   and the password is 1Password
 1. In the middle of the screen, you will see a button called add new site and
    select choose an existing project, then connect ot GitHub with that button
-   and you should see picak a repository so lect the netdrones organziation and
+   and you should see pick a repository so lect the netdrones organization and
    search for your repo.
-1. If this is working, it should fille things in for you but specifciallyy the
-   branch to deployy is main and the build command is mkdocs build. BY THE WAY
+1. If this is working, it should fille things in for you but specifically the
+   branch to deploy is main and the build command is mkdocs build. BY THE WAY
    there is no magic here, there are two files netlify.toml and runtime.txt
    that were added that tell netlify this is a mkdocs site and what version of
    Python to run on the client.
 1. Hit deploy site
-1. YOu should see the Netlify runner starting and it should sayy Production
+1. YOu should see the Netlify runner starting and it should say Production
    main@HEAD and building. And when it stops at Published, click on the arrow
-   and click on Open Production deployy and make sure that this is the right
+   and click on Open Production deploy and make sure that this is the right
    site. It has a random url by the way that is on the netlify site. And this
    should look the same as the local build.
-1. Now click on the top where you see the site name and yyou should be back at
-   Site Overview, there should be a huge numbeer 2 that says Set up Custom
+1. Now click on the top where you see the site name and you should be back at
+   Site Overview, there should be a huge number 2 that says Set up Custom
    domain
 1. Now enter the domain that you want. NOTE: DO NOT BE LIKE ME and just type
    netdrones.ai, this will wipe out our company website instead put what you
-   want the name to be like <repo>.docs.netdrones.ai so
+   want the name to be like _repo_.docs.netdrones.ai so
    process.docs.netdrones.ai for the ./src/process repo amd hit add
 1. What you press verify it should say good news and you should be done. make
    sure to hit force HTTPS below and then wait for the domain to work. It is
