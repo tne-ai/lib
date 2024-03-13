@@ -27,7 +27,7 @@ seed-isort-config = "^2.2.0"
 setuptools = "^69.0.2"
 twine = "^4.0.2"
 wheel = "^0.38.4"
-yamllint = "^1.29.0"
+yamllint = "^1.35.1"
 mkdocstrings = {extras = ["python"], version = "^0.23.0"}
 
 
