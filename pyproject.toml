@@ -28,7 +28,7 @@ setuptools = "^69.0.2"
 wheel = "^0.43.0"
 twine = "^5.0.0"
 yamllint = "^1.35.1"
-mkdocstrings = {extras = ["python"], version = "^0.23.0"}
+mkdocstrings = {extras = ["python"], version = "^0.24.3"}
 
 
 [build-system]
