@@ -1,34 +1,34 @@
 [tool.poetry]
-name = "lib"
+# note that the name must *not* be an existing pip package
+name = "sample"
 version = "0.1.0"
-description = "Rich's Fine Utility Library"
+description = "Sample Poetry Project"
 authors = ["Rich Tong <1782087+richtong@users.noreply.github.com>"]
 readme = "README.md"
 
-# python 3.8.1 is now needed due to bugs and the python line must be added manually
+# python 3.8.1 is now needed due to bugs
 [tool.poetry.dependencies]
 python = "^3.8.1"
 black = ">=22.12"
-bandit = "^1.7.7"
+bandit = "^1.7.4"
 beautysh = "^6.2.1"
-flake8 = "^7.0.0"
-build = "^1.2.1"
+build = "^0.10.0"
+flake8 = "^6.0.0"
 fontawesome-markdown = "^0.2.6"
 isort = ">=5.10.1"
-mkdocs = "^1.5.3"
-mypy = "^1.0.1"
-mkdocs-material = "^9.1.20"
+mkdocs = "^1.4.2"
+mkdocs-material = "^9.0.11"
+mypy = "^1.0.0"
 neovim = "^0.3.1"
 pdoc3 = "^0.10.0"
-pre-commit = "^3.5.0"
+pre-commit = "^3.0.4"
 pydocstyle = "^6.3.0"
-pymdown-extensions = "^10.7.1"
+pymdown-extensions = "^10.0.0"
 seed-isort-config = "^2.2.0"
-setuptools = "^69.0.2"
-wheel = "^0.43.0"
-twine = "^5.0.0"
-yamllint = "^1.35.1"
-mkdocstrings = {extras = ["python"], version = "^0.24.3"}
+setuptools = "^70.0.0"
+twine = "^4.0.2"
+wheel = "^0.38.4"
+yamllint = "^1.29.0"
 
 
 [build-system]
