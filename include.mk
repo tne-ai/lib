@@ -90,8 +90,9 @@ doctoc:
 ## install-repo: installation of all template files for a new repo
 # set these to the destination FILE and the source TEMPLATE if the file does
 # not exist are you are using FORCE to overwrite
-#			requirements.base.txt
+# no more requirements.txt used
 #			requirements.txt
+#			requirements.base.txt
 TEMPLATE ?= gitattributes.base \
 			gitignore.base \
 			pre-commit-config.full.yaml \
