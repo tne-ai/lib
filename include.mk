@@ -90,6 +90,8 @@ doctoc:
 ## install-repo: installation of all template files for a new repo
 # set these to the destination FILE and the source TEMPLATE if the file does
 # not exist are you are using FORCE to overwrite
+#			requirements.base.txt
+#			requirements.txt
 TEMPLATE ?= gitattributes.base \
 			gitignore.base \
 			pre-commit-config.full.yaml \
@@ -101,8 +103,7 @@ TEMPLATE ?= gitattributes.base \
 			netlify.base.toml \
 			mkdocs.base.yml \
 			Makefile.base \
-			mkdocs.index.md \
-			requirements.base.txt
+			mkdocs.index.md
 
 FILE ?=     .gitattributes \
 			.gitignore \
@@ -115,8 +116,7 @@ FILE ?=     .gitattributes \
 			netlify.toml \
 			mkdocs.yml \
 			Makefile \
-			docs/index.md \
-			requirements.txt
+			docs/index.md
 
 # use install instead to create sub-directories
 # https://stackoverflow.com/questions/1529946/linux-copy-and-create-destination-dir-if-it-does-not-exist
