@@ -486,11 +486,9 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# we have one special flag -f which means run sudo and must be the first one
 	# usage: pip_install -f [python flags..] [packages...]
 	pip_install() {
+		if (($# < 1)); then return; fi
 		log_verbose "in pip_install with $*"
 		if ! command -v pip &>/dev/null; then return 1; fi
-		log_verbose "found pip"
-		if (($# < 1)); then return; fi
-		log_verbose "found $# parameters"
 		declare -a flags
 		local use_sudo=""
 		while [[ $1 =~ ^- ]]; do
