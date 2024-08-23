@@ -8,7 +8,7 @@ readme = "README.md"
 
 # python 3.8.1 is now needed due to bugs
 [tool.poetry.dependencies]
-python = "^3.8.1"
+python = "^=3.11.8"
 black = ">=22.12"
 bandit = "^1.7.4"
 beautysh = "^6.2.1"
