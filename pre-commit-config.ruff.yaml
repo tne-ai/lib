@@ -166,18 +166,6 @@ repos:
   #   hooks:
   #     - id: pydocstyle
   #       exclude: thefuck/settings\.py$
-  # https://docs.astral.sh/ruff/integrations/#pre-commit
-  # replaces black, flake8, and pydocstyle
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.2
-    hooks:
-      # Run the linter.
-      - id: ruff
-        types_or: [ python, pyi, jupyter ]
-        args: [ --fix ]
-      # Run the formatter.
-      - id: ruff-format
-        types_or: [ python, pyi, jupyter ]
 
   # https://ljvmiranda921.github.io/notebook/2018/06/21/precommits-using-black-and-flake8/
   # https://github.com/pre-commit/mirrors-mypy
@@ -185,6 +173,17 @@ repos:
     rev: 'v0.991'
     hooks:
       - id: mypy
+
+  # black, flake8, and pydocstyle
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.6.2
+    hooks:
+      # Run the linter.
+      - id: ruff
+        args: [ --fix ]
+      # Run the formatter.
+      - id: ruff-format
 
   # https://jupytext.readthedocs.io/en/latest/using-pre-commit.html
   # sync all notebooks with their corresponding markdown files

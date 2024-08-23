@@ -3,6 +3,13 @@
 # Release tag
 TAG=0.9
 
+# Adjust these assuming this is a ./src submodule
+include ../lib/include.python.mk
+include ../lib/include.mk
+
+
+## Local directory Make commands
+## ----------
 ## test: test the library
 .PHONY: test
 test:
@@ -15,7 +22,3 @@ clean:
 
 ## all: build all
 .PHONY: all
-
-# Adjust these assuming this is a ./src submodule
-include ../lib/include.python.mk
-include ../lib/include.mk
