@@ -104,7 +104,7 @@ TEMPLATE ?= gitattributes.base \
 			netlify.base.toml \
 			mkdocs.base.yml \
 			Makefile.base \
-			mkdocs.index.md
+			docs.base/index.md
 
 FILE ?=     .gitattributes \
 			.gitignore \
