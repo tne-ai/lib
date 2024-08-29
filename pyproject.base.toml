@@ -6,9 +6,8 @@ description = "Sample Poetry Project"
 authors = ["Rich Tong <1782087+richtong@users.noreply.github.com>"]
 readme = "README.md"
 
-# python 3.8.1 is now needed due to bugs
 [tool.poetry.dependencies]
-python = "^=3.11.8"
+python = "^3.11"
 black = ">=22.12"
 bandit = "^1.7.4"
 beautysh = "^6.2.1"
@@ -29,7 +28,6 @@ setuptools = "^70.0.0"
 twine = "^4.0.2"
 wheel = "^0.38.4"
 yamllint = "^1.29.0"
-
 
 [build-system]
 requires = ["poetry-core"]

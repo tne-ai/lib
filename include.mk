@@ -99,7 +99,7 @@ TEMPLATE ?= gitattributes.base \
 			workflow.full.gha.yaml \
 			tool-versions.base \
 			envrc.base \
-			pyproject.base.toml \
+			pyproject.full.toml \
 			runtime.base.txt \
 			netlify.base.toml \
 			mkdocs.base.yml \
