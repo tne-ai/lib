@@ -100,10 +100,16 @@ repos:
 
   # https://github.com/igorshubovych/markdownlint-cli
   # node version of markdownlint with better disabling of checks by line
-  - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.32.2
+  # - repo: https://github.com/igorshubovych/markdownlint-cli
+  #   rev: v0.32.2
+  #   hooks:
+  #     - id: markdownlint
+
+  # replace markdownlint-cli with markdownlint-cli2 which is supposed to be faster
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.13.0
     hooks:
-      - id: markdownlint
+      - id: markdownlint-cli2
 
   # https://jorisroovers.com/gitlint/#using-gitlint-through-pre-commit
   - repo: https://github.com/jorisroovers/gitlint
