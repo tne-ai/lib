@@ -179,11 +179,12 @@ if eval "[[ ! -v $lib_name ]]"; then
 		return 1
 	}
 	# Mac App Store
+	# you will get warnings if already installed but continues
 	mas_install() {
 		if ! command -v mas &>/dev/null; then return 1; fi
 		mas install "$@"
 	}
-	mas_uninstal() {
+	mas_uninstall() {
 		if ! command -v mas &>/dev/null; then return 1; fi
 		mas uninstall "$@"
 	}
