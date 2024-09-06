@@ -5,6 +5,12 @@ TAG=0.9
 
 # Adjust these assuming this is a ./src submodule
 include ../lib/include.python.mk
+# pipenv is deprecated
+
+# rhash is specialized
+# include ../lib/include.rhash.mk
+
+# include ../lib/include.pipenv.mk
 include ../lib/include.mk
 
 
