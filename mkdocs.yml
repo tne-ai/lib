@@ -4,7 +4,7 @@
 # Thje line above allows yaml validation by editors
 
 site_name: Rich's Fine Utility Library
-site_url: https://lib.docs.tongfamily.com
+site_url: https://docs.tongfamily.com/lib
 theme:
   name: material
   # make sure you have logo's loaded here
