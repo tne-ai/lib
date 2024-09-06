@@ -2,7 +2,7 @@
 ## Python Commands (cloned from https://github.com/richtong/libi/include.python.mk)
 ## -------------------
 ## ENV=poetry to use poetry for packages and python versions
-## ENV=pipenv to use pipenv (deprecated very slow)
+## ENV=pipenv to use pipenv (deprecated very slow needs include.pipenv.mk)
 ## ENV=conda to use conda (not per project)
 # requires include.mk
 #
@@ -54,9 +54,6 @@ endif
 
 STREAMLIT ?= $(MAIN)
 
-# As of September 2020, run jupyter 0.2 and this generates a pipenv error
-# so ignore it
-PIPENV_CHECK_FLAGS ?= --ignore 38212
 PIP ?=
 # These cannot be installed in the environment must use pip install
 # build, twine and setuptools for PIP packaging only but install since
@@ -329,16 +326,16 @@ endif
 
 # https://medium.com/@Tankado95/how-to-generate-a-documentation-for-python-code-using-pdoc-60f681d14d6e
 # https://medium.com/@peterkong/comparison-of-python-documentation-generators-660203ca3804
-## doc: make the documentation for the Python project (uses pipenv)
-.PHONY: doc
-doc:
+## pdoc-doc: make the documentation for the Python projec (deprecated for mkdocstring)
+.PHONY: pdoc-doc
+pdoc-doc:
 	for file in $(ALL_PY); \
 		do $(RUN) pdoc --force --html --output $(DOC) $$file; \
 	done
 
-## doc-debug: run web server to look at docs (uses pipenv)
-.PHONY: doc-debug
-doc-debug:
+## pdoc-debug: run web server to look at docs (deprecated for mkdocstring)
+.PHONY: pdoc-debug
+pdoc-doc-debug:
 	@echo browse to http://localhost:8080 and CTRL-C when done
 	for file in $(ALL_PY); \
 		do $(PIPENV) run pdoc --http : $(DOC) $$file; \
@@ -363,11 +360,6 @@ else ifeq ($(strip $(ENV)),conda)
 else
 	@echo "bare pip so no need to shell"
 endif
-
-## pipenv-lock: Install from the lock file (for deployment and test)
-.PHONY: pipenv-lock
-pipenv-lock:
-	$(PIPENV) install --ignore-pipfile
 
 # https://stackoverflow.com/questions/53382383/makefile-cant-use-conda-activate
 # https://github.com/conda/conda/issues/7980
@@ -394,60 +386,6 @@ ifdef ALL_YAML
 	echo $$PWD
 	$(RUN) yamllint $(ALL_YAML) || true
 endif
-
-# Flake8 does not handle streamlit correctly so EXCLUDE it
-# Nor does pydocstyle
-# If the web can pass then you can use these lines
-# pipenv run flake8 --EXCLUDE $(STREAMLIT)
-#	pipenv run mypy $(NO_STREAMLIT)
-#	pipenv run pydocstyle --convention=google --match='(?!$(STREAMLIT))'
-#
-## pipenv-lint: cleans code for you
-.PHONY: pipenv-lint
-pipenv-lint: lint
-	$(PIPENV) check $(PIPENV_CHECK_FLAGS)
-
-## pipenv-python: Install python version in
-# also add to the python path
-# This fail if we don't have brew
-# Note when you delete the Pipfile, it will search recursively upward
-# looking for one, so on clean recreate one
-# we do not explicitly clean anymore so subdirectories of a pipenv can add
-# their dependencies
-# the unset-% is a dynamic target from include.mk that ensure PIPENV_ACTIVE is
-# set and replaces the manual
-# if [[ -n $$PIPENV_ACTIVE ]]; then echo "Cannot run inside pipenv shell exit first"; exit 1; fi
-# note we do an install of python@$(PYTHON) in case it is not there
-# upgrade does not work
-.PHONY: pipenv-python
-pipenv-python: pipenv-clean unset-PIPENV_ACTIVE
-	@echo "currently using python $(PYTHON) override changing PYTHON make flag"
-	brew install python@$(PYTHON) pipenv
-	@echo "pipenv sometimes corrupts after python $(PYTHON) install so reinstall if needed"
-	$(PIPENV) --version || brew reinstall pipenv
-	PIPENV_IGNORE_VIRTUALENVS=1 $(PIPENV) install --python $(PYTHON)
-	@echo "use .env to ensure we can see all packages"
-	grep ^PYTHONPATH .env ||  echo "PYTHONPATH=." >> .env
-
-## pipenv-clean: cleans the pipenv completely
-# note pipenv --rm will fail if there is Pipfile there so ignore that
-# do not do a pipenv clean until later otherwise it creates an environment
-# Same with the remove if the files are not there
-# Then add a dummy pipenv so that you do not move up recursively
-# And create an environment in the current directory
-# we normally do not remove the Pipfile just the environment
-# https://github.com/pypa/pipenv/issues/3827
-# Remove caches
-.PHONY: pipenv-clean
-pipenv-clean: pipenv-super-clean
-	touch Pipfile
-	rm -rf "$$HOME/Library/Caches/pipenv"
-
-## pipenv-super-clean: Remove the entire Pipefile environment
-.PHONY: pipenv-super-clean
-pipenv-super-clean:
-	pipenv --rm || true
-	rm Pipfile* || true
 
 ## python-asdf: Install local python vrsion with asdf
 # note asdf needs fully qualified including minor release
