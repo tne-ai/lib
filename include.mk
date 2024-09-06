@@ -65,7 +65,7 @@ tag:
 
 
 
-## docs: Generate with mkdocs in ./site
+## docs: Generate a documentation in ./site
 .PHONY: docs
 docs:
 	mkdocs build
@@ -77,6 +77,10 @@ docs-serve:
 	sleep 5
 	open http://localhost:8000
 
+## mkdocs-deploy: deploy doc to github pages only works for public repos
+.PHONY: mkdocs-deploy
+mkdocs-deploy:
+	mkdocs gh-deploy
 
 ## docs-stop: Kill the mkdocs server at http://localhost:8000
 # do not care if it it doesn't exist so ignore return code
