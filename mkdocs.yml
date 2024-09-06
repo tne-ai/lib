@@ -1,30 +1,57 @@
 # https://squidfunk.github.io/mkdocs-material/creating-your-site/
 # https://www.mkdocs.org/getting-started/
+# Note that SchemaStore with LazyVim does not appear to work
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
-# Thje line above allows yaml validation by editors
 
 site_name: Rich's Fine Utility Library
 site_url: https://docs.tongfamily.com/lib
-theme:
-  name: material
-  # make sure you have logo's loaded here
-  logo: media/logo_big.png
-  favicon: media/logo_small.png
-  features:
-    # https://squidfunk.github.io/mkdocs-material/setup/setting-up-navigation/
-    # no more round trips to the server
-    - navigation.instant
-    # the address bar changes to nearest tag
-    - navigation.tracking
-    - navigation.sections
-    - navigation.expand
-    - navigation.indexes
-    - navigation.top
-  palette:
-    primary: deep purple
-    scheme: slate
 nav:
   - Home: index.md
   - install.md
   - files.md
   - doc.md
+
+# https://squidfunk.github.io/mkdocs-material/setup/extensions/
+plugins:
+  - mkdocstrings
+  - redirects
+  # allows the use of !include for mono repos
+  - monorepo
+  - search
+  - minify:
+      minify_css: true
+      minify_js: true
+      minify_html: true
+      htmlmin_opts:
+        remove_comments: true
+      cache_safe: true
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format

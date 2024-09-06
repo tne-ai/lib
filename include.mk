@@ -64,9 +64,15 @@ tag:
 
 
 
-## mkdocs: Generate a mkdocs web server at http://localhost:8000
-.PHONY: mkdocs
-mkdocs:
+
+## docs: Generate a mkdocs in ./site
+.PHONY: docs
+docs:
+	mkdocs build
+
+## mkdocs-server: Generate a mkdocs web server at http://localhost:8000
+.PHONY: mkdocs-serve
+mkdocs-server:
 	open http://localhost:8000 && \
 	echo "refresh the browser in five seconds after mkdocs start, CTRL-C to stop" && \
 	mkdocs serve
