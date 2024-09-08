@@ -65,22 +65,26 @@ tag:
 
 
 
-## docs: Generate a mkdocs in ./site
+## docs: Generate with mkdocs in ./site
 .PHONY: docs
 docs:
 	mkdocs build
 
-## mkdocs-server: Generate a mkdocs web server at http://localhost:8000
-.PHONY: mkdocs-serve
-mkdocs-server:
-	open http://localhost:8000 && \
-	echo "refresh the browser in five seconds after mkdocs start, CTRL-C to stop" && \
-	mkdocs serve
+## docs-serve: start mkdocs server in background and start safari pkill mkdocs to end
+.PHONY: docs-serve
+docs-serve:
+	mkdocs serve &
+	sleep 5
+	open http://localhost:8000
 
-## mkdocs-stop: Kill the mkdocs server at http://localhost:8000
-.PHONY: mkdocs-stop
-mkdocs-stop:
-	pkill mkdocs
+
+## docs-stop: Kill the mkdocs server at http://localhost:8000
+# do not care if it it doesn't exist so ignore return code
+# and need -f since mkdocs is not the executable name if it
+# is run with poetry
+.PHONY: docs-stop
+docs-stop:
+	pkill -f mkdocs || true
 
 ## install-netlify: Generate a netlify configuration
 .PHONY: install-netlify
