@@ -16,5 +16,7 @@ clean:
 ## all: build all
 .PHONY: all
 
+PYTHON_FILE="*.py"
+
 include include.python.mk
 include include.mk

@@ -3,15 +3,8 @@
 # Release tag
 TAG=0.9
 
-# Adjust these assuming this is a ./src submodule
-include ../lib/include.python.mk
-# pipenv is deprecated
-
-# rhash is specialized
-# include ../lib/include.rhash.mk
-
-# include ../lib/include.pipenv.mk
-include ../lib/include.mk
+# adjust this for where ./src/lib is
+LIB_DIR=../lib/
 
 
 ## Local directory Make commands
@@ -28,3 +21,15 @@ clean:
 
 ## all: build all
 .PHONY: all
+
+# list these in reverse order so the most general is last
+include $(LIB_DIR)/include.python.mk
+
+# pipenv is deprecated
+# include $(LIB_DIR)/include.pipenv.mk
+
+# rhash is optional for hash checks
+# include $(LIB_DIR)/include.rhash.mk
+
+# include $(LIB_DIR)/include.pipenv.mk
+include $(LIB_DIR)/include.mk

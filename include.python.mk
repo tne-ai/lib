@@ -326,14 +326,14 @@ endif
 
 # https://medium.com/@Tankado95/how-to-generate-a-documentation-for-python-code-using-pdoc-60f681d14d6e
 # https://medium.com/@peterkong/comparison-of-python-documentation-generators-660203ca3804
-## pdoc-doc: make the documentation for the Python projec (deprecated for mkdocstring)
+## pdoc-doc: make the documentation for the Python projec (deprecated for include.mk docs)
 .PHONY: pdoc-doc
 pdoc-doc:
 	for file in $(ALL_PY); \
 		do $(RUN) pdoc --force --html --output $(DOC) $$file; \
 	done
 
-## pdoc-debug: run web server to look at docs (deprecated for mkdocstring)
+## pdoc-debug: run web server to look at docs (deprecated to include.mk docs
 .PHONY: pdoc-debug
 pdoc-doc-debug:
 	@echo browse to http://localhost:8080 and CTRL-C when done

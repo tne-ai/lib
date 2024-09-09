@@ -14,6 +14,8 @@ name ?= $$(basename "$(PWD)")
 # if you have include.python installed then it uses the environment but by
 # default we assume we are using the raw environment
 RUN ?=
+# python modules that should go into pdoc
+PYTHON_FILES ?=
 FORCE ?= false
 
 # The base installation packages needed
@@ -62,13 +64,21 @@ tag:
 	git tag -a "$(TAG)" -m "$(COMMENT)" && \
 	git push origin "$(TAG)"
 
-
-
-
 ## docs: Generate a documentation in ./site
 .PHONY: docs
-docs:
+docs: pdoc mkdocs
+
+## mkdocs:
+.PHONY: mkdocs
+mkdocs:
 	mkdocs build
+
+## pdoc: Make documentation using pdoc3 (requires include.python.mk docs)
+.PHONY: pdoc
+pdoc: $(PYTHON_FILES)
+	if [[ -n "$(PYTHON_FILES)" ]]; then \
+		$(RUN) pdoc --force -o docs/code $(PYTHON_FILES); \
+	fi
 
 ## docs-serve: start mkdocs server in background and start safari pkill mkdocs to end
 .PHONY: docs-serve
@@ -90,6 +100,7 @@ mkdocs-deploy:
 docs-stop:
 	pkill -f mkdocs || true
 
+
 ## install-netlify: Generate a netlify configuration
 .PHONY: install-netlify
 install-netlify:
@@ -110,7 +121,6 @@ doctoc:
 TEMPLATE ?= gitattributes.base \
 			gitignore.base \
 			pre-commit-config.full.yaml \
-			workflow.base \
 			tool-versions.base \
 			envrc.base \
 			pyproject.full.toml \
@@ -118,12 +128,12 @@ TEMPLATE ?= gitattributes.base \
 			netlify.base.toml \
 			mkdocs.base.yml \
 			Makefile.base \
-			docs.base
+			docs.base \
+			workflow.base
 
 FILE ?= .gitattributes \
 			.gitignore \
 			.pre-commit-config.yaml \
-			.github/workflows \
 			.tool-versions \
 			.envrc \
 			pyproject.toml \
@@ -131,7 +141,8 @@ FILE ?= .gitattributes \
 			netlify.toml \
 			mkdocs.yml \
 			Makefile \
-			docs
+			docs \
+			.github/workflows
 
 # use install instead to create sub-directories
 # https://stackoverflow.com/questions/1529946/linux-copy-and-create-destination-dir-if-it-does-not-exist
@@ -140,12 +151,21 @@ FILE ?= .gitattributes \
 install-repo:
 	FILE=( $(FILE) ) && \
 	TEMPLATE=( $(TEMPLATE) ) && \
+	LIB_DIR="$(WS_DIR)/git/src/lib" && \
+	DEST_DIR="$$PWD" && \
 	for (( i=0; i<$${#FILE[@]}; i++ )); do \
-		if $(FORCE) || [[ -e $(WS_DIR)/git/src/lib/$${TEMPLATE[i]} && \
-			! -e $${FILE[i]} ]]; then \
-				install -D -m 664 "$(WS_DIR)/git/src/lib/$${TEMPLATE[i]}" $${FILE[i]}; \
-	    else \
-			echo "skipped $$i $${FILE[i]} $${TEMPLATE[i]}"; \
+		DEST_FILE="$${FILE[i]}" && \
+	  SRC_FILE="$$LIB_DIR/$${TEMPLATE[i]}" && \
+		if [[ -e $$SRC_FILE ]] && \
+			 ($(FORCE) || [[ ! -e $$DEST_FILE ]]); then \
+		  if [[ -f $$SRC_FILE ]]; then \
+				install -vDm 664 "$$SRC_FILE" "$$DEST_FILE"; \
+			else \
+				(cd "$$SRC_FILE" && find . -type f \
+			   	 -exec install -vDm 664 "{}" "$$DEST_DIR/$$DEST_FILE/{}" \; ); \
+			fi; \
+	  else \
+			echo "skipped $$i $$SRC_FILE $$DEST_FILE"; \
 		fi; \
 	done
 
