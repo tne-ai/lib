@@ -110,7 +110,7 @@ doctoc:
 TEMPLATE ?= gitattributes.base \
 			gitignore.base \
 			pre-commit-config.full.yaml \
-			workflow.full.gha.yaml \
+			workflow.base \
 			tool-versions.base \
 			envrc.base \
 			pyproject.full.toml \
@@ -118,12 +118,12 @@ TEMPLATE ?= gitattributes.base \
 			netlify.base.toml \
 			mkdocs.base.yml \
 			Makefile.base \
-			docs.base/index.md
+			docs.base
 
-FILE ?=     .gitattributes \
+FILE ?= .gitattributes \
 			.gitignore \
 			.pre-commit-config.yaml \
-			.github/workflows/workflow.full.gha.yaml \
+			.github/workflows \
 			.tool-versions \
 			.envrc \
 			pyproject.toml \
@@ -131,7 +131,7 @@ FILE ?=     .gitattributes \
 			netlify.toml \
 			mkdocs.yml \
 			Makefile \
-			docs/index.md
+			docs
 
 # use install instead to create sub-directories
 # https://stackoverflow.com/questions/1529946/linux-copy-and-create-destination-dir-if-it-does-not-exist

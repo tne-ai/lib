@@ -1,0 +1,65 @@
+# https://blog.elmah.io/deploying-a-mkdocs-documentation-site-with-github-actions/
+name: Build and Deploy MkDocs to S3
+
+on:
+  push:
+    branches:
+      - main
+      # for testing
+      # - rich-nsrc
+    paths:
+      - "**/docs/**"
+      # - ".github/workflows/build_and_deploy_troopship_docs.yaml"
+  # for debugging
+  # https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/manually-running-a-workflow
+  workflow_dispatch:
+
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # looks in github's environment to get vars. and secrets.
+    environment: development
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: git clone repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          # this is the ops@tne.ai personal access token
+          # https://github.com/actions/checkout/issues/287
+          token: ${{ secrets.ACCESS_TOKEN_DEV }}
+        # even if recursive fails keep going
+        continue-on-error: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: >
+          pip install mkdocs mkdocs-material "mkdocs-material[imaging]" \
+                mkdocs-redirects mkdocstrings mkdocs-minify-plugin \
+                mkdocs-monorepo-plugin mkdocs-awesome-pages-plugin pymdown-extensions \
+                mkdocs-charts-plugin mkdocs-jupyter mkdocs-git-revision-date-localized-plugin \
+                mkdocs-enumerate-headings-plugin "markdown-exec[ansi]"
+
+      - name: Build site
+        run: mkdocs build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_OIDC_FEDERATE_ROLE }}
+          role-session-name: ${{ vars.AWS_OIDC_SESSION_NAME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Upload to S3
+        run: |
+          # remove the preivous site in the extreme case
+          # aws s3 rm s3://docs.tne.ai --recursive
+          aws s3 sync ./site s3://docs.tne.ai --delete
