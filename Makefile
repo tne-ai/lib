@@ -3,6 +3,12 @@
 # Release tag
 TAG=0.9
 
+# adjust this for where ./src/lib is
+LIB_DIR=.
+
+
+## Local directory Make commands
+## ----------
 ## test: test the library
 .PHONY: test
 test:
@@ -16,7 +22,14 @@ clean:
 ## all: build all
 .PHONY: all
 
-PYTHON_FILE="*.py"
+# list these in reverse order so the most general is last
+include $(LIB_DIR)/include.python.mk
 
-include include.python.mk
-include include.mk
+# pipenv is deprecated
+# include $(LIB_DIR)/include.pipenv.mk
+
+# rhash is optional for hash checks
+# include $(LIB_DIR)/include.rhash.mk
+
+# include $(LIB_DIR)/include.pipenv.mk
+include $(LIB_DIR)/include.mk
