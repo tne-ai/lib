@@ -118,6 +118,7 @@ doctoc:
 # no more requirements.txt used
 #			requirements.txt
 #			requirements.base.txt
+# do nore use envrc.base except at the very top of ./src
 TEMPLATE ?= gitattributes.base \
 			gitignore.base \
 			pre-commit-config.full.yaml \
