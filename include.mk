@@ -8,7 +8,11 @@ TAG ?= v1
 # which is bash v3 for MacOS
 SHELL := /usr/bin/env bash
 GIT_ORG ?= richtong
-SUBMODULE_HOME ?= "$(HOME)/ws/git/src"
+# the URL of the org like tne.ai
+ORG ?=
+LIB_DIR ?= $(WS_DIR)/git/src/lib
+
+SUBMODULE_HOME ?= "$(WS_DIR)
 NEW_REPO ?=
 name ?= $$(basename "$(PWD)")
 # if you have include.python installed then it uses the environment but by
@@ -119,7 +123,11 @@ doctoc:
 #			requirements.txt
 #			requirements.base.txt
 # do nore use envrc.base except at the very top of ./src
-TEMPLATE ?= gitattributes.base \
+# no longer make git lfs the default as this
+# needs tools to understand git lfs
+			# gitattributes.base \
+			# .gitattributes \
+TEMPLATE ?= \
 			gitignore.base \
 			pre-commit-config.full.yaml \
 			tool-versions.base \
@@ -132,7 +140,7 @@ TEMPLATE ?= gitattributes.base \
 			docs.base \
 			workflow.base
 
-FILE ?= .gitattributes \
+FILE ?= \
 			.gitignore \
 			.pre-commit-config.yaml \
 			.tool-versions \
@@ -296,3 +304,12 @@ lib-sync:
 			rsync -av "$(LIB_SOURCE)/$$f" "$$f" \
 		; fi \
 	; done
+
+## lfs-uninstall: to remove git and get rid of lfs files
+# https://gist.github.com/everttrollip/198ed9a09bba45d2663ccac99e662201
+.PHONY: lfs-uninstall
+lfs-uninstall:
+	if [[ -n "$(git lfs track)" ]]; then git lfs uninstall; fi
+	if [[ -e .gitattributes ]]; then git mv .gitattributes .gitattributes.disabled; fi
+	git add --renormalize .
+	@echo you cannot remove git lfs files without recreating the repo

@@ -5,6 +5,8 @@ TAG=0.9
 
 # adjust this for where ./src/lib is
 LIB_DIR=../lib/
+# adjust for your org
+ORG ?= tne
 
 
 ## Local directory Make commands
@@ -23,7 +25,12 @@ clean:
 .PHONY: all
 
 # list these in reverse order so the most general is last
-include $(LIB_DIR)/include.python.mk
+
+# Adjust these assuming this is a ./src submodule
+# https://www.gnu.org/software/make/manual/html_node/Foreach-Function.html
+ifneq ($(wildcard $(LIB_DIR)/include.mk),)
+include $(LIB_DIR)/include.mk
+endif
 
 # pipenv is deprecated
 # include $(LIB_DIR)/include.pipenv.mk
@@ -31,5 +38,13 @@ include $(LIB_DIR)/include.python.mk
 # rhash is optional for hash checks
 # include $(LIB_DIR)/include.rhash.mk
 
-# include $(LIB_DIR)/include.pipenv.mk
-include $(LIB_DIR)/include.mk
+# only include if it exists
+ifneq ($(wildcard $(LIB_DIR)/include.python.mk),)
+include $(LIB_DIR)/include.python.mk
+endif
+
+
+# only include if it exists
+ifneq ($(wildcard $(LIB_DIR)/include.$(ORG).mk),)
+include $(LIB_DIR)/include.$(ORG).mk
+endif
