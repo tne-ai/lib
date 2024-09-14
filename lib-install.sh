@@ -524,6 +524,10 @@ if eval "[[ ! -v $lib_name ]]"; then
 	## npm install first checks for existance always does a global
 	## usage npm_install [-f force sudo ] [any flag that begins with - like -g] package1,...
 	npm_install() {
+		node_install "$@"
+	}
+	# node install is more general but calls npm install
+	node_install() {
 		if ! command -v npm >/dev/null; then return 1; fi
 		if (($# < 1)); then return 0; fi
 		declare -a flags
