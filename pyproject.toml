@@ -17,7 +17,7 @@ isort = ">=5.10.1"
 mkdocs = "^1.4.2"
 mkdocs-material = "^9.0.11"
 mkdocs-monorepo-plugin = "^1.1.0"
-mkdocstrings = { extras = ["python"], version = "^0.23.0" }
+mkdocstrings = { extras = ["python"], version = "^0.26.1" }
 mypy = "^1.0.0"
 neovim = "^0.3.1"
 pdoc3 = "^0.10.0"
