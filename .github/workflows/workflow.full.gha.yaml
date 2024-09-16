@@ -127,7 +127,7 @@ jobs:
       # https://github.com/pre-commit-ci/lite-action
       # if you are using public repo then you can use pre-commit.ci
       # make sure the name  uses the default
-      - uses: pre-commit-ci/lite-action@v1.0.2
+      - uses: pre-commit-ci/lite-action@v1.0.3
         if: always()
 
         # No longer needed in pre-commit so edit .pre-commit-config.yaml
