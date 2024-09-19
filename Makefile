@@ -31,10 +31,6 @@ clean:
 .PHONY: all
 
 # list these in reverse order so the most general is last
--include include.python.mk
-
-
-# list these in reverse order so the most general is last
 
 # Adjust these assuming this is a ./src submodule
 # https://www.gnu.org/software/make/manual/html_node/Foreach-Function.html

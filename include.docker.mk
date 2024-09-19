@@ -11,8 +11,15 @@ SHELL := /usr/bin/env bash
 ## Change REPO and DOCKER_REGISTRY
 # Github Repo - Preferred
 DOCKER_REGISTRY ?= ghcr.io
+# note that ghcr.io needs the classic token as of 9/24 does not work with
+# finegraned tokens
+DOCKER_TOKEN ?= $(GITHUB_TOKEN_CLASSIC)
 REPO ?= richtong
 REPO_USER ?= richtong
+DOCKER_USER ?= $(REPO_USER)
+#
+# if docker login
+# DOCKER_USER ?= docker
 # docker.io - Docker Hub deprecated
 #DOCKER_REGISTRY ?= docker.io
 # Container registry user name
@@ -53,7 +60,6 @@ ARCH ?= linux/arm64,linux/amd64
 # Use the git commit by default
 VERSION ?= $(shell git rev-parse HEAD)
 
-DOCKER_USER ?= docker
 HOST_DIR ?= ./data
 # https://stackoverflow.com/questions/18136918/how-to-get-current-relative-directory-of-your-makefile
 CONTAINER_DIR ?= /var/data
@@ -474,9 +480,9 @@ run: stop docker-start
 # resolve to the HOST IP. The cookie is opaque, but you can see the hostname
 # on a Mac this is usually the HOSTNAME
 	#export HOST_IP=$(HOST_IP) HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) && \
-## shell: start and new container and run the interactive shell
-.PHONY: shell
-shell: docker-start
+## docker-shell: start and new container and run the interactive shell
+.PHONY: docker-shell
+docker-shell: docker-start
 	export $(EXPORTS) && \
 	if [[ -r  "$(DOCKER_COMPOSE_YML)" ]]; then \
 		$(DOCKER_COMPOSE) --env-file "$(DOCKER_ENV_FILE)" -f "$(DOCKER_COMPOSE_YML)" run "$(DOCKER_COMPOSE_MAIN)" /bin/bash \

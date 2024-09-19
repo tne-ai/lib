@@ -127,11 +127,13 @@ doctoc:
 # needs tools to understand git lfs
 			# gitattributes.base \
 			# .gitattributes \
+# the envrc should only go at the top of your ./ws for each project
+			# .envrc \
+			# envrc.base \
 TEMPLATE ?= \
 			gitignore.base \
 			pre-commit-config.full.yaml \
 			tool-versions.base \
-			envrc.base \
 			pyproject.full.toml \
 			runtime.base.txt \
 			netlify.base.toml \
@@ -144,7 +146,6 @@ FILE ?= \
 			.gitignore \
 			.pre-commit-config.yaml \
 			.tool-versions \
-			.envrc \
 			pyproject.toml \
 			runtime.txt \
 			netlify.toml \
