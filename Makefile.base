@@ -40,6 +40,7 @@ clean:
 # endif
 -include $(INCLUDE_DIRS)/include.mk
 # the first dash means ignore errors
+-include $(INCLUDE_DIRS)/include.ai.mk
 -include $(INCLUDE_DIRS)/include.python.mk
 # if you use docker (who doesn't)
 -include $(INCLUDE_DIRS)/include.docker.mk

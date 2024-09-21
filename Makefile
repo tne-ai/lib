@@ -1,18 +1,17 @@
-
-# adjust this for where ./src/lib is and add your own
-# Note that current directory is always included so you can
-# can insert your own include in the CWD if you want to override
-# https://runebook.dev/en/docs/gnu_make/include
-.INCLUDE_DIRS ?=  ../lib
-# adjust for your org
-ORG ?= tne
 # Makefile for richtong/lib
 #
 # Release tag
 TAG=0.9
 
-# adjust this for where ./src/lib is
-LIB_DIR=.
+# adjust this for where ./src/lib is and add your own
+# Note that current directory is always included so you can
+# can insert your own include in the CWD if you want to override
+# https://runebook.dev/en/docs/gnu_make/include
+# this directive does not seem to work
+.INCLUDE_DIRS=../lib
+INCLUDE_DIRS ?= $(.INCLUDE_DIRS)
+# adjust for your org
+ORG ?= tne
 
 
 ## Local directory Make commands
@@ -35,26 +34,28 @@ clean:
 # Adjust these assuming this is a ./src submodule
 # https://www.gnu.org/software/make/manual/html_node/Foreach-Function.html
 # Note that - means to ignore errors, but this is actually checks
-ifneq ($(wildcard include.mk),)
-include include.mk
-endif
-
+# LIB_PATH ?= ../lib
+# ifneq ($(wildcard include.mk),)
+# include "$(LIB_PATH)/include.mk"
+# endif
+-include $(INCLUDE_DIRS)/include.mk
 # the first dash means ignore errors
--include include.python.mk
+-include $(INCLUDE_DIRS)/include.ai.mk
+-include $(INCLUDE_DIRS)/include.python.mk
 # if you use docker (who doesn't)
--include include.docker.mk
+-include $(INCLUDE_DIRS)/include.docker.mk
 # only include if it exists your companies specific stuff
--include include.jupyter.mk
--include include.node.mk
+-include $(INCLUDE_DIRS)/include.jupyter.mk
+-include $(INCLUDE_DIRS)/include.node.mk
 
 # rhash is optional for hash checks
-# -include include.rhash.mk
-# -include include.gcp.base.mk
-# -include include.gcp.mk
-# -include include.hugo.mk
+# -include $(INCLUDE_DIRS)/include.rhash.mk
+# -include $(INCLUDE_DIRS)/include.gcp.base.mk
+# -include $(INCLUDE_DIRS)/include.gcp.mk
+# -include $(INCLUDE_DIRS)/include.hugo.mk
 
 # these have not been tested in a long time
 # - include.airflow.mk
 
 # normally your organization stuff appears last
--include include.$(ORG).mk
+-include $(INCLUDE_DIRS)/include.$(ORG).mk

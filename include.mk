@@ -68,6 +68,7 @@ tag:
 	git tag -a "$(TAG)" -m "$(COMMENT)" && \
 	git push origin "$(TAG)"
 
+##
 ## docs: Generate a documentation runing pdoc and mkdocs
 .PHONY: docs
 docs: pdoc mkdocs
@@ -154,9 +155,18 @@ FILE ?= \
 			docs \
 			.github/workflows
 
+
+##
+## install-src: creates mono repo and submodules ./{bin,lib,docker}
+.PHONY: install-src
+install-src: git-lfs install-repo
+	$(RUN) for repo in bin lib docker; do git submodule add git@github.com:$(GIT_ORG)/$$repo; done
+	$(RUN) git submodule update --init --recursive --remote
+
 # use install instead to create sub-directories
 # https://stackoverflow.com/questions/1529946/linux-copy-and-create-destination-dir-if-it-does-not-exist
 #				cp "$(WS_DIR)/git/src/lib/$${TEMPLATE[i]}" $${FILE[i]};
+## install-repo: copy the skeleton files from ./lib to a new repo
 .PHONY: install-repo
 install-repo:
 	FILE=( $(FILE) ) && \
@@ -218,6 +228,7 @@ install-repo-old:
 			cp "$(WS_DIR)/git/src/lib/pyproject.full.toml" pyproject.toml; \
 	fi
 
+##
 ## pre-commit: Run pre-commit hooks and install if not there with update
 .PHONY: pre-commit
 pre-commit: install-pre-commit
@@ -247,22 +258,6 @@ pre-commit-update:
 .PHONY: act
 act:
 	act --reuse --container-architecture linux/amd64
-
-## git-lfs: installs git lfs
-.PHONY: git-lfs
-git-lfs:
-	$(RUN) brew install git-lfs
-	$(RUN) git lfs install
-	$(RUN) git add --all
-	$(RUN) git commit -av
-	# this will fail if you are not already committed
-	$(RUN) git lfs pull
-
-## install-src: creates repo and submodules ./{bin,lib,docker}
-.PHONY: install-repo
-install-src: git-lfs install-repo
-	$(RUN) for repo in bin lib docker; do git submodule add git@github.com:$(GIT_ORG)/$$repo; done
-	$(RUN) git submodule update --init --recursive --remote
 
 ## install-submodule: installs a new submodule $(GIT_ORG)/$(NEW_REPO)
 .PHONY: install-submodule
@@ -306,6 +301,17 @@ lib-sync:
 		; fi \
 	; done
 
+
+##
+## git-lfs: installs git lfs
+.PHONY: git-lfs
+git-lfs:
+	$(RUN) brew install git-lfs
+	$(RUN) git lfs install
+	$(RUN) git add --all
+	$(RUN) git commit -av
+	# this will fail if you are not already committed
+	$(RUN) git lfs pull
 ## lfs-uninstall: to remove git and get rid of lfs files
 # https://gist.github.com/everttrollip/198ed9a09bba45d2663ccac99e662201
 .PHONY: lfs-uninstall
