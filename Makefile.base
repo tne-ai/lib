@@ -9,7 +9,7 @@ TAG=0.9
 # https://runebook.dev/en/docs/gnu_make/include
 # this directive does not seem to work
 .INCLUDE_DIRS=../lib
-INCLUDE_DIRS ?= ../lib
+INCLUDE_DIRS ?= $(.INCLUDE_DIRS)
 # adjust for your org
 ORG ?= tne
 

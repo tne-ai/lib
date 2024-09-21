@@ -68,21 +68,9 @@ tag:
 	git tag -a "$(TAG)" -m "$(COMMENT)" && \
 	git push origin "$(TAG)"
 
-## docs: Generate a documentation in ./site
+## docs: Generate a documentation runing pdoc and mkdocs
 .PHONY: docs
 docs: pdoc mkdocs
-
-## mkdocs:
-.PHONY: mkdocs
-mkdocs:
-	mkdocs build
-
-## pdoc: Make documentation using pdoc3 (requires include.python.mk docs)
-.PHONY: pdoc
-pdoc: $(PYTHON_FILES)
-	if [[ -n "$(PYTHON_FILES)" ]]; then \
-		$(RUN) pdoc --force -o docs/code $(PYTHON_FILES); \
-	fi
 
 ## docs-serve: start mkdocs server in background and start safari pkill mkdocs to end
 .PHONY: docs-serve
@@ -91,11 +79,6 @@ docs-serve:
 	sleep 5
 	open http://localhost:8000
 
-## mkdocs-deploy: deploy doc to github pages only works for public repos
-.PHONY: mkdocs-deploy
-mkdocs-deploy:
-	mkdocs gh-deploy
-
 ## docs-stop: Kill the mkdocs server at http://localhost:8000
 # do not care if it it doesn't exist so ignore return code
 # and need -f since mkdocs is not the executable name if it
@@ -103,6 +86,23 @@ mkdocs-deploy:
 .PHONY: docs-stop
 docs-stop:
 	pkill -f mkdocs || true
+
+## mkdocs: Generate mkdocs ./site from ./docs
+.PHONY: mkdocs
+mkdocs:
+	mkdocs build
+
+## mkdocs-deploy: deploy doc to github pages only works for public repos
+.PHONY: mkdocs-deploy
+mkdocs-deploy:
+	mkdocs gh-deploy
+
+## pdoc: Make python documentation using pdoc3
+.PHONY: pdoc
+pdoc: $(PYTHON_FILES)
+	if [[ -n "$(PYTHON_FILES)" ]]; then \
+		$(RUN) pdoc --force -o docs/code $(PYTHON_FILES); \
+	fi
 
 
 ## install-netlify: Generate a netlify configuration

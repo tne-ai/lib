@@ -31,6 +31,9 @@ wheel = "^0.38.4"
 yamllint = "^1.29.0"
 
 # https://docs.astral.sh/ruff/configuration/
+mkdocs-redirects = "^1.2.1"
+mkdocs-minify-plugin = "^0.8.0"
+mkdocs-charts-plugin = "^0.0.11"
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
