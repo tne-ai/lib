@@ -485,6 +485,8 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# standalone installers
 	# install python packages passing on flags
 	# we have one special flag -f which means run sudo and must be the first one
+	# note that will not work as expected if you are poetry, so detect this
+	# and do a poetry add instead
 	# usage: pip_install -f [python flags..] [packages...]
 	pip_install() {
 		if (($# < 1)); then return; fi
@@ -503,11 +505,16 @@ if eval "[[ ! -v $lib_name ]]"; then
 			shift
 		done
 		for package in "$@"; do
-			log_verbose "using pip at $(command -v pip) for $package"
 			# note we pass flags unquoted  so each is a separate flag
 			# conditionally run sudo if asked
 			# shellcheck disable=SC2086
-			$use_sudo pip install "${flags[@]}" "$package"
+			if [[ -v poetry_active ]]; then
+				log_verbose "in poetry do install insteadi of $package"
+				poetry add "$package"
+			else
+				log_verbose "using pip at $(command -v pip) for $package"
+				$use_sudo pip install "${flags[@]}" "$package"
+			fi
 		done
 	}
 	## bundle_install org repo for vim bundles
