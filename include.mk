@@ -158,9 +158,25 @@ FILE ?= \
 
 ##
 ## install-src: creates mono repo and submodules ./{bin,lib,docker}
+# https://joshtronic.com/2020/08/09/how-to-get-the-default-git-branch/
+# this is how to figure out the default branch main or master
+# git symbolic-ref refs/remotes/origin/HEAD | cut -d '/' -f 4
+# note that the --remote only works if the --branch is specified on the git
+# clone
+BASE_REPO ?= bin lib
 .PHONY: install-src
 install-src: git-lfs install-repo
-	$(RUN) for repo in bin lib docker; do git submodule add git@github.com:$(GIT_ORG)/$$repo; done
+	for repo in $(BASE_REPO); do \
+		$(RUN) git submodule add \
+			--branch "$$(git symbolic-ref refs/remotes/origin/HEAD | cut -d '/' -f 4)" \
+			git@github.com:$(GIT_ORG)/$$repo;\
+	done
+	$(RUN) git submodule update --init --recursive --remote
+
+## update-repo: update repo and submodules
+.PHONY: update-repo
+update-repo:
+	@echo "make sure git submodules set-branch --branch main set for all repos"
 	$(RUN) git submodule update --init --recursive --remote
 
 # use install instead to create sub-directories
