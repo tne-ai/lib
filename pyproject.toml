@@ -11,7 +11,7 @@ package-mode = false
 bandit = "^1.7.4"
 beautysh = "^6.2.1"
 black = ">=22.12"
-build = "^0.10.0"
+build = "^1.2.2"
 flake8 = "^6.0.0"
 fontawesome-markdown = "^0.2.6"
 isort = ">=5.10.1"
