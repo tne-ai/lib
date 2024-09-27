@@ -1,0 +1,23 @@
+[project]
+name = "sample"
+version = "0.1.0"
+description = "Rich's fine UV Project"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "build>=1.2.2",
+  "fontawesome-markdown>=0.2.6",
+  "mkdocs>=1.6.1",
+  "mkdocs-material>=9.5.38",
+  "mkdocstrings[python]>=0.26.1",
+  "mypy>=1.11.2",
+  "neovim>=0.3.1",
+  "pdoc3>=0.11.1",
+  "pre-commit>=3.8.0",
+  "pymdown-extensions>=10.11",
+  "ruff>=0.6.8",
+  "setuptools>=75.1.0",
+  "twine>=5.1.1",
+  "wheel>=0.44.0",
+  "yamllint>=1.35.1",
+]
