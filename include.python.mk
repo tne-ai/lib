@@ -69,14 +69,16 @@ PIP_PRE +=
 # PIP_ONLY for packages that do not conda install as conda has a limited repo
 PIP_ONLY +=
 
+# "black>=22.12" \
+# flake8 \
+		# seed-isort-config \
+		# "isort>=5.10.1" \
+		# pydocstyle \
+# bandit \
+# beautysh
 PIP_DEV += \
-		"black>=22.12" \
-		bandit \
-		beautysh \
 		build \
-		flake8 \
 		fontawesome-markdown \
-		"isort>=5.10.1" \
 		mkdocs \
 		mkdocs-material \
 		"mkdocstrings[python]" \
@@ -84,9 +86,8 @@ PIP_DEV += \
 		neovim \
 		pdoc3 \
 		pre-commit \
-		pydocstyle \
 		pymdown-extensions \
-		seed-isort-config \
+		ruff \
 		setuptools \
 		twine \
 		wheel \
@@ -126,9 +127,13 @@ ARCH ?= $(shell uname -m)
 # usually do not want but is included here. You need to manually add the python
 # version requirement in the poetry section such as python = "^3.10"
 ifeq ($(ENV),poetry)
+	# no longer expoert to requirements.txt it just causes lots of dependabot
+	# problems.
 	EXPORT := poetry export -f requirements.txt --without-hashes > requirements.txt
-	INIT := poetry install && $(EXPORT)
-	UPDATE := poetry update && $(EXPORT)
+	# INIT := poetry install && $(EXPORT)
+	# UPDATE := poetry update && $(EXPORT)
+	INIT := poetry install
+	UPDATE := poetry update
 	RUN := poetry run
 	INSTALL := poetry add
 	INSTALL_PRE := $(INSTALL)

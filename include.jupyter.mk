@@ -29,8 +29,8 @@ PIP += 	\
 		"jupyterlab>=3.3" \
 		"jupyterlab_latex>=3.1.0" \
 		"lckr-jupyterlab-variableInspector" \
-	   	"jupyter_tensorboard>=0" \
-	   	"jupyterlab-system-monitor>=0.8" \
+  	"jupyter_tensorboard>=0" \
+   	"jupyterlab-system-monitor>=0.8" \
 	   	"jupyterlab-vim>=0.15" \
 	   	"nbdime>=1.1.1" \
        	"jupyterlab-git>=0.37" \

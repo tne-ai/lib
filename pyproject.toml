@@ -5,6 +5,7 @@ version = "0.1.0"
 description = "Sample Poetry Project"
 authors = ["Rich Tong <1782087+richtong@users.noreply.github.com>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 bandit = "^1.7.4"
@@ -17,7 +18,7 @@ isort = ">=5.10.1"
 mkdocs = "^1.4.2"
 mkdocs-material = "^9.0.11"
 mkdocs-monorepo-plugin = "^1.1.0"
-mkdocstrings = { extras = ["python"], version = "^0.23.0" }
+mkdocstrings = {extras = ["python"], version = "^0.26.1"}
 mypy = "^1.0.0"
 neovim = "^0.3.1"
 pdoc3 = "^0.10.0"
@@ -33,6 +34,7 @@ wheel = "^0.38.4"
 yamllint = "^1.29.0"
 
 # https://docs.astral.sh/ruff/configuration/
+ruff = "^0.6.8"
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
