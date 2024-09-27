@@ -5,6 +5,8 @@ version = "0.1.0"
 description = "Sample Poetry Project"
 authors = ["Rich Tong <1782087+richtong@users.noreply.github.com>"]
 readme = "README.md"
+# if you are making a pip package
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
