@@ -1,35 +1,23 @@
-[tool.poetry]
-# note that the name must *not* be an existing pip package
-name = "tne-src"
+[project]
+name = "sample"
 version = "0.1.0"
-description = "TNE.ai Mono Repo"
-authors = ["Rich Tong <1782087+richtong@users.noreply.github.com>"]
+description = "Rich's fine UV Project"
 readme = "README.md"
-package-mode = false
-
-[tool.poetry.dependencies]
-python = "^3.11.1"
-# black = ">=22.12"
-# bandit = "^1.7.4"
-# beautysh = "^6.2.1"
-build = "^0.10.0"
-# flake8 = "^6.0.0"
-fontawesome-markdown = "^0.2.6"
-# isort = ">=5.10.1"
-mkdocs = "^1.4.2"
-mkdocs-material = "^9.0.11"
-mypy = "^1.0.0"
-neovim = "^0.3.1"
-pdoc3 = "^0.10.0"
-pre-commit = "^3.0.4"
-# pydocstyle = "^6.3.0"
-pymdown-extensions = "^10.0.0"
-# seed-isort-config = "^2.2.0"
-setuptools = "^70.0.0"
-twine = "^4.0.2"
-wheel = "^0.38.4"
-yamllint = "^1.29.0"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires-python = ">=3.12"
+dependencies = [
+  "build>=1.2.2",
+  "fontawesome-markdown>=0.2.6",
+  "mkdocs>=1.6.1",
+  "mkdocs-material>=9.5.38",
+  "mkdocstrings[python]>=0.26.1",
+  "mypy>=1.11.2",
+  "neovim>=0.3.1",
+  "pdoc3>=0.11.1",
+  "pre-commit>=3.8.0",
+  "pymdown-extensions>=10.11",
+  "ruff>=0.6.8",
+  "setuptools>=75.1.0",
+  "twine>=5.1.1",
+  "wheel>=0.44.0",
+  "yamllint>=1.35.1",
+]

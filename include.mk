@@ -130,7 +130,7 @@ doctoc:
 			# .gitattributes \
 # the envrc should only go at the top of your ./ws for each project
 			# .envrc \
-			# envrc.base \
+			# envrc.base
 TEMPLATE ?= \
 			gitignore.base \
 			pre-commit-config.full.yaml \

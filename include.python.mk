@@ -1,9 +1,10 @@
 ##
 ## Python Commands (cloned from https://github.com/richtong/libi/include.python.mk)
 ## -------------------
-## ENV=poetry to use poetry for packages and python versions
-## ENV=pipenv to use pipenv (deprecated very slow needs include.pipenv.mk)
-## ENV=conda to use conda (not per project)
+## PYTHON_ENV=uv to use Astral uv (per project preferred)
+## PYTHON_ENV=conda to use when binaries needed like tf (not per project)
+## PYTHON_ENV=poetry to use poetry (can be used, but uv faster)
+## PYTHON_ENV=pipenv to use pipenv (deprecated very slow needs include.pipenv.mk)
 # requires include.mk
 #
 # Remember makefile *must* use tabs instead of spaces so use this vim line
@@ -99,8 +100,8 @@ CONDA_CHANNEL ?= conda-forge
 CONDA_ONLY ?=
 
 # https://stackoverflow.com/questions/589276/how-can-i-use-bash-syntax-in-makefile-targets
-# The virtual environment [ poetry | pipenv | conda | none ]
-ENV ?= poetry
+# The virtual environment [ poetry | pipenv | conda | uv | none ]
+PYTHON_ENV ?= uv
 RUN ?=
 INIT ?=
 ACTIVATE ?=
@@ -123,10 +124,26 @@ ARCH ?= $(shell uname -m)
 # conditional dependency https://stackoverflow.com/questions/59867140/conditional-dependencies-in-gnu-make
 # install h5py right after the clean
 #
+# uv from Astral is way faster than poetry  and also create venv
+ifeq ($(PYTHON_ENV),uv)
+	INIT := uv init
+	UPDATE := uv update
+	RUN := uv run
+	INSTALL := uv add
+	INSTALL_PRE := $(INSTALL)
+	INSTALL_DEV := $(INSTALL)
+	INSTALL_PIP_ONLY := $(INSTALL)
+	INSTALL_REQ :=
+	ENV_CREATE := uv venv
+	ENV_REMOVE := uv remove
+	ENV_CURRENT := uv list
+	ENV_RUN := uv run
+	ENV_ACTIVATE :=  source .env/bin/activate
+	ENV_DEACTIVATE := deactivate | true
 # Note that poetry init is an interactive creation of pyproject.toml which you
 # usually do not want but is included here. You need to manually add the python
 # version requirement in the poetry section such as python = "^3.10"
-ifeq ($(ENV),poetry)
+else ifeq ($(PYTHON_ENV),poetry)
 	# no longer expoert to requirements.txt it just causes lots of dependabot
 	# problems.
 	EXPORT := poetry export -f requirements.txt --without-hashes > requirements.txt
@@ -140,7 +157,14 @@ ifeq ($(ENV),poetry)
 	INSTALL_DEV := $(INSTALL)
 	INSTALL_PIP_ONLY := $(INSTALL)
 	INSTALL_REQ :=
-else ifeq ($(ENV),pipenv)
+	# environment creation is implicit and in the $(CWD)
+	ENV_CREATE :=
+	ENV_REMOVE := poetry env remove
+	ENV_CURRENT := poetry env list
+	ENV_RUN := poetry run
+	ENV_ACTIVATE := poetry shell
+	ENV_DEACTIVATE := exit
+else ifeq ($(PYTHON_ENV),pipenv)
 	PIPENV := pipenv
 	RUN := $(PIPENV) run
 	UPDATE := $(PIPENV) update
@@ -148,8 +172,14 @@ else ifeq ($(ENV),pipenv)
 	INSTALL_PRE := $(PIPENV) install --pre
 	INSTALL_DEV := $(INSTALL) --dev --pre
 	INSTALL_PIP_ONLY := $(INSTALL)
+	ENV_CREATE :=
 	INSTALL_REQ := pipenv-python $(if $(strip $(INSTALL_H5PY)),install-h5py)
-else ifeq ($(ENV),conda)
+	ENV_REMOVE := pipenv --rm
+	ENV_CURRENT := pipenv --venv
+	ENV_RUN := pipenv run
+	ENV_ACTIVATE := pipenv shell
+	ENV_DEACTIVATE := exit
+else ifeq ($(PYTHON_ENV),conda)
 	RUN := conda run -n $(NAME)
 	INIT := eval "$$(conda shell.bash hook)"
 	ACTIVATE := $(INIT) && conda activate $(NAME)
@@ -159,7 +189,14 @@ else ifeq ($(ENV),conda)
 	INSTALL_DEV := $(INSTALL)
 	INSTALL_PIP_ONLY := $(RUN) pip install
 	INSTALL_REQ = conda-clean
-else ifeq ($(ENV),none)
+	CONDA_NAME := $(CURDIR)
+	ENV_CREATE := conda create -n $(CONDA_NAME) -y
+	ENV_UNINSTALL := conda env remove --name $(CONDA_NAME)
+	ENV_CURRENT := conda env list
+	ENV_RUN := conda run -n $(CONDA_NAME)
+	ENV_ACTIVATE := conda activate $(CONDA_NAME)
+	ENV_DEACTIVATE := conda deactivate
+else ifeq ($(PYTHON_ENV),none)
 	RUN :=
 	ACTIVATE :=
 	# need a noop as this is not a modifier
@@ -170,11 +207,17 @@ else ifeq ($(ENV),none)
 	INSTALL_PRE := $(INSTALL) --pre
 	INSTALL_PIP_ONLY := $(INSTALL)
 	INSTALL_REQ := $(if $(strip $(INSTALL_H5PY)),install-h5py)
+	ENV_UNINSTALL :=
+	ENV_CURRENT :=
+	ENV_RUN :=
+	ENV_ACTIVATE :=
+	ENV_DEACTIVATE :=
 endif
 
 ## main: run the main program
 .PHONY: main
 main:
+	@echo $(PYTHON_ENV)
 	$(RUN) python $(MODULE) $(FLAGS)
 
 ## pdb: run locally with python to test components from main
@@ -216,12 +259,12 @@ test-pip:
 ## install-h5py: Special installation of h5py for M1 set INSTALL_H5PY to run as part of install
 .PHONY: install-h5py
 install-h5py:
-	if [[ ! $$(uname -m) =~ arm64 ]] || [[ $(ENV) =~ conda ]]; then \
+	if [[ ! $$(uname -m) =~ arm64 ]] || [[ $(PYTHON_ENV) =~ conda ]]; then \
 		$(INSTALL) h5py; \
 	else \
 		brew install hdf5 && \
 		export HDF5_DIR="$$(brew --prefix hdf5)" && \
-		if [[ $(ENV) =~ pipenv ]]; then \
+		if [[ $(PYTHON_ENV) =~ pipenv ]]; then \
 			PIP_NO_BINARY=h5py pipenv install h5py; \
 		else \
 			$(INSTALL) --no-binary=h5py h5py; \
@@ -232,7 +275,7 @@ install-h5py:
 .PHONY: install-dev
 install-dev: install
 	@echo pip install -e for adhoc testing
-ifeq ($(strip $(ENV)), pipenv)
+ifeq ($(strip $(PYTHON_ENV)), pipenv)
 	$(INSTALL) --dev -e .
 else
 	$(RUN) pip install -e .
@@ -254,7 +297,7 @@ test-ci:
 .PHONY: test-make
 test-make:
 	@echo 'NAME="$(NAME)" MAIN="$(MAIN)"'
-	@echo 'ENV="$(ENV)" RUN="$(RUN)"'
+	@echo 'PYTHON_ENV="$(PYTHON_ENV)" RUN="$(RUN)"'
 	@echo 'SRC="$(SRC)" NB="$(NB)" STREAMLIT="$(STREAMLIT)"'
 
 ## update: installs all  packages
@@ -268,19 +311,22 @@ vi:
 	cd $(ED_DIR) && $(RUN) "$$VISUAL" $(ED)
 
 # https://www.technologyscout.net/2017/11/how-to-install-dependencies-from-a-requirements-txt-file-with-conda/
-## install-env: install into python environment set by $(ENV)
+## install-env: install into python environment set by $(PYTHON_ENV)
 # https://stackoverflow.com/questions/9008649/gnu-make-conditional-function-if-inside-a-user-defined-function-always-ev
 .PHONY: install-env
 install-env: $(INSTALL_REQ)
-ifeq ($(ENV),conda)
+	@echo Installing in $(PYTHON_ENV)
+ifeq ($(PYTHON_ENV),conda)
 	@echo "conda preamble"
 	conda env list | grep ^$(NAME) || conda create -y --name $(NAME)
 	conda config --env --add channels conda-forge
 	conda config --env --set channel_priority strict
 	$(INSTALL) python=$(PYTHON) $(CONDA_ONLY)
-else ifeq ($(ENV),poetry)
+else ifeq ($(PYTHON_ENV),poetry)
 	poetry env use "$(PYTHON_MINOR)"
 endif
+	$(ENV_DEACTIVATE) || true
+	$(ENV_CREATE)
 
 	# using conditional in function form if first is not null, then insert
 	# second, else the third if it is there
@@ -291,13 +337,13 @@ endif
 	$(if $(strip $(PIP_ONLY)), $(INSTALL_PIP_ONLY) $(PIP_ONLY) || true)
 
 
-ifeq ($(ENV),poetry)
+ifeq ($(PYTHON_ENV),poetry)
 	@echo "poetry postamble install from pyproject.toml"
 	$(INIT)
-else ifeq ($(ENV),pipenv)
+else ifeq ($(PYTHON_ENV),pipenv)
 	@echo "pipenv postamble"
 	$(PIPENV) lock -r > requirements.txt && $(PIPENV) update
-else ifeq ($(ENV),conda)
+else ifeq ($(PYTHON_ENV),conda)
 	@echo "conda postamble"
 	[[ -r environment.yml ]] && conda env update --name $(NAME) -f environment.yml || true
 	# echo $$SHELL
@@ -321,9 +367,9 @@ endif
 # https://pipenv.kennethreitz.org/en/latest/basics/ lock -r will add SHA hashes
 .PHONY: freeze
 freeze:
-ifeq ($(strip $(ENV)), conda)
+ifeq ($(strip $(PYTHON_ENV)), conda)
 	$(ACTIVATE) && conda env export > environment.yml
-else ifeq ($(strip $(ENV)), pipenv)
+else ifeq ($(strip $(PYTHON_ENV)), pipenv)
 	$(PIPENV) lock -r
 else
 	$(RUN) pip freeze > requirements.txt
@@ -356,11 +402,11 @@ format:
 ## shell: Run interactive commands in Pipenv environment
 .PHONY: shell
 shell:
-ifeq ($(strip $(ENV)), poetry)
+ifeq ($(strip $(PYTHON_ENV)), poetry)
 	poetry shell
-else ifeq ($(strip $(ENV)),pipenv)
+else ifeq ($(strip $(PYTHON_ENV)),pipenv)
 	$(PIPENV) shell
-else ifeq ($(strip $(ENV)),conda)
+else ifeq ($(strip $(PYTHON_ENV)),conda)
 	@echo "run conda activate $(NAME) in your shell make cannot run"
 else
 	@echo "bare pip so no need to shell"
