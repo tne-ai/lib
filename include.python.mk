@@ -131,14 +131,14 @@ ifeq ($(PYTHON_ENV),uv)
 	RUN := uv run
 	INSTALL := uv add
 	INSTALL_PRE := $(INSTALL)
-	INSTALL_DEV := $(INSTALL)
+	INSTALL_DEV := $(INSTALL) --dev
 	INSTALL_PIP_ONLY := $(INSTALL)
 	INSTALL_REQ :=
-	ENV_CREATE := uv venv
+	ENV_CREATE := uv venv --python $(PYTHON)
 	ENV_REMOVE := uv remove
 	ENV_CURRENT := uv list
 	ENV_RUN := uv run
-	ENV_ACTIVATE :=  source .env/bin/activate
+	ENV_ACTIVATE :=  source .venv/bin/activate
 	ENV_DEACTIVATE := deactivate | true
 # Note that poetry init is an interactive creation of pyproject.toml which you
 # usually do not want but is included here. You need to manually add the python
@@ -293,12 +293,22 @@ test-ci:
 # https://stackoverflow.com/questions/54503964/type-hint-for-numpy-ndarray-dtype/54541916
 #
 
-# test-make: Test environment (Makefile testing only)
+## test-make: Test environment (Makefile testing only)
 .PHONY: test-make
 test-make:
 	@echo 'NAME="$(NAME)" MAIN="$(MAIN)"'
 	@echo 'PYTHON_ENV="$(PYTHON_ENV)" RUN="$(RUN)"'
 	@echo 'SRC="$(SRC)" NB="$(NB)" STREAMLIT="$(STREAMLIT)"'
+
+## activate: activate virtual environment
+.PHONY: activate
+activate:
+	@echo run $(ENV_ACTIVATE) or add to .envrc if you use direnv
+
+## deactivate: deactivate virtual environment
+.PHONY: deactivate
+deactivate:
+	$(ENV_DEACTIVATE)
 
 ## update: installs all  packages
 .PHONY: update
