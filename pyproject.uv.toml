@@ -1,7 +1,7 @@
 [project]
-name = "user"
+name = "src"
 version = "0.1.0"
-description = "User workspace"
+description = "TNE.ai main src repo"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
@@ -26,7 +26,6 @@ dev-dependencies = [
 ]
 
 # https://docs.astral.sh/ruff/configuration/
-ruff = "^0.6.8"
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
