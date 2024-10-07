@@ -508,13 +508,14 @@ if eval "[[ ! -v $lib_name ]]"; then
 			# note we pass flags unquoted  so each is a separate flag
 			# conditionally run sudo if asked
 			# shellcheck disable=SC2086
-			if [[ -v poetry_active ]]; then
-				log_verbose "in poetry do install insteadi of $package"
-				poetry add "$package"
-			else
-				log_verbose "using pip at $(command -v pip) for $package"
-				$use_sudo pip install "${flags[@]}" "$package"
-			fi
+			# if [[ -v poetry_active ]]; then
+			# 	log_verbose "in poetry do install instead of $package"
+			# 	poetry add "$package"
+			# else
+			# note that we are not venv aware here that is too hard
+			log_verbose "using pip at $(command -v pip) for $package"
+			$use_sudo pip install "${flags[@]}" "$package"
+			# fi
 		done
 	}
 	## bundle_install org repo for vim bundles
