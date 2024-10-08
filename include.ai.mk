@@ -34,5 +34,7 @@ ai.kill: ollama.kill open-webui.kill
 
 ## ollama.kill: kill the ollama server
 ## open-webui.kill: kill the open webui server
+# ignore with a dash in gnu make
+# https://www.gnu.org/software/make/manual/make.html#Errors
 %.kill:
-	pkill -f "$*" || true
+	-pkill -f ".*$*.*" || true
