@@ -147,7 +147,7 @@ PIP_AMD64_ONLY := \
 # will eventually merge the two
 # some of these are out of date and generate errors
   	# "jupyter_tensorboard>=0"
-PIP += 	\
+PIP_DEV += 	\
 		"aquirdturtle_collapsible_headings>=3.1" \
 		"ipyleaflet>=0.17" \
 		"jupyter-dash>=0.4.2" \

@@ -55,7 +55,9 @@ endif
 
 STREAMLIT ?= $(MAIN)
 
-PIP ?=
+# these packages are used during runtime of python proram
+PIP +=
+
 # These cannot be installed in the environment must use pip install
 # build, twine and setuptools for PIP packaging only but install since
 # most of what we do will end up packaged
@@ -70,29 +72,47 @@ PIP_PRE +=
 # PIP_ONLY for packages that do not conda install as conda has a limited repo
 PIP_ONLY +=
 
-# "black>=22.12" \
-# flake8 \
-		# seed-isort-config \
-		# "isort>=5.10.1" \
-		# pydocstyle \
-# bandit \
-# beautysh
-PIP_DEV += \
-		build \
+# "black>=22.12"  # python formatter. ruff deprecated \
+# flake8   # python linter ruff deprecates\
+# seed-isort-config   # deprecated by ruff \
+# "isort>=5.10.1"  # deprecated to ruff \
+# pydocstyle  # deprecated to ruff\
+# bandit   # deprecated to ruff\
+# beautysh  # deprecated by shfmt
+
+# if you want everything
+# PIP_PURPOSE ?= PIP_BASE PIP_DEV
+# base tools needed for documentation for any repo
+PIP_DEV_BASE += \
+		neovim \
 		fontawesome-markdown \
 		mkdocs \
 		mkdocs-material \
 		"mkdocstrings[python]" \
+
+# development tools if you are writing python
+PIP_DEV_TOOLS += \
 		mypy \
-		neovim \
 		pdoc3 \
 		pre-commit \
 		pymdown-extensions \
 		ruff \
+		yamllint
+
+# if you are packaging for pypi
+PIP_DEV_PACKAGER += \
+		build \
 		setuptools \
 		twine \
-		wheel \
-		yamllint
+		wheel
+
+
+# decides what packages to install default is just the base
+PIP_DEV ?= $(PIP_DEV_BASE)
+# runtime packages needed for python for python development
+# PIP ?= $(PIP_DEV_BASE) $(PIP_DEV_TOOLS)
+# packages for python development of a pypi package
+# PIP ?= $(PIP_DEV_BASE) $(PIP_DEV_TOOLS) $(PIP_DEV_PACKAGER)
 
 # default conda channels
 CONDA_CHANNEL ?= conda-forge
