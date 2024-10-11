@@ -105,10 +105,11 @@ pdoc: $(PYTHON_FILES)
 		$(RUN) pdoc --force -o docs/code $(PYTHON_FILES); \
 	fi
 
-
 ## install-netlify: Generate a netlify configuration
 .PHONY: install-netlify
-install-netlify:
+install-netlify: requirements.txt runtime.txt netlify.toml
+	@echo netlify needs requirements.txt, runtime.txt and netlify.toml
+	@echo use netlify switch if the right link does not appear
 	netlify link
 	netlify env:set GIT_LFS_ENABLED true
 
@@ -120,30 +121,29 @@ doctoc:
 ## install-repo: installation of all template files for a new repo
 # set these to the destination FILE and the source TEMPLATE if the file does
 # not exist are you are using FORCE to overwrite
-# no more requirements.txt used
-#			requirements.txt
-#			requirements.base.txt
 # do nore use envrc.base except at the very top of ./src
 # no longer make git lfs the default as this
 # needs tools to understand git lfs
 			# gitattributes.base \
 			# .gitattributes \
 # the envrc should only go at the top of your ./ws for each project
-			# .envrc \
-			# envrc.base
+# requirements.txt needed for netlify
 TEMPLATE ?= \
+			envrc.base \
 			gitignore.base \
 			pre-commit-config.full.yaml \
 			tool-versions.base \
-			pyproject.full.toml \
+			pyproject.base.toml  # only has mkdocs in it use full for dev \
 			runtime.base.txt \
 			netlify.base.toml \
 			mkdocs.base.yml \
 			Makefile.base \
+			requirements.netlify.txt \
 			docs.base \
 			workflow.base
 
 FILE ?= \
+			.envrc \
 			.gitignore \
 			.pre-commit-config.yaml \
 			.tool-versions \
@@ -152,6 +152,7 @@ FILE ?= \
 			netlify.toml \
 			mkdocs.yml \
 			Makefile \
+			requirements.txt \
 			docs \
 			.github/workflows
 

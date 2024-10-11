@@ -127,13 +127,15 @@ ARCH ?= $(shell uname -m)
 # uv from Astral is way faster than poetry  and also create venv
 ifeq ($(PYTHON_ENV),uv)
 	INIT := uv init
-	UPDATE := uv update
 	RUN := uv run
 	INSTALL := uv add
 	INSTALL_PRE := $(INSTALL)
 	INSTALL_DEV := $(INSTALL) --dev
 	INSTALL_PIP_ONLY := $(INSTALL)
 	INSTALL_REQ :=
+	INSTALL_LOCK := uv lock
+	INSTALL_UPGRADE := $(INSTALL_LOCK) --upgrade
+	INSTALL_REQUIREMENTS := uv export --format requirements-txt > requirements.txt
 	ENV_CREATE := uv venv --python $(PYTHON)
 	ENV_REMOVE := uv remove
 	ENV_CURRENT := uv list
@@ -145,8 +147,7 @@ ifeq ($(PYTHON_ENV),uv)
 # version requirement in the poetry section such as python = "^3.10"
 else ifeq ($(PYTHON_ENV),poetry)
 	# no longer expoert to requirements.txt it just causes lots of dependabot
-	# problems.
-	EXPORT := poetry export -f requirements.txt --without-hashes > requirements.txt
+	# problems, so only do export explicitly usually for mkdocs in netlify
 	# INIT := poetry install && $(EXPORT)
 	# UPDATE := poetry update && $(EXPORT)
 	INIT := poetry install
@@ -157,6 +158,10 @@ else ifeq ($(PYTHON_ENV),poetry)
 	INSTALL_DEV := $(INSTALL)
 	INSTALL_PIP_ONLY := $(INSTALL)
 	INSTALL_REQ :=
+	# no explicit lock needed
+	INSTALL_LOCK := poetry lock
+	INSTALL_UPGRADE := poetry upgrade
+	INSTALL_REQUIREMENTS := poetry export --format requirements-txt --without-hashes -o requirements.txt
 	# environment creation is implicit and in the $(CWD)
 	ENV_CREATE :=
 	ENV_REMOVE := poetry env remove
@@ -174,6 +179,9 @@ else ifeq ($(PYTHON_ENV),pipenv)
 	INSTALL_PIP_ONLY := $(INSTALL)
 	ENV_CREATE :=
 	INSTALL_REQ := pipenv-python $(if $(strip $(INSTALL_H5PY)),install-h5py)
+	INSTALL_LOCK := pipenv lock
+	INSTALL_UPGRADE := pipenv update
+	INSTALL_REQUIREMENTS := pipenv lock -r > requirements.txt
 	ENV_REMOVE := pipenv --rm
 	ENV_CURRENT := pipenv --venv
 	ENV_RUN := pipenv run
@@ -189,6 +197,12 @@ else ifeq ($(PYTHON_ENV),conda)
 	INSTALL_DEV := $(INSTALL)
 	INSTALL_PIP_ONLY := $(RUN) pip install
 	INSTALL_REQ = conda-clean
+	# requires conda-lock installation so use the native instead
+	# INSTALL_LOCK := conda-lock
+	INSTALL_LOCK i:= $(ACTIVATE) && conda env export > environment.yml
+	INSTALL_UPGRADE := conda update --all
+	# https://stackoverflow.com/questions/50777849/from-conda-create-requirements-txt-for-pip3
+	INSTALL_REQUIREMENTS := $(ACTIVATE) && conda install pip && pip freeze > requirements.txt
 	CONDA_NAME := $(CURDIR)
 	ENV_CREATE := conda create -n $(CONDA_NAME) -y
 	ENV_UNINSTALL := conda env remove --name $(CONDA_NAME)
@@ -207,6 +221,9 @@ else ifeq ($(PYTHON_ENV),none)
 	INSTALL_PRE := $(INSTALL) --pre
 	INSTALL_PIP_ONLY := $(INSTALL)
 	INSTALL_REQ := $(if $(strip $(INSTALL_H5PY)),install-h5py)
+	INSTALL_LOCK := $(RUN) pip freeze > requirements.txt
+	# creating requirements.txt is a size effect of a freeze
+	INSTALL_REQUIREMENTS := $(INSTALL_LOCK)
 	ENV_UNINSTALL :=
 	ENV_CURRENT :=
 	ENV_RUN :=
@@ -310,11 +327,6 @@ activate:
 deactivate:
 	$(ENV_DEACTIVATE)
 
-## update: installs all  packages
-.PHONY: update
-update:
-	$(UPDATE)
-
 ## vi: run the editor in the right environment
 .PHONY: vi
 vi:
@@ -373,17 +385,20 @@ else ifeq ($(PYTHON_ENV),conda)
 	@echo WARNING -- we do not parse the PYthon User site in ~/.
 endif
 
-## freeze: Freeze configuration to requirements.txt or conda export to environment.yml
+## lock: Freeze configuration to requirements.txt or conda export to environment.yml
 # https://pipenv.kennethreitz.org/en/latest/basics/ lock -r will add SHA hashes
-.PHONY: freeze
-freeze:
-ifeq ($(strip $(PYTHON_ENV)), conda)
-	$(ACTIVATE) && conda env export > environment.yml
-else ifeq ($(strip $(PYTHON_ENV)), pipenv)
-	$(PIPENV) lock -r
-else
-	$(RUN) pip freeze > requirements.txt
-endif
+.PHONY: lock
+lock:
+	$(INSTALL_LOCK)
+
+## requirements.txt: export requirements.txt
+requirements.txt:
+	$(INSTALL_REQUIREMENTS)
+
+## upgrade: Upgrade all the packages
+.PHONY: upgrade
+upgrade:
+	$(INSTALL_UPGRADE)
 
 # https://medium.com/@Tankado95/how-to-generate-a-documentation-for-python-code-using-pdoc-60f681d14d6e
 # https://medium.com/@peterkong/comparison-of-python-documentation-generators-660203ca3804
@@ -466,6 +481,7 @@ test-pypi: dist
 	#$(RUN) python -m pip install --upgrade --index-url https://test.pypi.org/simple --no-deps $(NAME)
 
 ## dist: build PyPi PIP packages
+.PHONY: dist
 dist: setup.py
 	@echo "Put token into TEST_PYPI_API_TOKEN"
 	@echo "from https://test.pypi.org/manage/account/#api-token"
