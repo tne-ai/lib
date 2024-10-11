@@ -107,8 +107,8 @@ pdoc: $(PYTHON_FILES)
 
 ## install-netlify: Generate a netlify configuration
 .PHONY: install-netlify
-install-netlify: requirements.txt runtime.txt netlify.toml
-	@echo netlify needs requirements.txt, runtime.txt and netlify.toml
+install-netlify: requirements.txt runtime.txt netlify.toml .node-version
+	@echo netlify needs requirements.txt, runtime.txt and netlify.toml and .node-version
 	@echo use netlify switch if the right link does not appear
 	netlify link
 	netlify env:set GIT_LFS_ENABLED true
@@ -133,6 +133,7 @@ TEMPLATE ?= \
 			gitignore.base \
 			pre-commit-config.full.yaml \
 			tool-versions.base \
+			node-version.base \
 			pyproject.base.toml  # only has mkdocs in it use full for dev \
 			runtime.base.txt \
 			netlify.base.toml \
@@ -147,6 +148,7 @@ FILE ?= \
 			.gitignore \
 			.pre-commit-config.yaml \
 			.tool-versions \
+			.node-version \
 			pyproject.toml \
 			runtime.txt \
 			netlify.toml \
