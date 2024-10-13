@@ -102,9 +102,9 @@ docs-stop:
 mkdocs:
 	mkdocs build
 
-## mkdocs-deploy: deploy doc to github pages only works for public repos
-.PHONY: mkdocs-deploy
-mkdocs-deploy:
+## mkdocs-gh: deploy doc to github pages only works for public repos
+.PHONY: mkdocs-gh
+mkdocs-gh:
 	mkdocs gh-deploy
 
 ## pdoc: Make python documentation using pdoc3

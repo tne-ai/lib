@@ -8,8 +8,11 @@ TAG=0.9
 # can insert your own include in the CWD if you want to override
 # https://runebook.dev/en/docs/gnu_make/include
 # this directive does not seem to work
-.INCLUDE_DIRS=../lib
-INCLUDE_DIRS ?= $(.INCLUDE_DIRS)
+# note that .INCLUDE_DIRS is a read-only list so we need our own variable
+# if you are in a ws controlled repo otherwise you  need a path
+# INCLUDE_DIRS ?= ../lib
+# INCLUDE_DIRS ?= $(HOME)/ws/git/src/lib
+INCLUDE_DIRS ?= $(WS_DIR)/git/src/lib
 # adjust for your org
 ORG ?= tne
 

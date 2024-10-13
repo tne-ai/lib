@@ -9,9 +9,10 @@ TAG=0.9
 # https://runebook.dev/en/docs/gnu_make/include
 # this directive does not seem to work
 # if you do not have WS_DIR set use a relative path
-# .INCLUDE_DIRS=../lib
-.INCLUDE_DIRS ?= $(WS_DIR)/git/srclib
-INCLUDE_DIRS ?= $(.INCLUDE_DIRS)
+# https://www.gnu.org/software/make/manual/html_node/Special-Variables.html
+# note that INCLUDE_DIRS is a read-only list so we need our own variable
+INCLUDE_DIRS ?= $(WS_DIR)/git/src/lib
+# INCLUDE_DIRS ?= $(.INCLUDE_DIRS)
 # adjust for your org
 ORG ?= tne
 
@@ -37,9 +38,6 @@ clean:
 # https://www.gnu.org/software/make/manual/html_node/Foreach-Function.html
 # Note that - means to ignore errors, but this is actually checks
 # LIB_PATH ?= ../lib
-# ifneq ($(wildcard include.mk),)
-# include "$(LIB_PATH)/include.mk"
-# endif
 -include $(INCLUDE_DIRS)/include.mk
 # the first dash means ignore errors
 # -include $(INCLUDE_DIRS)/include.ai.mk
