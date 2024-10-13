@@ -23,17 +23,6 @@ auth0-id: auth0-id
 	@echo Looking Auth0 for: $(STUDIO_EMAIL)
 	@echo Found Auth0 id: $(AUTH0_ID)
 
-## auth0-login: login if needed
-# try a tenants list and look for failure string as it doesn't return an error
-# code on failure, need a grep -v so the line returns true
-.PHONY: auth0-login
-auth0-login:
-	auth0 tenants list | grep -v "auth0 login" || auth0 login
-
-## aws-login: login if needed
-.PHONY: aws-login
-aws-login:
-	aws sts get-caller-identity >/dev/null || aws sso login
 
 ## studio-sync: Syncs from AWS S3 buckets to $(STUDIO_SUBMODULE_DIR)
 .PHONY: studio-sync

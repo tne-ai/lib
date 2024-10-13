@@ -8,7 +8,9 @@ TAG=0.9
 # can insert your own include in the CWD if you want to override
 # https://runebook.dev/en/docs/gnu_make/include
 # this directive does not seem to work
-.INCLUDE_DIRS=../lib
+# if you do not have WS_DIR set use a relative path
+# .INCLUDE_DIRS=../lib
+.INCLUDE_DIRS ?= $(WS_DIR)/git/srclib
 INCLUDE_DIRS ?= $(.INCLUDE_DIRS)
 # adjust for your org
 ORG ?= tne
@@ -40,22 +42,16 @@ clean:
 # endif
 -include $(INCLUDE_DIRS)/include.mk
 # the first dash means ignore errors
--include $(INCLUDE_DIRS)/include.ai.mk
--include $(INCLUDE_DIRS)/include.python.mk
-# if you use docker (who doesn't)
--include $(INCLUDE_DIRS)/include.docker.mk
-# only include if it exists your companies specific stuff
-# -include $(INCLUDE_DIRS)/include.jupyter.mk
--include $(INCLUDE_DIRS)/include.node.mk
-
-# rhash is optional for hash checks
-# -include $(INCLUDE_DIRS)/include.rhash.mk
+# -include $(INCLUDE_DIRS)/include.ai.mk
+# -include $(INCLUDE_DIRS)/include.docker.mk
 # -include $(INCLUDE_DIRS)/include.gcp.base.mk
 # -include $(INCLUDE_DIRS)/include.gcp.mk
 # -include $(INCLUDE_DIRS)/include.hugo.mk
-
-# these have not been tested in a long time
-# - include.airflow.mk
+# -include $(INCLUDE_DIRS)/include.jupyter.mk
+# -include $(INCLUDE_DIRS)/include.node.mk
+# -include $(INCLUDE_DIRS)/include.python.mk
+# -include $(INCLUDE_DIRS)/include.rhash.mk
+# -include $(INCLUDE_DIRS)/airflow.mk
 
 # normally your organization stuff appears last
--include $(INCLUDE_DIRS)/include.$(ORG).mk
+# -include $(INCLUDE_DIRS)/include.$(ORG).mk

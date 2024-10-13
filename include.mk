@@ -1,5 +1,5 @@
 ##
-## Base commands
+## Base Commands
 ## -------------
 #
 TAG ?= v1
@@ -55,15 +55,17 @@ set-%:
 		exit 1; \
 	fi
 
-## auth: Authenticate against aws, netlify, doctl, gcp
+## auth: Authenticate against aws, netlify, doctl, gcp, auth0
 .PHONY: auth
 auth:
 	command -v aws > /dev/null || aws sts get-caller-identity &> /dev/null || aws sso login
 	command -v netlify > /dev/null && ! netlify status | grep -q "Not logged in" || netlify login
 	command -v doctl > /dev/null && doctl projects list &>/dev/null || doctl auth init
 	command -v gcloud > /dev/null && gcloud projects list >/dev/null || gcloud auth login
+	command -v auth0 > /dev/null && auth0 tenants list | grep -v "auth0 login" || auth0 login
 
-## These are required tags from checkmate stubs are here you should overwrite
+
+# These are required tags from checkmate stubs are here you should overwrite
 #.PHONY: test
 #test:
 #    @echo "test stub"
@@ -76,7 +78,6 @@ tag:
 	git tag -a "$(TAG)" -m "$(COMMENT)" && \
 	git push origin "$(TAG)"
 
-##
 ## docs: Generate a documentation runing pdoc and mkdocs
 .PHONY: docs
 docs: pdoc mkdocs
@@ -126,48 +127,6 @@ install-netlify: requirements.txt runtime.txt netlify.toml .node-version
 doctoc:
 	doctoc *.md
 
-## install-repo: installation of all template files for a new repo
-# set these to the destination FILE and the source TEMPLATE if the file does
-# not exist are you are using FORCE to overwrite
-# do nore use envrc.base except at the very top of ./src
-# no longer make git lfs the default as this
-# needs tools to understand git lfs
-			# gitattributes.base \
-			# .gitattributes \
-# the envrc should only go at the top of your ./ws for each project
-# requirements.txt needed for netlify
-TEMPLATE ?= \
-			envrc.base \
-			gitignore.base \
-			pre-commit-config.full.yaml \
-			tool-versions.base \
-			node-version.base \
-			pyproject.base.toml  # only has mkdocs in it use full for dev \
-			runtime.base.txt \
-			netlify.base.toml \
-			mkdocs.base.yml \
-			Makefile.base \
-			requirements.netlify.txt \
-			docs.base \
-			workflow.base
-
-FILE ?= \
-			.envrc \
-			.gitignore \
-			.pre-commit-config.yaml \
-			.tool-versions \
-			.node-version \
-			pyproject.toml \
-			runtime.txt \
-			netlify.toml \
-			mkdocs.yml \
-			Makefile \
-			requirements.txt \
-			docs \
-			.github/workflows
-
-
-##
 ## install-src: creates mono repo and submodules ./{bin,lib,docker}
 # https://joshtronic.com/2020/08/09/how-to-get-the-default-git-branch/
 # this is how to figure out the default branch main or master
@@ -194,6 +153,43 @@ update-repo:
 # https://stackoverflow.com/questions/1529946/linux-copy-and-create-destination-dir-if-it-does-not-exist
 #				cp "$(WS_DIR)/git/src/lib/$${TEMPLATE[i]}" $${FILE[i]};
 ## install-repo: copy the skeleton files from ./lib to a new repo
+# set these to the destination FILE and the source TEMPLATE if the file does
+# not exist are you are using FORCE to overwrite
+# do nore use envrc.base except at the very top of ./src
+# no longer make git lfs the default as this
+# needs tools to understand git lfs
+			# gitattributes.base \
+			# .gitattributes \
+# the envrc should only go at the top of your ./ws for each project
+# requirements.txt needed for netlify
+TEMPLATE ?= \
+			envrc.base \
+			gitignore.base \
+			pre-commit-config.full.yaml \
+			tool-versions.base \
+			node-version.base \
+			pyproject.base.toml  \
+			runtime.base.txt \
+			netlify.base.toml \
+			mkdocs.base.yml \
+			Makefile.base \
+			requirements.netlify.txt \
+			docs.base \
+			workflow.base
+FILE ?= \
+			.envrc \
+			.gitignore \
+			.pre-commit-config.yaml \
+			.tool-versions \
+			.node-version \
+			pyproject.toml \
+			runtime.txt \
+			netlify.toml \
+			mkdocs.yml \
+			Makefile \
+			requirements.txt \
+			docs \
+			.github/workflows
 .PHONY: install-repo
 install-repo:
 	FILE=( $(FILE) ) && \
@@ -216,7 +212,8 @@ install-repo:
 		fi; \
 	done
 
-## install-repo-old: deprecated Install repo basics like gitattributes, gitignore pre-commit, GitHub Actions and prereq tfrom $WS_DIR use $FORCE it you want to overwrite
+# install-repo-old: deprecated Install repo
+# replaced by a set of variables instead of hard coded
 .PHONY: install-repo-old
 install-repo-old:
 	for PREREQ in $(BASE_PREREQ); do \
@@ -255,7 +252,6 @@ install-repo-old:
 			cp "$(WS_DIR)/git/src/lib/pyproject.full.toml" pyproject.toml; \
 	fi
 
-##
 ## pre-commit: Run pre-commit hooks and install if not there with update
 .PHONY: pre-commit
 pre-commit: install-pre-commit
@@ -329,7 +325,6 @@ lib-sync:
 	; done
 
 
-##
 ## git-lfs: installs git lfs
 .PHONY: git-lfs
 git-lfs:
