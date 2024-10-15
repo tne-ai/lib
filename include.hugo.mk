@@ -114,20 +114,6 @@ hugo-post:
 ##
 ## Netlify
 ## ---
-## netlify: run netlify local dev environment (deprecated)
-.PHONY: netlify
-netlify:
-	netlify dev
-
-## netlify-deploy: force deployment without a push
-.PHONY: netlify-deploy
-netlify-deploy:
-	netlify deploy
-
-## netlify-build: build locally as a test
-.PHONY: netlify-build
-netlify-build:
-	netlify build
 
 ## netlify-init: initialize netlify cli and link it to current repo
 # https://cli.netlify.com/getting-started
@@ -137,3 +123,24 @@ netlify-init: auth
 	if [[ -d .netlify ]]; then netlify link; else netlify init; fi
 	netlify env:set GIT_LFS_ENABLED true
 	netlify open
+
+## netlify-unlink: no longer update a netlify site on push from this repo
+.PHONY: netlify-unlink
+netlify-unlink:
+	netlify unlink
+	netlify logout
+
+## netlify: build locally as a test
+.PHONY: netlify
+netlify:
+	netlify build
+
+## netlify-deploy: force deployment without a push
+.PHONY: netlify-deploy
+netlify-deploy:
+	netlify deploy
+
+## netlify-dev: run netlify local dev environment (deprecated)
+.PHONY: netlify-dev
+netlify-dev:
+	netlify dev

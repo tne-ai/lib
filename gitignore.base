@@ -32,7 +32,10 @@ __pycache__
 venv/
 
 # Local Netlify folder
-# .netlify
+.netlify/
+public/
+.cache/
+.netlify
 
 # Mkdocs site output
 site/

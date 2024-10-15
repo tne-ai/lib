@@ -5,7 +5,8 @@ name = "lib"
 version = "0.1.1-202410"
 description = "TNE.ai main src repo"
 readme = "README.md"
-requires-python = ">=3.12"
+# this is too broad 3.13 as of 10-24 is not supported by tensorflow
+requires-python = "==3.12*"
 dependencies = []
 
 [tool.uv]
