@@ -58,7 +58,7 @@ set-%:
 ## auth: Authenticate against aws, netlify, doctl, gcp, auth0
 .PHONY: auth
 auth:
-	command -v aws > /dev/null || aws sts get-caller-identity &> /dev/null || aws sso login
+	command -v aws > /dev/null &&  aws sts get-caller-identity &> /dev/null || aws sso login
 	command -v netlify > /dev/null && ! netlify status | grep -q "Not logged in" || netlify login
 	command -v doctl > /dev/null && doctl projects list &>/dev/null || doctl auth init
 	command -v gcloud > /dev/null && gcloud projects list >/dev/null || gcloud auth login

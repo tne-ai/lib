@@ -52,4 +52,4 @@ clean:
 # -include $(INCLUDE_DIRS)/airflow.mk
 
 # normally your organization stuff appears last
-# -include $(INCLUDE_DIRS)/include.$(ORG).mk
+-include $(INCLUDE_DIRS)/include.$(ORG).mk
