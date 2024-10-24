@@ -40,7 +40,7 @@ clean:
 # LIB_PATH ?= ../lib
 -include $(INCLUDE_DIRS)/include.mk
 # the first dash means ignore errors
-# -include $(INCLUDE_DIRS)/include.ai.mk
+-include $(INCLUDE_DIRS)/include.ai.mk
 # -include $(INCLUDE_DIRS)/include.docker.mk
 # -include $(INCLUDE_DIRS)/include.gcp.base.mk
 # -include $(INCLUDE_DIRS)/include.gcp.mk

@@ -35,7 +35,7 @@ studio:
 		git submodule add git@github.com:$(STUDIO_ORG)/$(STUDIO_REPO).git
 
 
-## studio-sync: Syncs from AWS S3 buckets to $(STUDIO_SUBMODULE_DIR)
+## studio-sync: Syncs from AWS S3 buckets for $(STUDIO_USER) to $(STUDIO_SUBMODULE_DIR)
 .PHONY: studio-sync
 studio-sync: auth
 	aws s3 sync $(STUDIO_AWS_S3)/$(AUTH0_ID) $(STUDIO_SUBMODULE_DIR)/$(STUDIO_REPO)
