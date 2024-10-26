@@ -20,12 +20,12 @@ ai: ollama open-webui
 
 ## open-webui: run open webui as frontend to ollama at port 1314 change with PORT=port
 .PHONY: open-webui
-open-webui:
+open-webui: open-webui.kill
 	$(call START_SERVER,open-webui,--port $(PORT))
 
 ## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
 .PHONY: ollama
-ollama:
+ollama: ollama.kill
 	$(call START_SERVER,ollama)
 
 ## ai.kill: kill all ai all ai servers
@@ -37,5 +37,6 @@ ai.kill: ollama.kill open-webui.kill
 ## open-webui.kill: kill the open webui server
 # ignore with a dash in gnu make
 # https://www.gnu.org/software/make/manual/make.html#Errors
+# -f means find anywhere in the argument field
 %.kill:
-	-pkill -f ".*$*.*" || true
+	-pkill -f "$*" || true
