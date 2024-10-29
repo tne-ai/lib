@@ -3,7 +3,9 @@
 #
 FLAGS ?=
 SHELL := /usr/bin/env bash
-PORT ?= 1314
+# port does not work use 8080 default
+# PORT ?= 1314
+PORT ?= 8080
 # does not work the EXCLUDEd directories are still listed
 # https://www.theunixschool.com/2012/07/find-command-15-examples-to-EXCLUDE.html
 # EXCLUDE := -type d \( -name extern -o -name .git \) -prune -o
