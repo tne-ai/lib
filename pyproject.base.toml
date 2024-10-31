@@ -6,7 +6,8 @@ version = "0.1.1-202410"
 description = "TNE.ai main src repo"
 readme = "README.md"
 # this is too broad 3.13 as of 10-24 is not supported by tensorflow
-requires-python = "==3.12*"
+# open-webui only works with 3.11 as or 10-24
+requires-python = "==3.11.*"
 dependencies = []
 
 [tool.uv]

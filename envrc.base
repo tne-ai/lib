@@ -16,6 +16,11 @@ dotenv_if_exists
 # use this if in ws/git/src
 pwd="$(PWD)" && export WS_DIR="${pwd%git${pwd#*git}}"
 
+# The org name for emails and things
+# [[ -v WS_ORG ]] || export WS_ORG ?= "tongfamily.com"
+[[ -v WS_ORG ]] || export WS_ORG="tne.ai"
+
+
 # python uv uses venv so if it exists and it is not activated, use it
 if [[ -r .venv/bin/activate ]]; then source .venv/bin/activate; fi
 #
@@ -28,6 +33,7 @@ if [[ -r .venv/bin/activate ]]; then source .venv/bin/activate; fi
 [[ -v DEEPSEEK_API_KEY ]] || export "DEEPSEEK_API_KEY"="$(op item get "deepseek API Key Dev" --fields "api key" --reveal)"
 # [[ -v DIGITALOCEAN_TOKEN ]] || export "DIGITALOCEAN_TOKEN"="$(op item get "DigitalOcean Personal Access Token" --fields "token" --reveal)"
 [[ -v GEMINI_API_KEY ]] || export "GEMINI_API_KEY"="$(op item get "Google Gemini API Key Dev" --fields "api key" --reveal)"
+[[ -v GOOGLE_AI_API_KEY ]] || export "GOOGLE_AI_API_KEY"="$GEMINI_API_KEY"
 # [[ -v GITHUB_TOKEN ]] || export "GITHUB_TOKEN"="$(op item get "GitHub Personal Access Token Dev" --fields "personal access token" --reveal)"
 [[ -v GITHUB_TOKEN_CLASSIC ]] || export "GITHUB_TOKEN_CLASSIC"="$(op item get "GitHub Personal Access Token Classic" --fields "personal access token" --reveal)"
 [[ -v GROQ_API_KEY ]] || export "GROQ_API_KEY"="$(op item get "Groq API Key Dev" --fields "api key" --reveal)"

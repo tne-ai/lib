@@ -23,6 +23,7 @@
 #
 FLAGS ?=
 SHELL := /usr/bin/env bash
+
 # does not work the EXCLUDEd directories are still listed
 # https://www.theunixschool.com/2012/07/find-command-15-examples-to-EXCLUDE.html
 # EXCLUDE := -type d \( -name extern -o -name .git \) -prune -o
@@ -121,6 +122,7 @@ CONDA_ONLY ?=
 
 # https://stackoverflow.com/questions/589276/how-can-i-use-bash-syntax-in-makefile-targets
 # The virtual environment [ poetry | pipenv | conda | uv | none ]
+REQUIREMENTS_TXT ?= requirements.txt
 PYTHON_ENV ?= uv
 RUN ?=
 INIT ?=
@@ -155,7 +157,8 @@ ifeq ($(PYTHON_ENV),uv)
 	INSTALL_REQ :=
 	INSTALL_LOCK := uv lock
 	INSTALL_UPGRADE := $(INSTALL_LOCK) --upgrade
-	INSTALL_REQUIREMENTS := uv export --format requirements-txt > requirements.txt
+	INSTALL_REQUIREMENTS := [[ -e $(REQUIREMENTS_TXT) ]] && uv pip install -r requirements.txt
+	EXPORT_REQUIREMENTS := uv export --format $(REQUIREMENTS_TXT) > requirements.txt
 	ENV_CREATE := uv venv --python $(PYTHON)
 	ENV_REMOVE := uv remove
 	ENV_CURRENT := uv list
@@ -166,7 +169,7 @@ ifeq ($(PYTHON_ENV),uv)
 # usually do not want but is included here. You need to manually add the python
 # version requirement in the poetry section such as python = "^3.10"
 else ifeq ($(PYTHON_ENV),poetry)
-	# no longer expoert to requirements.txt it just causes lots of dependabot
+	# no longer expoert to $(REQUIREMENTS_TXT) it just causes lots of dependabot
 	# problems, so only do export explicitly usually for mkdocs in netlify
 	# INIT := poetry install && $(EXPORT)
 	# UPDATE := poetry update && $(EXPORT)
@@ -181,7 +184,10 @@ else ifeq ($(PYTHON_ENV),poetry)
 	# no explicit lock needed
 	INSTALL_LOCK := poetry lock
 	INSTALL_UPGRADE := poetry upgrade
-	INSTALL_REQUIREMENTS := poetry export --format requirements-txt --without-hashes -o requirements.txt
+	# https://stackoverflow.com/questions/62764148/how-to-import-an-existing-$(REQUIREMENTS_TXT)-into-a-poetry-project
+	# https://timonweb.com/python/how-to-import-requirementstxt-into-poetry/
+	INSTALL_REQUIREMENTS := [[ -e $(REQUIREMENTS_TXT) ]] && $(INSTALL) $(cat requirements.txt)
+	EXPORT_REQUIREMENTS := poetry export --format $(REQUIREMENTS_TXT) --without-hashes -o requirements.txt
 	# environment creation is implicit and in the $(CWD)
 	ENV_CREATE :=
 	ENV_REMOVE := poetry env remove
@@ -201,7 +207,10 @@ else ifeq ($(PYTHON_ENV),pipenv)
 	INSTALL_REQ := pipenv-python $(if $(strip $(INSTALL_H5PY)),install-h5py)
 	INSTALL_LOCK := pipenv lock
 	INSTALL_UPGRADE := pipenv update
-	INSTALL_REQUIREMENTS := pipenv lock -r > requirements.txt
+	# https://realpython.com/pipenv-guide/
+	# pipenv autodetects $(REQUIREMENTS_TXT) and uses it
+	INSTALL_REQUIREMENTS := [[ -e $(REQUIREMENTS_TXT) ]] && $(INSTALL)
+	EXPORT_REQUIREMENTS := pipenv lock -r > $(REQUIREMENTS_TXT)
 	ENV_REMOVE := pipenv --rm
 	ENV_CURRENT := pipenv --venv
 	ENV_RUN := pipenv run
@@ -221,8 +230,9 @@ else ifeq ($(PYTHON_ENV),conda)
 	# INSTALL_LOCK := conda-lock
 	INSTALL_LOCK i:= $(ACTIVATE) && conda env export > environment.yml
 	INSTALL_UPGRADE := conda update --all
-	# https://stackoverflow.com/questions/50777849/from-conda-create-requirements-txt-for-pip3
-	INSTALL_REQUIREMENTS := $(ACTIVATE) && conda install pip && pip freeze > requirements.txt
+	INSTALL_REQUIREMENTS := [[ -e $(REQUIREMENTS_TXT) ]] && $(INSTALL) --file requirements.txt
+	# https://stackoverflow.com/questions/50777849/from-conda-create-$(REQUIREMENTS_TXT)-for-pip3
+	EXPORT_REQUIREMENTS := $(ACTIVATE) && conda install pip && pip freeze > $(REQUIREMENTS_TXT)
 	CONDA_NAME := $(CURDIR)
 	ENV_CREATE := conda create -n $(CONDA_NAME) -y
 	ENV_UNINSTALL := conda env remove --name $(CONDA_NAME)
@@ -241,9 +251,10 @@ else ifeq ($(PYTHON_ENV),none)
 	INSTALL_PRE := $(INSTALL) --pre
 	INSTALL_PIP_ONLY := $(INSTALL)
 	INSTALL_REQ := $(if $(strip $(INSTALL_H5PY)),install-h5py)
-	INSTALL_LOCK := $(RUN) pip freeze > requirements.txt
-	# creating requirements.txt is a size effect of a freeze
-	INSTALL_REQUIREMENTS := $(INSTALL_LOCK)
+	INSTALL_LOCK := $(RUN) pip freeze > $(REQUIREMENTS_TXT)
+	# creating $(REQUIREMENTS_TXT) is a size effect of a freeze
+	INSTALL_REQUIREMENTS := [[ -e $(REQUIREMENTS_TXT) ]] && $(INSTALL) -r requirements.txt
+	EXPORT_REQUIREMENTS := $(INSTALL_LOCK)
 	ENV_UNINSTALL :=
 	ENV_CURRENT :=
 	ENV_RUN :=
@@ -352,7 +363,7 @@ deactivate:
 vi:
 	cd $(ED_DIR) && $(RUN) "$$VISUAL" $(ED)
 
-# https://www.technologyscout.net/2017/11/how-to-install-dependencies-from-a-requirements-txt-file-with-conda/
+# https://www.technologyscout.net/2017/11/how-to-install-dependencies-from-a-$(REQUIREMENTS_TXT)-file-with-conda/
 ## install-env: install into python environment set by $(PYTHON_ENV)
 # https://stackoverflow.com/questions/9008649/gnu-make-conditional-function-if-inside-a-user-defined-function-always-ev
 .PHONY: install-env
@@ -377,6 +388,7 @@ endif
 	$(if $(strip $(PIP_PRE)), $(INSTALL_PRE)  $(PIP_PRE))
 	$(if $(strip $(PIP_DEV)), $(INSTALL_DEV) $(PIP_DEV))
 	$(if $(strip $(PIP_ONLY)), $(INSTALL_PIP_ONLY) $(PIP_ONLY) || true)
+	$(INSTALL_REQUIREMENTS)
 
 
 ifeq ($(PYTHON_ENV),poetry)
@@ -384,13 +396,13 @@ ifeq ($(PYTHON_ENV),poetry)
 	$(INIT)
 else ifeq ($(PYTHON_ENV),pipenv)
 	@echo "pipenv postamble"
-	$(PIPENV) lock -r > requirements.txt && $(PIPENV) update
+	$(PIPENV) lock -r > $(REQUIREMENTS_TXT) && $(PIPENV) update
 else ifeq ($(PYTHON_ENV),conda)
 	@echo "conda postamble"
 	[[ -r environment.yml ]] && conda env update --name $(NAME) -f environment.yml || true
 	# echo $$SHELL
-	[[ -r requirements.txt ]] && \
-		grep -v "^#" requirements.txt | \
+	[[ -r $(REQUIREMENTS_TXT) ]] && \
+		grep -v "^#" $(REQUIREMENTS_TXT) | \
 			(while read requirement; do \
 				echo "processing $$requirement"; \
 				if ! conda install --name $(NAME) -y "$$requirement"; then \
@@ -405,15 +417,15 @@ else ifeq ($(PYTHON_ENV),conda)
 	@echo WARNING -- we do not parse the PYthon User site in ~/.
 endif
 
-## lock: Freeze configuration to requirements.txt or conda export to environment.yml
+## lock: Freeze configuration to $(REQUIREMENTS_TXT) or conda export to environment.yml
 # https://pipenv.kennethreitz.org/en/latest/basics/ lock -r will add SHA hashes
 .PHONY: lock
 lock:
 	$(INSTALL_LOCK)
 
-## requirements.txt: export requirements.txt
-requirements.txt:
-	$(INSTALL_REQUIREMENTS)
+## export: export from venv to requirements.txt
+export:
+	$(EXPORT_REQUIREMENTS)
 
 ## upgrade: Upgrade all the packages
 .PHONY: upgrade

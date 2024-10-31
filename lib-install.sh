@@ -483,10 +483,13 @@ if eval "[[ ! -v $lib_name ]]"; then
 	}
 
 	# standalone installers
-	# install python packages passing on flags
+	#
+	# pip_install is for packages that have code, for command line utilities use
+	# pipx_install and it will install into your current python venv
 	# we have one special flag -f which means run sudo and must be the first one
 	# note that will not work as expected if you are poetry, so detect this
 	# and do a poetry add instead
+	# if already installed then upgrade it
 	# usage: pip_install -f [python flags..] [packages...]
 	pip_install() {
 		if (($# < 1)); then return; fi
@@ -516,6 +519,33 @@ if eval "[[ ! -v $lib_name ]]"; then
 			log_verbose "using pip at $(command -v pip) for $package"
 			$use_sudo pip install "${flags[@]}" "$package"
 			# fi
+		done
+	}
+
+	# pipx is for cli toolsand it is installed in venv and then into
+	# ~/.local/bin
+	# usage: pipx_install [-p python_location_for_install] [cli-tools...]
+	pipx_install() {
+		if (($# < 1)); then return; fi
+		local python_version
+		python_version="$(command -v python)"
+		while [[ $1 =~ ^- ]]; do
+			# one flag is for us to force use of sudo
+			if [[ $1 == -p ]]; then
+				shift
+				if (($# > 0)); then
+					python_version="$1"
+					shift
+				fi
+			fi
+		done
+		for package in "$@"; do
+			# the space ensures it is an exact match as version comes after
+			if pipx list --short | grep -q "^$package "; then
+				pipx upgrade "$package"
+			else
+				pipx install "$package" --python "$python_version"
+			fi
 		done
 	}
 	## bundle_install org repo for vim bundles
