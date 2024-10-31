@@ -39,18 +39,18 @@ In here is the process:
    just python.
 1. Check that it works by running make and you should see a list of things to do.
 1. Now install the basic tooling files with make install-repo. This will only add
-  files and blow anything away. Now you should edit the mkdocs.yaml so that the
-  entries for the file and where it lives are correct, by convention it will be
-  [_repo_.docs.tongfamily.ai](https://docs.tongfamily.com) or whatever your org
-  is.
+   files and blow anything away. Now you should edit the mkdocs.yaml so that the
+   entries for the file and where it lives are correct, by convention it will be
+   [_repo_.docs.tongfamily.ai](https://docs.tongfamily.com) or whatever your org
+   is.
 1. Edits your documentation starting at ./docs/index.md and add files as
    needed. To set the navigation edit mkdocs.yaml
 1. Test this works by running make mkdocs which will create a local server
    which you can access at [http://localhost:8000](http://localhost:8000) and
    debug your site.
 1. Now if you are a command line jockey install the netlify cli with `npm
-   install -g netlify`
-1. Or just go to [Netlify](https://netlify.com) and login as [admin](admin@tne.ai)
+install -g netlify`
+1. Or just go to [Netlify](https://netlify.com) and login as [admin](mailto:admin@tne.ai)
    and the password is 1Password
 1. In the middle of the screen, you will see a button called add new site and
    select choose an existing project, then connect ot GitHub with that button

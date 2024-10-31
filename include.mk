@@ -84,8 +84,8 @@ docs: pdoc mkdocs
 
 ## docs-serve: start mkdocs server in background and start safari pkill mkdocs to end
 .PHONY: docs-serve
-docs-serve:
-	mkdocs serve &
+docs-serve: docs-stop
+	mkdocs serve
 	sleep 5
 	open http://localhost:8000
 
@@ -95,7 +95,7 @@ docs-serve:
 # is run with poetry
 .PHONY: docs-stop
 docs-stop:
-	pkill -f mkdocs || true
+	-pkill -f mkdocs
 
 ## mkdocs: Generate mkdocs ./site from ./docs
 .PHONY: mkdocs
@@ -175,7 +175,8 @@ TEMPLATE ?= \
 			Makefile.base \
 			requirements.netlify.txt \
 			docs.base \
-			workflow.base
+			workflow.base \
+			python_version.base
 FILE ?= \
 			.envrc \
 			.gitignore \
@@ -189,7 +190,8 @@ FILE ?= \
 			Makefile \
 			requirements.txt \
 			docs \
-			.github/workflows
+			.github/workflows \
+			.python_version
 .PHONY: install-repo
 install-repo:
 	FILE=( $(FILE) ) && \

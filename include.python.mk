@@ -90,6 +90,18 @@ PIP_DEV_BASE += \
 		mkdocs \
 		mkdocs-material \
 		"mkdocstrings[python]" \
+		mkdocs-git-committers-plugin \
+		mkdocs-charts-plugin \
+		mkdocs-redirects \
+		mkdocs-git-authors-plugin \
+		mkdocs-minify-plugin \
+		mkdocs-monorepo-plugin \
+		mkdocs-awesome-pages-plugin \
+		mkdocs-jupyter \
+		mkdocs-git-revision-date-localized-plugin \
+		markdown-exec \
+		mkdocs-enumerate-headings-plugin
+
 
 # development tools if you are writing python
 PIP_DEV_TOOLS += \
@@ -388,7 +400,7 @@ endif
 	$(if $(strip $(PIP_PRE)), $(INSTALL_PRE)  $(PIP_PRE))
 	$(if $(strip $(PIP_DEV)), $(INSTALL_DEV) $(PIP_DEV))
 	$(if $(strip $(PIP_ONLY)), $(INSTALL_PIP_ONLY) $(PIP_ONLY) || true)
-	$(INSTALL_REQUIREMENTS)
+	$(INSTALL_REQUIREMENTS) || true
 
 
 ifeq ($(PYTHON_ENV),poetry)

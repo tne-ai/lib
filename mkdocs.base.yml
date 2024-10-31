@@ -1,29 +1,56 @@
 # https://squidfunk.github.io/mkdocs-material/creating-your-site/
 # https://www.mkdocs.org/getting-started/
-# Note that SchemaStore with LazyVim does not appear to work
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
-
-site_name: lib
-site_url: https://docs.tongfamily.com/lib
-# navigation https://henrywhitaker3.github.io/mkdocs-material-dark-theme/plugins/awesome-pages/
-# comment out the nav: and then you can use .pages in each subdirectory to
-# control layout with specific items or `...` to mean everything else
+site_name: Total Neural Enterprises
+site_url: https://docs.tne.ai/
+# https://squidfunk.github.io/mkdocs-material/setup/adding-a-git-repository/
+repo_url: https://github.com/tne-ai/src
+edit_uri: edit/main/docs
+#use_directory_urls: false
+#
+# To use awesome pages, you need to comment out the .nav
+# then use the .pages in each directory
 nav:
+  # with monorepo plugin, the first entry will be the home page of the section
+  # because nested includes are not allowed, this page has to have the entire
+  # configuration
   - Home: index.md
-  - install.md
-  - files.md
-  - doc.md
+  - FNG:
+      - fng/index.md
+      - Introduction: fng/intro.md
+      - Background: fng/bg.md
+      - Culture: fng/culture.md
+      - Update: fng/update.md
+      - Sales: fng/sales.md
+      - Dev: fng/dev.md
+      - Applications: fng/apps.md
+      - Systems: fng/sys.md
+  - Apps: "!include ./apps/mkdocs.yml"
+  - Marketing: "!include ./mktg/mkdocs.yml"
+  - Sales: "!include ./sales/mkdocs.yml"
+  - Systems:
+      - Intro: "!include ./sys/mkdocs.yml"
+      - Troopship: "!include ./sys/troopship/mkdocs.yml"
+      - BP-Runner: "!include ./sys/troopship/bp-runner/mkdocs.yml"
+      - BP-Runner Tests: "!include ./sys/troopship/bp-runner/tests/mkdocs.yml"
+  - Utilities:
+      - Bin: "!include ./bin/mkdocs.yml"
+      - Lib: "!include ./lib/mkdocs.yml"
 
 theme:
   name: material
   # make sure you have logo's loaded here
   logo: media/logo_big.png
   favicon: media/logo_small.png
+  # https://squidfunk.github.io/mkdocs-material/setup/adding-a-git-repository/
+  icon:
+    repo: fontawesome/brands/github
   palette:
     primary: deep purple
     scheme: slate
     accent: indigo
   features:
+    - content.action.edit # edit if in a github repo
     - header.autohide
     # https://squidfunk.github.io/mkdocs-material/setup/setting-up-navigation/
     - navigation.instant
@@ -47,6 +74,12 @@ theme:
 
 # https://squidfunk.github.io/mkdocs-material/setup/extensions/
 plugins:
+  # https://github.com/byrnereese/mkdocs-git-committers-plugin
+  # generates a plugin error
+  # - git-committers:
+  #   repository: tne-ai/src
+  #   branch: main
+  #   token: !!python/object/apply:os.getenv ["GITHUB_TOKEN_CLASSIC"]
   - redirects
   - search
   - minify:
@@ -72,8 +105,8 @@ plugins:
   # need to set action/checkouit / with / fetch-depth=0
   - git-revision-date-localized:
       fallback_to_build_date: true
-  # automatically number headers
-  - enumerate-headings
+  # automatically number headers (looks bad for large sites)
+  # - enumerate-headings
   # requires superfences runs code on the doc site
   - markdown-exec
 
@@ -138,15 +171,14 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
         - name: vegalite
           class: vegalite
-          format:
-            !!python/name:mkdocs_charts_plugin.fences.fence_vegalite # adds twitter emojis like :smile: see https://emojipedia.org/twitter
-
+          # adds twitter emojis like :smile: see https://emojipedia.org/twitter
+          format: !!python/name:mkdocs_charts_plugin.fences.fence_vegalite
 
   - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator:
-        !!python/name:material.extensions.emoji.to_svg # adds tab agove content to group code blocks for different operating systems
+      emoji_index:
+        !!python/name:material.extensions.emoji.twemoji # adds tab agove content to group code blocks for different operating systems
 
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
   - pymdownx.tabbed:
       alternate_style: true
