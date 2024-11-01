@@ -4,7 +4,10 @@
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
 
 site_name: lib
-site_url: https://docs.tongfamily.com/lib
+site_url: https://richtong.github.io/lib/
+# https://squidfunk.github.io/mkdocs-material/setup/adding-a-git-repository/
+repo_url: https://github.com/richtong/lib
+edit_uri: edit/main/docs
 # navigation https://henrywhitaker3.github.io/mkdocs-material-dark-theme/plugins/awesome-pages/
 # comment out the nav: and then you can use .pages in each subdirectory to
 # control layout with specific items or `...` to mean everything else
