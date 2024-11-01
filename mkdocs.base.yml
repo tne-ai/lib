@@ -14,6 +14,9 @@ nav:
   # with monorepo plugin, the first entry will be the home page of the section
   # because nested includes are not allowed, this page has to have the entire
   # configuration
+  # also sub repos cannot use awesome pages, the .pages can only be used at the
+  # top level, so awesome pages net net is not useful with monorepo since it
+  # can only be  used in the main repo
   - Home: index.md
   - FNG:
       - fng/index.md
@@ -54,12 +57,14 @@ theme:
     - header.autohide
     # https://squidfunk.github.io/mkdocs-material/setup/setting-up-navigation/
     - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.instant.preview
     # the address bar changes to nearest tag
     - navigation.tracking
     - navigation.sections
     - navigation.indexes
     - navigation.top
-    - navigation.instant.prefetch
     - navigation.tabs
     - navigation.tags.sticky
     # tabs eliminates the side nav bar only use for big sites
@@ -177,6 +182,7 @@ markdown_extensions:
   - pymdownx.emoji:
       emoji_index:
         !!python/name:material.extensions.emoji.twemoji # adds tab agove content to group code blocks for different operating systems
+
 
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
