@@ -18,13 +18,13 @@
 # ssh:
 #	  no .profile exports are available. Runs
 #    .bash_profile only because it is an interactive login shell
-# start non-GUI console with CTRL-ALT-F3 of F5:
+#     start non-GUI console with CTRL-ALT-F3 of F5:
 #	  .bash_profile because it is an interactive login shell
-# pipenv shell:
-#	  this runs like Terminal and just runs bashrc
+#      pipenv shell
 #
 # The Linux strategy:
-# .profile: Is sourced directly by /bin/sh so should only run sh commands
+# .profile: Is sourced directly by /bin/sh so should only run sh commands and
+# 			and do not ask for interactive input from the user
 #           This should be used to set the PATH and other environment variables
 #           like EDITOR or VISUAL. It can check $BASH to see if it run from
 #           bash and if so then source .bashrc
@@ -41,10 +41,15 @@
 #
 # In MacOS, https://apple.stackexchange.com/questions/51036/what-is-the-difference-between-bash-profile-and-bashrc
 # is what happens is that:
-# .bash_profile is run for login shells
-# .bashrc is run for non-login shells.
+# On startup:
+#   Reads .profile
+# iterm2 or Terminal:
+#   Results of .profile and then sources .bash_profile. All news windows treated
+#   the same way
+# .bashrc is run for non-login shells
 #
-# If zsh is set then it sources.zprofile and then .zshrc for login shells and
+# If zsh is set then it sources .zprofile
+# .zshrc for login shells and
 # .zshrc is for non-login shells.
 #
 # So in a typical configuration where bash is
@@ -60,13 +65,17 @@
 # The MacOS strategy: be as similar to Linus as possible. The profile strategy is:
 # .profile: Put the PATH and other variables you want to be set in .profile use
 #		    /bin/sh syntax and detect ZSH_VERSION and run emulate sh to make this work.
-#		    It should source .bashrc if bash is being run.
-# .bash_profile: Sources .profile like Ubuntu.
+#		    It should source .bashrc if bash is being run. This should be have
+#		    interactive commands (that is do not ask for input and be for any
+#		    shell)
+# .bash_profile: Sources .profile like Ubuntu and because of pipenv bug do not
+# 			put things here
 # .bashrc: Same strategy, it should only do non-exportables like history, aliases and functions
 #           and check if in [[ $- =~ i ]] before interactive displays so it
-#           doesn't run with ssh -c. It gets
+#           doesn't run with ssh -c. If  you are using pipenv, It gets
 #           completions because of the pipenv problem since .bash_profile is
-#           not run
+#           not run with pipenv as a subshell, not true with  uv or poetry which
+#           source venv so do not spawn subshells.
 # .zprofile: source .profile manually with no need to source .zshrc as this is alway done
 # .zshrc: handles non-exportables and check to see if it is interactive or not.
 #
@@ -76,10 +85,15 @@
 # config_setup: In .bash_profile sources .profile
 #               In .zprofile source .profile (.zshrc is sourced automatically)
 #				In .profile source .bashrc
-# config_profile = .profile: (.zprofile if ZSH_VERSION) for non-interactive exports
-# config_profile_interactive = .bashrc: set to .bashrc (or .zshrc)and you should do an interactive check
-# config_profile_nonexportable = .bashrc: set to .bashrc (or .zshrc)for alias and things that
-# config_profile_shell: set to .bash_profile (or .zprofile if using zsh
+# config_profile = .profile: (.zprofile if ZSH_VERSION) for non-interactive exports like shell variables
+# and which are non shell specific.
+# config_profile_interactive = .bashrc: set to .bashrc (or .zshrc) and you should do an interactive check
+# config_profile_nonexportable = .bashrc: set to .bashrc (or .zshrc) for alias
+# that do not survive a subshell invocation
+#
+# config_profile_shell: set to .bash_profile (or .zprofile if using zsh but
+# beware that this is not run with pipenv so  for now this is also set to
+# .bashrc
 
 ## config_profile: returns the name of the profile to use for non-interactive command
 # this should only be for thing that do not display or require input
@@ -139,8 +153,10 @@ config_profile_interactive() {
 config_profile_shell_zsh() {
 	echo "$HOME/.zprofile"
 }
+# due to pipenv bug where it never executes .bash_profile but only .bashrc
 config_profile_shell_bash() {
-	echo "$HOME/.bash_profile"
+	# echo "$HOME/.bash_profile"
+	echo "$HOME/.bashrc"
 }
 # config_profile_shell: set to .bash_profile or .zprofile if using zsh
 config_profile_shell() {
