@@ -7,9 +7,10 @@ on:
       - main
       # for testing
       # - rich-nsrc
-    paths:
-      - "**/docs/**"
-      # - ".github/workflows/build_and_deploy_troopship_docs.yaml"
+    # do not detect docs path since we are using !include from subrepos
+    # paths:
+    # - "**/docs/**"
+    # - ".github/workflows/build_and_deploy_troopship_docs.yaml"
   # for debugging
   # https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/manually-running-a-workflow
   workflow_dispatch:
@@ -63,3 +64,18 @@ jobs:
           # remove the preivous site in the extreme case
           # aws s3 rm s3://docs.tne.ai --recursive
           aws s3 sync ./site s3://docs.tne.ai --delete
+
+      #         #
+      #         #
+      # https://github.com/marketplace/actions/invalidate-aws-cloudfront
+      - name: Invalidate Cloudfront to get S3 Visible
+        uses: badsyntax/github-action-aws-cloudfront@master
+        with:
+          distribution-id: ${{ secrets.AWS_CLOUDFRONT_ID_DOCS }}
+          aws-region: ${{ vars.AWS_REGION }}
+          invalidate-paths: "/*"
+          include-origin-prefix: false
+          # this basically says pass through the entire list as is
+          # if you uncomment this line this is the prefix into the bucker
+          # origin-prefix: 'www'
+          default-root-object: index.html

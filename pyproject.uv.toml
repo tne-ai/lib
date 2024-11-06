@@ -34,6 +34,10 @@ dependencies = [
 
 [tool.uv]
 dev-dependencies = [
+  "mkdocs>=1.6.1",
+  "mkdocs-material>=9.5.38",
+  "mkdocstrings[python]>=0.26.1",
+  "neovim>=0.3.1",
   "aquirdturtle-collapsible-headings>=3.1",
   "build>=1.2.2",
   "fontawesome-markdown>=0.2.6",
