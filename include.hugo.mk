@@ -48,8 +48,9 @@ hugo:
 	$(HUGO_RUN)
 
 ## hugo-server: run the site
-# Use this line for kalkegg
 #$(run) -p $(HUGO_PORT):$(HUGO_PORT) "$(HUGO_IMAGE)" server
+# disable fast render because layout changes are not picked up
+# --disableFastRender
 .PHONY: hugo-server
 hugo-server:
 ifeq ($(HUGO_ENV),docker)

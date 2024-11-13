@@ -13,7 +13,8 @@
 # need this so gitlint only runs during commit-msg
 default_stages: [pre-commit, pre-push]
 # python regex https://www.programiz.com/python-programming/regex
-exclude: (^archive/|^user/|deprecated/)
+# pre-commit has .cache
+exclude: (^archive/|^user/|deprecated/|.cache)
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     # only language independent hooks
@@ -193,14 +194,16 @@ repos:
   # https://jupytext.readthedocs.io/en/latest/using-pre-commit.html
   # sync all notebooks with their corresponding markdown files
   # use ruff to format the python code and the version must match
-  - repo: https://github.com/mwouts/jupytext
-    rev: v1.14.7
-    hooks:
-      - id: jupytext
-        args: [--sync, --pipe, ruff]
-        additional_dependencies:
-          - ruff==0.6.2
-          #- black==23.3.0
+  # this is failing reading some hugo files like ./decms/index.md so make
+  # optional as it conflicts with hugo
+  # - repo: https://github.com/mwouts/jupytext
+  #   rev: v1.14.7
+  #   hooks:
+  #     - id: jupytext
+  #       args: [--sync, --pipe, ruff]
+  #       additional_dependencies:
+  #         - ruff==0.6.2
+  #         #- black==23.3.0
 
   # strips everything out so use pre-commit-jupyter instead
   # - repo: https://github.com/kynan/nbstripout
