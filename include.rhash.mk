@@ -1,31 +1,27 @@
 ##
 ## Hashing commands
 ## -------------
-#
-name ?= $$(basename "$(PWD)")
+# https://rhash.sourceforge.io/manpage.php
 
-HASH_FILE ?= ./rhash.sha256.sfv
+## set $(HASH_PATH) to list of files to be hashed, can use wildcards and this is recursive by default
+HASH_VOL ?= /Volumes
+HASH_NAS ?= Deathstar
+HASH_SRC ?= "Movies 4K" "Series 4K" "Personal" "Movies" "Series"
+
+HASH_FILE ?= rhash.sha256.sfv
 HASH_CRYPTO ?= --sha3-256
 
-.DEFAULT_GOAL := help
 
-.PHONY: help
-# https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html does not
-# work because we use an include file
-# https://swcarpentry.github.io/make-novice/08-self-doc/ is simpler just need
-# and it dumpes them out relies on the variable MAKEFILE_LIST which is a list of
-# all files note we do not just use $< because this is an include.mk file
-## help: available commands (the default)
-help: $(MAKEFILE_LIST)
-	@sed -n 's/^##//p' $(MAKEFILE_LIST)
-
-## hash: SHA3-256 hash all files to check they are correct
+## hash: SHA3-256 hash all files to check they are correct setting $(HASH_FILE)
 # note we are not using MD5 or SHA1 because it is stronger than the default
 # CRC32
 # https://stackoverflow.com/questions/4728810/how-to-ensure-makefile-variable-is-set-as-a-prerequisite/7367903#7367903
 .PHONY: hash
 hash:
-	rhash --recursive "$(HASH_CRYPTO)" -P --speed --update="$(HASH_FILE)" ./*
+	$(foreach src in $HASH_SRC)
+		open smb://$(HASH_NAS)/$$src
+		rhash --recursive "$(HASH_CRYPTO)" -P --speed --update="$(HASH_FILE)" $(HASH_VOL)/$$src
+	$(endfor)
 
 .PHONY: check
 ## check: check the hash
