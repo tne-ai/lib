@@ -56,7 +56,7 @@ hugo-server:
 ifeq ($(HUGO_ENV),docker)
 	$(HUGO_DOCKER) -e HUGO_WATCH=1 -it -p $(HUGO_PORT):$(HUGO_PORT) "$(HUGO_IMAGE)"
 else
-	$(HUGO_RUN) server
+	$(HUGO_RUN) server --disableFastRender
 endif
 
 ## hugo-new: create a new site

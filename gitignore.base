@@ -31,11 +31,12 @@ __pycache__
 # for python virtual environments
 venv/
 
-# Local Netlify folder
+# Local Netlify folder and hugo
 .netlify/
 public/
 .cache/
 .netlify
+_vendor/
 
 # Mkdocs site output
 site/
