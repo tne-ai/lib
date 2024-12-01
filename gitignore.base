@@ -37,6 +37,7 @@ public/
 .cache/
 .netlify
 _vendor/
+.hugo_build.lock
 
 # Mkdocs site output
 site/

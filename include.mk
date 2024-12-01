@@ -338,9 +338,11 @@ git-lfs:
 	$(RUN) git lfs pull
 ## lfs-uninstall: to remove git and get rid of lfs files
 # https://gist.github.com/everttrollip/198ed9a09bba45d2663ccac99e662201
+# https://stackoverflow.com/questions/40365154/git-migrate-from-lfs-to-normal-repo
 .PHONY: lfs-uninstall
 lfs-uninstall:
 	if [[ -n "$(git lfs track)" ]]; then git lfs uninstall; fi
 	if [[ -e .gitattributes ]]; then git mv .gitattributes .gitattributes.disabled; fi
 	git add --renormalize .
+	git lfs migrate export --everything --include "*"
 	@echo you cannot remove git lfs files without recreating the repo
