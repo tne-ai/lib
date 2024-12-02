@@ -544,7 +544,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			if pipx list --short | grep -q "^$package "; then
 				pipx upgrade "$package"
 			else
-				pipx install "$package" --python "$python_version"
+				pipx install --python "$python_version" "$package" 
 			fi
 		done
 	}
