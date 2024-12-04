@@ -1,4 +1,9 @@
+# IDEs
+.idea/
+
+*.sw?
 .DS_Store
+
 .sconsign.dblite
 *.cache
 *.bak
@@ -32,12 +37,15 @@ __pycache__
 venv/
 
 # Local Netlify folder and hugo
-.netlify/
-public/
 .cache/
-.netlify
-_vendor/
 .hugo_build.lock
+.netlify/
+_vendor/
+go.sum
+jsconfig.json
+node_modules/
+public/
+resources/
 
 # Mkdocs site output
 site/
