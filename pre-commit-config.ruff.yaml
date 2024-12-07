@@ -9,12 +9,12 @@
 # note that we exclude node_modules and _vendor for hugo
 # since these are typically third party modules
 # cannot run  markdownlint checks for hugo
----
 # need this so gitlint only runs during commit-msg
-default_stages: [commit, pre-push]
+# default_stages: [pre-commit, pre-push]
+# needed by v4.0
+default_stages: [pre-commit, pre-push]
 # python regex https://www.programiz.com/python-programming/regex
-# pre-commit has .cache
-exclude: (^archive/|^user/|deprecated/|.cache)
+exclude: (^archive/|^user/|deprecated/)
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     # only language independent hooks
@@ -64,6 +64,7 @@ repos:
       - id: check-builtin-literals
       - id: check-case-conflict
       - id: check-docstring-first
+
   - repo: https://github.com/jumanjihouse/pre-commit-hooks
     rev: 3.0.0
     hooks:
@@ -107,7 +108,7 @@ repos:
 
   # replace markdownlint-cli with markdownlint-cli2 which is supposed to be faster
   - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.13.0
+    rev: v0.15.0
     hooks:
       - id: markdownlint-cli2
 
@@ -180,7 +181,7 @@ repos:
     hooks:
       - id: mypy
 
-  # replaces pyright, black, flake8, and pydocstyle rules are in ruff.toml or pyproject.toml
+  # black, flake8, and pydocstyle
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
     rev: v0.6.2
@@ -194,16 +195,14 @@ repos:
   # https://jupytext.readthedocs.io/en/latest/using-pre-commit.html
   # sync all notebooks with their corresponding markdown files
   # use ruff to format the python code and the version must match
-  # this is failing reading some hugo files like ./decms/index.md so make
-  # optional as it conflicts with hugo
-  # - repo: https://github.com/mwouts/jupytext
-  #   rev: v1.14.7
-  #   hooks:
-  #     - id: jupytext
-  #       args: [--sync, --pipe, ruff]
-  #       additional_dependencies:
-  #         - ruff==0.6.2
-  #         #- black==23.3.0
+  - repo: https://github.com/mwouts/jupytext
+    rev: v1.14.7
+    hooks:
+      - id: jupytext
+        args: [--sync, --pipe, ruff]
+        additional_dependencies:
+          - ruff==0.6.2
+          #- black==23.3.0
 
   # strips everything out so use pre-commit-jupyter instead
   # - repo: https://github.com/kynan/nbstripout

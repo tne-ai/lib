@@ -4,6 +4,7 @@
 ## inspired by raspiconfig
 ##
 
+# The setup strategy below is implmented by pre-install.sh to get the correct chainging of profiles
 #
 # Ubuntu https://superuser.com/questions/789448/choosing-between-bashrc-profile-bash-profile-etc/789705#789705
 # On startup:
@@ -34,8 +35,6 @@
 #           these do not get exported to subshells.
 # .bash_profile: should just source .profile (which in turn sources .bashrc) as it is only run on ssh
 #
-# config_setup: source .profile and .bashrc do not put things into .bash_profile
-# config_setup_end: this should be the last thing called, it sources
 # config_profile : set to .profile and guard $BASH checks no echo's or input allowed
 # config_profile_interactive: for interactive input use adds a guard to test if interactive
 # config_profile_nonexportable: set to .bashrc for alias and things that
@@ -83,7 +82,7 @@
 # Note: checking if you are login shell or not https://unix.stackexchange.com/questions/26676/how-to-check-if-a-shell-is-login-interactive-batch
 # can be done by checking for -l in $- in zsh or shopt -q login_shell for bash
 #
-# config_setup: In .bash_profile sources .profile
+# pre-install.sh: In .bash_profile sources .profile
 #               In .zprofile source .profile (.zshrc is sourced automatically)
 #				In .profile source .bashrc
 # config_profile = .profile: (.zprofile if ZSH_VERSION) for non-interactive exports like shell variables
@@ -543,51 +542,21 @@ config_add_once() {
 # .zshrc is always sourced afterwads
 # you should guard this with a config_mark_setup
 # typically config_profile_shell is .bash_profile
-# config_setup: In .bash_profile (aka .config_profile_shell) source .profile config_profile
-#               In .zprofile source .profile (.zshrc is sourced automatically)
-#				In .profile source .bashrc
-config_setup() {
-	if ! config_mark "$(config_profile_shell)"; then
-		config_add "$(config_profile_shell)" <<-EOF
-			# shellcheck disable=SC1091
-			if [[ -f "$(config_profile)" ]]; then source "$(config_profile)"; fi
-			# from .bash_profile run .bashrc
-			if echo "$BASH" | grep -q "bash" && [ -f "$HOME/.bashrc" ]; then . "$HOME/.bashrc"; fi
-		EOF
-	fi
-	# now add the .zprofile source of .profile
-	if ! config_mark "$(config_profile_shell_zsh)"; then
-		config_add "$(config_profile_shell_zsh)" <<-EOF
-			# shellcheck disable=SC1091
-			if [[ -f "$(config_profile_zsh)" ]]; then source "$(config_profile_zsh)"; fi
-		EOF
-	fi
-	if ! config_mark; then
-		# .local has mainly pip installed utilities
-		# note .profile should only use /bin/sh syntax
-		config_add <<-EOF
-			# shellcheck disable=SC1091
-			if ! echo \$PATH | grep -q "\$HOME/.local/bin"; then PATH="\$HOME/.local/bin:\$PATH"; fi
-			if ! echo \$PATH | grep -q "$SOURCE_DIR/bin"; then PATH="$SOURCE_DIR/.local/bin:\$PATH"; fi
-		EOF
-	fi
-	log_verbose "Add #! for zshrc"
-	if [[ ! -e $HOME/.zshrc ]]; then
-		echo "#!/usr/bin/env zsh" >"$HOME/.zshrc"
-	fi
-}
+# This assumes that pre-install does the basic scaffolding and connection
+# of .bash_profile -> .profile -> .bashrc
 
 ## config_setup_end: run this at the end so .rc files run after all the paths are set
 # to do we should create a function that checks and makes sure this is always
 # last in the .profile ONly needed for bash as zsh does this automatically
+# I'm not quire sure why this is needed as this causes an infinite loop
 config_setup_end() {
 	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
 		return
 	fi
 	if ! config_mark "$(config_profile_nonexportable_bash)"; then
 		config_add "$(config_profile_nonexportable_bash)" <<-EOF
-			if echo "$BASH" | grep -q bash && [-f "$(config_profile_nonexportable_bash)" ]; then
-				source "$(config_profile_nonexportable_bash)"; fi
+			if echo "$BASH" | grep -q bash && [-f "$(config_profile_bash)" ]; then
+				source "$(config_profile_bash)"; fi
 		EOF
 	fi
 }
