@@ -35,6 +35,7 @@
 # .bash_profile: should just source .profile (which in turn sources .bashrc) as it is only run on ssh
 #
 # config_setup: source .profile and .bashrc do not put things into .bash_profile
+# config_setup_end: this should be the last thing called, it sources
 # config_profile : set to .profile and guard $BASH checks no echo's or input allowed
 # config_profile_interactive: for interactive input use adds a guard to test if interactive
 # config_profile_nonexportable: set to .bashrc for alias and things that
@@ -550,11 +551,15 @@ config_setup() {
 		config_add "$(config_profile_shell)" <<-EOF
 			# shellcheck disable=SC1091
 			if [[ -f "$(config_profile)" ]]; then source "$(config_profile)"; fi
+			# from .bash_profile run .bashrc
+			if echo "$BASH" | grep -q "bash" && [ -f "$HOME/.bashrc" ]; then . "$HOME/.bashrc"; fi
 		EOF
-		# now add the .zprofile source of .profile
-		ZSH_VERSION=true config_add "$(config_profile_shell)" <<-EOF
+	fi
+	# now add the .zprofile source of .profile
+	if ! config_mark "$(config_profile_shell_zsh)"; then
+		config_add "$(config_profile_shell_zsh)" <<-EOF
 			# shellcheck disable=SC1091
-			if [[ -f "$(config_profile)" ]]; then source "$(config_profile)"; fi
+			if [[ -f "$(config_profile_zsh)" ]]; then source "$(config_profile_zsh)"; fi
 		EOF
 	fi
 	if ! config_mark; then
@@ -566,10 +571,9 @@ config_setup() {
 			if ! echo \$PATH | grep -q "$SOURCE_DIR/bin"; then PATH="$SOURCE_DIR/.local/bin:\$PATH"; fi
 		EOF
 	fi
-
 	log_verbose "Add #! for zshrc"
 	if [[ ! -e $HOME/.zshrc ]]; then
-		echo "#!/usr/bin/env zsh" .."$HOME/.zshrc"
+		echo "#!/usr/bin/env zsh" >"$HOME/.zshrc"
 	fi
 }
 
@@ -580,10 +584,10 @@ config_setup_end() {
 	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
 		return
 	fi
-	if ! config_mark; then
-		config_add <<-EOF
-			if echo "$BASH" | grep -q bash && [-f "$(config_profile_nonexportable)" ]; then
-				source "$(config_profile_nonexportable)"; fi
+	if ! config_mark "$(config_profile_nonexportable_bash)"; then
+		config_add "$(config_profile_nonexportable_bash)" <<-EOF
+			if echo "$BASH" | grep -q bash && [-f "$(config_profile_nonexportable_bash)" ]; then
+				source "$(config_profile_nonexportable_bash)"; fi
 		EOF
 	fi
 }
