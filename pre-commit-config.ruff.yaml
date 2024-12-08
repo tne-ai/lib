@@ -111,6 +111,8 @@ repos:
     rev: v0.15.0
     hooks:
       - id: markdownlint-cli2
+        # needs a pinned version
+        language_version: 22.12.0
 
   # https://jorisroovers.com/gitlint/#using-gitlint-through-pre-commit
   - repo: https://github.com/jorisroovers/gitlint
