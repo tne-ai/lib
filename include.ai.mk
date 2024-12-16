@@ -34,13 +34,23 @@ ollama:
 .PHONY: ai.kill
 ai.kill: ollama.kill open-webui.kill ngrok.kill
 
-## ollama.kill: kill the ollama server
-## open-webui.kill: kill the open webui server
+## %.kill: 
 # ignore with a dash in gnu make so || true isn't needed but there in case
 # https://www.gnu.org/software/make/manual/make.html#Errors
 # -f means find anywhere in the argument field
+## %.kill : [ollama | open-web | ngrok | ... ].kill the % running process
 %.kill:
 	-pkill -f "$*" || true
+
+## %.ps: [ ollama | open-webui | ... ].ps process status
+%.ps:
+	@pgrep -fl "$*"
+
+## ai.ps: process status of all ai processes
+.PHONY: ai.ps
+ai.ps: ollama.ps open-webui.ps ngrok.ps
+	ollama ps
+
 
 ## ngrok: authentication front-end for open-webui uses 1Password to 8080
 # doing a pkill before seems to stop the run so only ai.kill does the stopping
