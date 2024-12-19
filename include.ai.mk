@@ -34,7 +34,7 @@ ollama:
 .PHONY: ai.kill
 ai.kill: ollama.kill open-webui.kill ngrok.kill
 
-## %.kill: 
+## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
 # https://www.gnu.org/software/make/manual/make.html#Errors
 # -f means find anywhere in the argument field

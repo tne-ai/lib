@@ -20,22 +20,21 @@ fontawesome-markdown = "^0.2.6"
 mkdocs = "^1.4.2"
 mkdocs-material = "^9.0.11"
 mkdocs-monorepo-plugin = "^1.1.0"
-mkdocstrings = {extras = ["python"], version = "^0.26.1"}
+mkdocstrings = { extras = ["python"], version = "^0.26.1" }
 mypy = "^1.0.0"
 neovim = "^0.3.1"
 pdoc3 = "^0.10.0"
 pre-commit = "^3.0.4"
 pylatexenc = "^2.10"
 pymdown-extensions = "^10.0"
-ruff = "^0.6.7"
+# https://docs.astral.sh/ruff/configuration/
+ruff = "^0.6.8"
 seed-isort-config = "^2.2.0"
 setuptools = "^74.1.1"
 twine = "^4.0.2"
 wheel = "^0.38.4"
 yamllint = "^1.29.0"
 
-# https://docs.astral.sh/ruff/configuration/
-ruff = "^0.6.8"
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
