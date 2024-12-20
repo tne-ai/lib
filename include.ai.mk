@@ -23,6 +23,7 @@ ai: ollama open-webui
 ## open-webui: run open webui as frontend which is hard coded at 8080
 .PHONY: open-webui
 open-webui:
+	sleep 10
 	$(call START_SERVER,open-webui,serve)
 
 ## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
@@ -45,6 +46,7 @@ ai.kill: ollama.kill open-webui.kill ngrok.kill
 ## %.ps: [ ollama | open-webui | ... ].ps process status
 %.ps:
 	@pgrep -fl "$*"
+	ollama ps
 
 ## ai.ps: process status of all ai processes
 .PHONY: ai.ps
