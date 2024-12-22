@@ -389,6 +389,9 @@ ifeq ($(PYTHON_ENV),conda)
 	$(INSTALL) python=$(PYTHON) $(CONDA_ONLY)
 else ifeq ($(PYTHON_ENV),poetry)
 	poetry env use "$(PYTHON_MINOR)"
+else ifeq ($(PYTHON_ENV),uv)
+	@echo "$(PYTHON_ENV) if using asdf direnv make sure .envrc run and .tool-version exists"
+	@echo "$(PYTHON_ENV) and UV_PROJECT_ENVIRONMENT exists"
 endif
 	$(ENV_DEACTIVATE) || true
 	$(ENV_CREATE)
