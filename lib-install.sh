@@ -524,7 +524,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 
 	# pipx is for cli toolsand it is installed in venv and then into
 	# ~/.local/bin
-	# usage: pipx_install [-p python_location_for_install] [cli-tools...]
+	# usage: pipx_install [-i inject venv ] [-p python_path ] [packages...]
 	pipx_install() {
 		if (($# < 1)); then return; fi
 		local python_version
@@ -537,11 +537,20 @@ if eval "[[ ! -v $lib_name ]]"; then
 					python_version="$1"
 					shift
 				fi
+			elif [[ $1 == -i ]]; then
+				shift
+				if (($# > 0)); then
+					inject_env="$1"
+					shift
+				fi
 			fi
 		done
 		for package in "$@"; do
+			if [[ -v inject_env ]]; then
+				# the tool list should be injected
+				pipx inject "$inject_env" "$package"
 			# the space ensures it is an exact match as version comes after
-			if pipx list --short | grep -q "^$package "; then
+			elif pipx list --short | grep -q "^$package "; then
 				pipx upgrade "$package"
 			else
 				pipx install --python "$python_version" "$package"
