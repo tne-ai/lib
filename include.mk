@@ -165,9 +165,12 @@ update-repo:
 # no longer have specific tool-versions for asdf, set globally
 # if you need venv use the programming language specific ones
 			# tool-versions.base \
-			# .tool-versions \
+			# .tool-versions  \
+			# envrc.base \
+			# .envrc  \
+			# python_version.base \
+			# .python_version
 TEMPLATE ?= \
-			envrc.base \
 			gitignore.base \
 			pre-commit-config.full.yaml \
 			node-version.base \
@@ -179,9 +182,7 @@ TEMPLATE ?= \
 			requirements.netlify.txt \
 			docs.base \
 			workflow.base \
-			python_version.base
 FILE ?= \
-			.envrc \
 			.gitignore \
 			.pre-commit-config.yaml \
 			.node-version \
@@ -193,7 +194,6 @@ FILE ?= \
 			requirements.txt \
 			docs \
 			.github/workflows \
-			.python_version
 .PHONY: install-repo
 install-repo:
 	FILE=( $(FILE) ) && \
