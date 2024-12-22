@@ -162,11 +162,14 @@ update-repo:
 			# .gitattributes \
 # the envrc should only go at the top of your ./ws for each project
 # requirements.txt needed for netlify
+# no longer have specific tool-versions for asdf, set globally
+# if you need venv use the programming language specific ones
+			# tool-versions.base \
+			# .tool-versions \
 TEMPLATE ?= \
 			envrc.base \
 			gitignore.base \
 			pre-commit-config.full.yaml \
-			tool-versions.base \
 			node-version.base \
 			pyproject.base.toml  \
 			runtime.base.txt \
@@ -181,7 +184,6 @@ FILE ?= \
 			.envrc \
 			.gitignore \
 			.pre-commit-config.yaml \
-			.tool-versions \
 			.node-version \
 			pyproject.toml \
 			runtime.txt \
