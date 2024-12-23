@@ -54,8 +54,12 @@ if eval "[[ ! -v $lib_name ]]"; then
 			shift
 		done
 		for tap in "$@"; do
+			log_verbose "brew tap $tap exists?"
 			if ! brew tap | grep -q "^$tap"; then
-				brew tap "${flags[@]}" "$tap"
+				log_verbose "no $tap found installing"
+				# since no flags
+				#shellcheck disable=SC2068
+				brew tap ${flags[@]} "$tap"
 			fi
 		done
 	}

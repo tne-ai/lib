@@ -60,7 +60,7 @@ set-%:
 auth:
 	command -v aws > /dev/null &&  aws sts get-caller-identity &> /dev/null || aws sso login
 	command -v netlify > /dev/null && ! netlify status | grep -q "Not logged in" || netlify login
-	command -v doctl > /dev/null && doctl projects list &>/dev/null || doctl auth init
+	command -v doctl > /dev/null && doctl projects list &>/dev/null || op plugin run -- doctl auth init
 	command -v gcloud > /dev/null && gcloud projects list >/dev/null || gcloud auth login
 	command -v auth0 > /dev/null && auth0 tenants list | grep -v "auth0 login" || auth0 login
 
