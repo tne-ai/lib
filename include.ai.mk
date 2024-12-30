@@ -19,6 +19,7 @@ endef
 ## ai: start all ai servers
 .PHONY: ai
 ai: ollama tika open-webui
+ai: ollama open-webui
 
 ## open-webui: run open webui as frontend which is hard coded at 8080
 .PHONY: open-webui
