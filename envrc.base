@@ -26,6 +26,10 @@ pwd="$(PWD)" && export WS_DIR="${pwd%git"${pwd#*git}"}"
 # from https://github.com/direnv/direnv/blob/master/man/direnv-stdlib.1.md
 layout go
 layout node
+
+# only uncomment this if you want a python venv
+# layout python
+
 # https://vxlabs.com/2024/10/10/use-direnv-for-uv-with-out-of-source-virtual-environments/
 # tell uv where the direnv project lives and it is not .venv
 # https://varrette.gforge.uni.lu/blog/2019/09/10/using-pyenv-virtualenv-direnv/
