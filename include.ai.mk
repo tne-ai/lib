@@ -27,9 +27,11 @@ open-webui:
 	$(call START_SERVER,open-webui,serve)
 
 ## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
+# https://docs.openwebui.com/troubleshooting/connection-error/
+# 0.0.0.0 means it will serve remote openwebui clients
 .PHONY: ollama
 ollama:
-	$(call START_SERVER,ollama,serve)
+	OLLAMA_HOST=0.0.0.0 $(call START_SERVER,ollama,serve)
 
 ## ai.kill: kill all ai all ai servers
 .PHONY: ai.kill
