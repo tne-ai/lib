@@ -22,8 +22,7 @@ ai: ollama open-webui
 
 ## open-webui: run open webui as frontend which is hard coded at 8080
 .PHONY: open-webui
-open-webui:
-	sleep 10
+open-webui: open-webui.kill
 	$(call START_SERVER,open-webui,serve)
 
 ## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
@@ -44,6 +43,7 @@ ai.kill: ollama.kill open-webui.kill ngrok.kill
 ## %.kill : [ollama | open-web | ngrok | ... ].kill the % running process
 %.kill:
 	-pkill -f "$*" || true
+	sleep 5
 
 ## %.ps: [ ollama | open-webui | ... ].ps process status
 %.ps:
@@ -59,6 +59,6 @@ ai.ps: ollama.ps open-webui.ps ngrok.ps
 ## ngrok: authentication front-end for open-webui uses 1Password to 8080
 # doing a pkill before seems to stop the run so only ai.kill does the stopping
 .PHONY: ngrok
-ngrok:
+ngrok: ngrok.kill
 	$(call START_SERVER,ngrok,http,--url="$$(op item get 'ngrok' --field 'static domain')","$(PORT)", \
 		--oauth=google,--oauth-allow-domain=tne.ai, --oauth-allow-domain=tongfamily.com)
