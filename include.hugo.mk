@@ -111,6 +111,11 @@ hugo-theme-sub:
 hugo-post:
 	$(HUGO_RUN) new $(HUGO_POSTS)/$
 
+## hugo-content: Collect all markdown content into content.md for RAG
+.PHONY: hugo-content
+hugo-content:
+	find ./config/_default data content -type f -exec cat {} \; > content.md
+
 # https://cli.netlify.com
 ##
 ## Netlify

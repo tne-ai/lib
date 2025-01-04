@@ -1,23 +1,61 @@
-# this only is enough for mkdocs to run not for full python debug
-# or python packaging
+# supports both uv and poetry instllations
 [project]
-name = "lib"
+name = "sample"
 version = "0.1.1-202410"
-description = "TNE.ai main src repo"
+description = "Rich's Python Project for both UV and Poetry"
 readme = "README.md"
 # this is too broad 3.13 as of 10-24 is not supported by tensorflow
 # open-webui only works with 3.11 as or 10-24
-requires-python = "==3.11.*"
+# requires-python = "==3.11.*"
+requires-python = "<=3.12"
 dependencies = []
 
 [tool.uv]
 dev-dependencies = [
-  "fontawesome-markdown>=0.2.6",
-  "mkdocs>=1.6.1",
-  "mkdocs-material>=9.5.38",
-  "mkdocstrings[python]>=0.26.1",
+  # "fontawesome-markdown>=0.2.6",  # deprecated to pipx install
+  # "mkdocs>=1.6.1",
+  # "mkdocs-material>=9.5.38",
+  # "mkdocstrings[python]>=0.26.1",
   "neovim>=0.3.1",
 ]
+
+[tool.poetry]
+# note that the name must *not* be an existing pip package
+name = "sample"
+version = "0.1.0"
+description = "Rich's Poetry installation"
+authors = ["Rich Tong <1782087+richtong@users.noreply.github.com>"]
+readme = "README.md"
+package-mode = false
+
+# most of these dependencies are now in brew or pipx install
+[tool.poetry.dependencies]
+python = "^3.11.1"
+# black = ">=22.12"
+# bandit = "^1.7.4"
+# beautysh = "^6.2.1"
+# build = "^0.10.0" # move to hatch
+# flake8 = "^6.0.0"  # deprecated for ruff
+# fontawesome-markdown = "^0.2.6"
+# isort = ">=5.10.1"  # deprecated for ruff
+# mkdocs = "^1.4.2"  # pipx
+# mkdocs-material = "^9.0.11"  # pipx
+# mypy = "^1.0.0" ## pipx
+neovim = "^0.3.1"
+# pdoc3 = "^0.10.0"  # moving to mkdcos
+# pre-commit = "^3.0.4"  # brew
+# pydocstyle = "^6.3.0"  # deprecated
+# pymdown-extensions = "^10.0.0" # pipx mkdocs
+# seed-isort-config = "^2.2.0"
+# setuptools = "^70.0.0"  # moving to hatch
+# twine = "^4.0.2"  # moving to hatch
+# wheel = "^0.38.4"  # moving hatch
+# yamllint = "^1.29.0"  # brew
+
+# poetry build system but switching to uv or hatchling
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 # https://docs.astral.sh/ruff/configuration/
 [tool.ruff]

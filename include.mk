@@ -55,7 +55,7 @@ set-%:
 		exit 1; \
 	fi
 
-## auth: Authenticate against aws, netlify, doctl, gcp, auth0
+## auth: Authenticate against aws, netlify, doctl, gcp, auth0, ngrok, huggingface
 .PHONY: auth
 auth:
 	command -v aws > /dev/null &&  aws sts get-caller-identity &> /dev/null || aws sso login
@@ -63,7 +63,8 @@ auth:
 	command -v doctl > /dev/null && doctl projects list &>/dev/null || op plugin run -- doctl auth init
 	command -v gcloud > /dev/null && gcloud projects list >/dev/null || gcloud auth login
 	command -v auth0 > /dev/null && auth0 tenants list | grep -v "auth0 login" || auth0 login
-
+	command -v ngrok >/dev/null && ngrok config add-authtoken "$$(op item get "ngrok" --fields "auth token" --reveal)"
+	command -v huggingface-cli >/dev/null && huggingface-cli whoami >/dev/null || huggingface-cli login
 
 # These are required tags from checkmate stubs are here you should overwrite
 #.PHONY: test
@@ -181,7 +182,7 @@ TEMPLATE ?= \
 			Makefile.base \
 			requirements.netlify.txt \
 			docs.base \
-			workflow.base \
+			workflow.base
 FILE ?= \
 			.gitignore \
 			.pre-commit-config.yaml \
@@ -193,7 +194,7 @@ FILE ?= \
 			Makefile \
 			requirements.txt \
 			docs \
-			.github/workflows \
+			.github/workflows
 .PHONY: install-repo
 install-repo:
 	FILE=( $(FILE) ) && \
