@@ -128,12 +128,12 @@ install-netlify: requirements.txt runtime.txt netlify.toml .node-version
 doctoc:
 	doctoc *.md
 
-## install-src: creates mono repo and submodules ./{bin,lib,docker}
 # https://joshtronic.com/2020/08/09/how-to-get-the-default-git-branch/
 # this is how to figure out the default branch main or master
 # git symbolic-ref refs/remotes/origin/HEAD | cut -d '/' -f 4
 # note that the --remote only works if the --branch is specified on the git
 # clone
+## install-src: creates mono repo and submodules in $(BASE_REPO)
 BASE_REPO ?= bin lib
 .PHONY: install-src
 install-src: git-lfs install-repo
@@ -153,7 +153,6 @@ update-repo:
 # use install instead to create sub-directories
 # https://stackoverflow.com/questions/1529946/linux-copy-and-create-destination-dir-if-it-does-not-exist
 #				cp "$(WS_DIR)/git/src/lib/$${TEMPLATE[i]}" $${FILE[i]};
-## install-repo: copy the skeleton files from ./lib to a new repo
 # set these to the destination FILE and the source TEMPLATE if the file does
 # not exist are you are using FORCE to overwrite
 # do nore use envrc.base except at the very top of ./src
@@ -165,17 +164,24 @@ update-repo:
 # requirements.txt needed for netlify
 # no longer have specific tool-versions for asdf, set globally
 # if you need venv use the programming language specific ones
-			# tool-versions.base \
-			# .tool-versions  \
-			# envrc.base \
-			# .envrc  \
-			# python_version.base \
-			# .python_version
+#
+# set PYTHON_INSTALL to force installation python install-repo
+PYTHON_TEMPLATE ?= \
+			tool-versions.base \
+			envrc.base \
+			python_version.base \
+			pyproject.base.toml
+
+PYTHON_FILE ?= \
+			.tool-versions  \
+			.envrc  \
+			.python_version \
+			pyproject.toml
+
 TEMPLATE ?= \
 			gitignore.base \
 			pre-commit-config.full.yaml \
 			node-version.base \
-			pyproject.base.toml  \
 			runtime.base.txt \
 			netlify.base.toml \
 			mkdocs.base.yml \
@@ -183,11 +189,11 @@ TEMPLATE ?= \
 			requirements.netlify.txt \
 			docs.base \
 			workflow.base
+
 FILE ?= \
 			.gitignore \
 			.pre-commit-config.yaml \
 			.node-version \
-			pyproject.toml \
 			runtime.txt \
 			netlify.toml \
 			mkdocs.yml \
@@ -195,10 +201,12 @@ FILE ?= \
 			requirements.txt \
 			docs \
 			.github/workflows
+
 .PHONY: install-repo
+## install-repo: copy the skeleton files a new repo set PYTHON_INSTALL for python template
 install-repo:
-	FILE=( $(FILE) ) && \
-	TEMPLATE=( $(TEMPLATE) ) && \
+	FILE=( $(FILE) $(if $(PYTHON_INSTALL),$(PYTHON_FILE)) && \
+	TEMPLATE=( $(TEMPLATE) $(if $(PYTHON_INSTALL),$(PYTHON_TEMPLATE)) && \
 	LIB_DIR="$(WS_DIR)/git/src/lib" && \
 	DEST_DIR="$$PWD" && \
 	for (( i=0; i<$${#FILE[@]}; i++ )); do \
