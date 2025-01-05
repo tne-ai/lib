@@ -85,39 +85,47 @@ PIP_ONLY +=
 # PIP_PURPOSE ?= PIP_BASE PIP_DEV
 # base tools needed for documentation for any repo
 PIP_DEV_BASE += \
-		neovim \
-		fontawesome-markdown \
-		mkdocs \
-		mkdocs-material \
-		"mkdocstrings[python]" \
-		mkdocs-git-committers-plugin \
-		mkdocs-charts-plugin \
-		mkdocs-redirects \
-		mkdocs-git-authors-plugin \
-		mkdocs-minify-plugin \
-		mkdocs-monorepo-plugin \
-		mkdocs-awesome-pages-plugin \
-		mkdocs-jupyter \
-		mkdocs-git-revision-date-localized-plugin \
-		markdown-exec \
-		mkdocs-enumerate-headings-plugin
+		neovim
 
+# mkdoes no longer needed, these are pipx inject mkdocs
+PIP_MKDOCS += \
+	"markdown-exec[ansi]" \
+	"mkdocs-material[imaging]" \
+	"mkdocstrings[python]" \
+	fontawesome-markdown \
+	markdown-exec \
+	mkdocs \
+	mkdocs-awesome-pages-plugin \
+	mkdocs-charts-plugin \
+	mkdocs-enumerate-headings-plugin \
+	mkdocs-git-authors-plugin \
+	mkdocs-git-committers-plugin \
+	mkdocs-git-revision-date-localized-plugin \
+	mkdocs-jupyter \
+	mkdocs-material \
+	mkdocs-minify-plugin \
+	mkdocs-monorepo-plugin \
+	mkdocs-redirects \
+	mkdocstrings
+
+
+# non currently
+PIP_DEV_TOOLS += 
 
 # development tools if you are writing python
-PIP_DEV_TOOLS += \
+# these should all be installed with pipx or brew
+BREW_DEV_TOOLS += \
 		mypy \
-		pdoc3 \
 		pre-commit \
-		pymdown-extensions \
 		ruff \
 		yamllint
 
-# if you are packaging for pypi
-PIP_DEV_PACKAGER += \
-		build \
-		setuptools \
-		twine \
-		wheel
+# if you are packaging for pypi is changing using uv build/publish
+PIP_DEV_PACKAGER +=
+		# build \
+		# setuptools \
+		# twine \
+		# wheel
 
 
 # decides what packages to install default is just the base

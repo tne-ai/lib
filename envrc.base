@@ -37,6 +37,7 @@ layout node
 # asdf direnv local python _version_
 if [[ -r .tool-versions ]] && grep "^python" .tool-versions; then
 	layout uv
+	export UV_PROJECT_ENVIRONMENT="$VIRTUAL_ENV"
 fi
 # 	grep "^python" .tool-versions | cut -f 2 -d ' ' >.python_version
 # UV_PROJECT_ENVIRONMENT="$PWD/.direnv/python-$(cat .python_version)"

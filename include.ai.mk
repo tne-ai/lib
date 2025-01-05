@@ -18,15 +18,15 @@ endef
 
 ## ai: start all ai servers
 .PHONY: ai
-ai: ai.kill ollama tika open-webui
+ai: ai.kill ollama tika open-webui ngrok
 
 ## %.ps: [ ollama | open-webui | ... ].ps process status
 %.ps:
-	@pgrep -fl "$*"
+	@pgrep -fL "$*"
 
 ## ai.ps: process status of all ai processes
 .PHONY: ai.ps
-ai.ps: ollama.ps open-webui.ps ngrok.ps
+ai.ps: ollama.ps open-webui.ps ngrok.ps tika.ps
 	ollama ps
 
 ## ai.kill: kill all ai all ai servers
@@ -57,12 +57,19 @@ ollama:
 		OLLAMA_KV_CACHE_TYPE=q4_0 \
 		&& $(call START_SERVER,ollama,ollama,serve)
 
+define START_NGROK
+	$(call START_SERVER,ngrok,ngrok,http,--url="$$(op item get $(1) --field 'static domain')","$(PORT)",--oauth=google,--oauth-allow-domain=tne.ai,--oauth-allow-domain=tongfamily.com)
+endef
 ## ngrok: authentication front-end for open-webui uses 1Password to 8080 onlyi 1 active at a time
 # doing a pkill before seems to stop the run so only ai.kill does the stopping
 .PHONY: ngrok
 ngrok:
-	$(call START_SERVER,ngrok,ngrok,http,--url="$$(op item get 'ngrok' --field 'static domain')","$(PORT)", \
-		--oauth=google,--oauth-allow-domain=tne.ai, --oauth-allow-domain=tongfamily.com)
+	$(call START_NGROK,'ngrok Dev')
+
+## ngrok-user: authentication front-end for open-webui uses 1Password to 8080 only per user
+.PHONY: ngrok-user
+ngrok-user:
+	$(call START_NGROK,ngrok)
 
 TIKA_VERSION ?= 2.9.2
 TIKA_JAR ?= tika-server-standard-$(TIKA_VERSION).jar
