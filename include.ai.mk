@@ -18,7 +18,7 @@ endef
 
 ## ai: start all ai servers
 .PHONY: ai
-ai: ai.kill ollama tika open-webui ngrok
+ai: ai.kill ollama tika open-webui
 
 ## %.ps: [ ollama | open-webui | ... ].ps process status
 %.ps:
@@ -31,7 +31,7 @@ ai.ps: ollama.ps open-webui.ps ngrok.ps tika.ps
 
 ## ai.kill: kill all ai all ai servers
 .PHONY: ai.kill
-ai.kill: ollama.kill open-webui.kill ngrok.kill tika.kill
+ai.kill: ollama.kill open-webui.kill tika.kill
 
 ## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
@@ -60,15 +60,17 @@ ollama:
 define START_NGROK
 	$(call START_SERVER,ngrok,ngrok,http,--url="$$(op item get $(1) --field 'static domain')","$(PORT)",--oauth=google,--oauth-allow-domain=tne.ai,--oauth-allow-domain=tongfamily.com)
 endef
-## ngrok: authentication front-end for open-webui uses 1Password to 8080 onlyi 1 active at a time
+## ngrok: authentication front-end using ngrok Dev
 # doing a pkill before seems to stop the run so only ai.kill does the stopping
 .PHONY: ngrok
 ngrok:
+	command -v ngrok >/dev/null && ngrok config add-authtoken "$$(op item get "ngrok Dev" --fields "auth token" --reveal)"
 	$(call START_NGROK,'ngrok Dev')
 
-## ngrok-user: authentication front-end for open-webui uses 1Password to 8080 only per user
+## ngrok-user: authentication front-end using your personal account
 .PHONY: ngrok-user
 ngrok-user:
+	command -v ngrok >/dev/null && ngrok config add-authtoken "$$(op item get "ngrok" --fields "auth token" --reveal)"
 	$(call START_NGROK,ngrok)
 
 TIKA_VERSION ?= 2.9.2

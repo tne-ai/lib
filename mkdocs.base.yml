@@ -1,10 +1,10 @@
 # https://squidfunk.github.io/mkdocs-material/creating-your-site/
 # https://www.mkdocs.org/getting-started/
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
-site_name: Total Neural Enterprises
-site_url: https://docs.tne.ai/
+site_name: New Site
+site_url: https://tongfamily.com
 # https://squidfunk.github.io/mkdocs-material/setup/adding-a-git-repository/
-repo_url: https://github.com/tne-ai/src
+repo_url: https://github.com/tongfamily/src
 edit_uri: edit/main/docs
 #use_directory_urls: false
 #
@@ -28,17 +28,9 @@ nav:
       - Dev: fng/dev.md
       - Applications: fng/apps.md
       - Systems: fng/sys.md
-  - Apps: "!include ./apps/mkdocs.yml"
-  - Marketing: "!include ./mktg/mkdocs.yml"
-  - Sales: "!include ./sales/mkdocs.yml"
-  - Systems:
-      - Intro: "!include ./sys/mkdocs.yml"
-      - Troopship: "!include ./sys/troopship/mkdocs.yml"
-      - BP-Runner: "!include ./sys/troopship/bp-runner/mkdocs.yml"
-      - BP-Runner Tests: "!include ./sys/troopship/bp-runner/tests/mkdocs.yml"
-  - Utilities:
-      - Bin: "!include ./bin/mkdocs.yml"
-      - Lib: "!include ./lib/mkdocs.yml"
+  # - Apps: "!include ./apps/mkdocs.yml"
+  # - Bin: "!include ./bin/mkdocs.yml"
+  # - Lib: "!include ./lib/mkdocs.yml"
 
 theme:
   name: material
