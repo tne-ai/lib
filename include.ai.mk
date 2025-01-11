@@ -84,11 +84,13 @@ OPEN_WEBUI_FRONTEND_DEV_PORT ?= 25173
 OPEN_WEBUI_BACKEND_DEV_PORT ?= 28080
 ## open-webui-user: Run local for a specific user (default rich on frontend port 25173 and backedn 28080)
 .PHONY: open-webui-user
-open-webui-user: ollama
+open-webui-user:
 	@echo start frontend http://localhost:$(OPEN_WEBUI_FRONTEND_DEV_PORT)
 	cd "$(OPEN_WEBUI_USER_DIR)" && npm run pyodide:fetch && vite dev --host --port "$(OPEN_WEBUI_FRONTEND_DEV_PORT)" &
 	@echo start backend at http://localhost:$(OPEN_WEBUI_BACKEND_DEV_PORT)
-	cd $(OPEN_WEBUI_USER_DIR/backend) && PORT="$(OPEN_WEBUI_BACKEND_DEV_PORT)" uv run dev.sh &
+	cd "$(OPEN_WEBUI_USER_DIR)/backend" && \
+		uv sync && uv pip install -r requirements.txt && uv lock && \
+		PORT="$(OPEN_WEBUI_BACKEND_DEV_PORT)" uv run dev.sh & 
 	@echo "webui.db is in $(OPEN_WEBUI_USER_DIR/.venv)"
 	@echo "start open-webui at localhost:$(OPEN_WEBUI_BACKEND_DEV_PORT)"
 	sleep 10
@@ -97,7 +99,7 @@ open-webui-user: ollama
 OPEN_WEBUI_ORG_DIR ?= $(WS_DIR)/git/src/sys/orion/extern/open-webui
 ## open-webui-org: Run local for a specific org front-end port 5173 (standard) and port 8081 (nonstandard)
 .PHONY: open-webui-org
-open-webui-org: ollama
+open-webui-org:
 	@echo start frontend
 	cd "$(OPEN_WEBUI_ORG_DIR)" && yarn install && yarn dev &
 	@echo start backend
