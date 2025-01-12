@@ -12,9 +12,9 @@ SHELL := /usr/bin/env bash
 #
 # https://www.oreilly.com/library/view/managing-projects-with/0596006101/ch04.html
 
-# usage: $(call start_server,pgrep string, app, arguments...)
+# usage: $(call start_server,process name,port of service, app, arguments...)
 define start_server
-if ! pgrep -fL $(1) ; then $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) \
+if ! pgrep -fL $(1) || ! lsof -i @localhost:$(2); then $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) \
 	$(11) $(12) $(13) $(14) $(15) $(16) $(17) $(18) $(19) $(20); fi &
 endef
 
@@ -57,16 +57,17 @@ ai.user: ollama-user open-webui-user tika
 .PHONY: ai.dev
 ai.dev: ollama-dev open-webui-dev tika
 
-# usage: $(call start_ollama,executable,host:port)
+# usage: $(call start_ollama,port,executable,url)
 # the export cannot be inside the if statement
 define start_ollama
-		$(call start_server,"$(2).*$(1)", \
-				OLLAMA_HOST=$(2), \
+		$(call start_server,$(1), \
+			  $(2),
+				OLLAMA_HOST=$(3), \
 				OLLAMA_FLASH_ATTENTION=1, \
 				OLLAMA_KV_CACHE_TYPE=q4_0, \
-			$(1) serve)
+				$(1) serve)
 	$(call check_ports)
-	OLLAMA_HOST="$(2)" ollama run tulu3:8b "hello how are you?"
+	OLLAMA_HOST="$(3)" ollama run tulu3:8b "hello how are you?"
 endef
 ## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
 # https://docs.openwebui.com/troubleshooting/connection-error/
@@ -75,26 +76,26 @@ endef
 # port where tne.ai taking up the real one
 # note must be lower than 64K
 # standard port overridden by our special one
-OLLAMA_HOST ?= 127.0.0.1:11434
+OLLAMA_PORT ?=11434
 .PHONY: ollama
 ollama:
-	$(call start_ollama,ollama,$(OLLAMA_HOST))
+	$(call start_ollama,ollama,$(OLLAMA_PORT),127.0.0.1:$(OLLAMA_PORT))
 
 # if ou have your own private version
 ## ollama-user: runs private version on 21434
-OLLAMA_HOST_USER ?= 127.0.0.1:21434
+OLLAMA_PORT_USER ?= 21434
 .PHONY: ollama-user
 ollama-user:
-	$(call start_ollama,ollama,$(OLLAMA_HOST_USER))
+	$(call start_ollama,ollama,$(OLLAMA_PORT_USER),127.0.0.1:$(OLLAMA_HOST_USER))
 
 # if ou have organization's dev version
 ## ollama-user: runs private version on 21434
-OLLAMA_HOST_DEV ?= 127.0.0.1:11434
+OLLAMA_PORT_DEV ?= 11434
 .PHONY: ollama-dev
 ollama-dev:
 	cd "$(WS_DIR)/git/src/sys/ollama" && \
 	make -j 5 && \
-	$(call start_ollama,./ollama,$(OLLAMA_HOST_DEV))
+	$(call start_ollama,./ollama,$(OLLAMA_PORT_DEV),127.0.0.1:$(OLLAMA_HOST_DEV))
 
 # usage $(call start_open-webui, OLLAMA_BASE_URL, open_webui backend port)
 define start_open-webui
