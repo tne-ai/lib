@@ -12,27 +12,28 @@ SHELL := /usr/bin/env bash
 #
 # https://www.oreilly.com/library/view/managing-projects-with/0596006101/ch04.html
 PORT ?= 8080
-define START_SERVER
+define start_server
 if ! pgrep -L $(1) ; then echo start $(2) && $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) \
 	$(11) $(12) $(13) $(14) $(15) $(16) $(17) $(18) $(19) $(20); fi &
 endef
 
-## ai: start all ai servers
-.PHONY: ai
-ai: ai.kill ollama tika open-webui
+# usage $(call check_ports to see if the command wowrked)
+define check_ports
+	sleep 5 && lsof -i @localhost
+endef
 
 ## %.ps: [ ollama | open-webui | ... ].ps process status
 %.ps:
-	@pgrep -fL "$*"
+	-pgrep -fL "$*"
 
 ## ai.ps: process status of all ai processes
 .PHONY: ai.ps
-ai.ps: ollama.ps open-webui.ps ngrok.ps tika.ps llama.ps
-	ollama ps
+ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama.ps
+	-ollama ps
 
 ## ai.kill: kill all ai all ai servers
 .PHONY: ai.kill
-ai.kill: ollama.kill open-webui.kill tika.kill llama.kill
+ai.kill: ollama.kill open_webui.kill tika.kill llama.kill
 
 ## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
@@ -42,6 +43,20 @@ ai.kill: ollama.kill open-webui.kill tika.kill llama.kill
 %.kill:
 	-pkill -f "$*" || true
 
+
+## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188
+.PHONY: ai
+ai: ai.kill ollama open-webui tika
+
+# usage: $(call start_ollama,executable,host:port)
+define start_ollama
+	export OLLAMA_HOST="$(2)" \
+		OLLAMA_FLASH_ATTENTION=1 \
+		OLLAMA_KV_CACHE_TYPE=q4_0 \
+		&& $(call start_server,ollama,$(1),serve)
+	$(call check_ports)
+	OLLAMA_HOST="$(2)" ollama run tulu3:8b "hello how are you?"
+endef
 ## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
 # https://docs.openwebui.com/troubleshooting/connection-error/
 # 0.0.0.0 means it will serve remote openwebui clients
@@ -50,39 +65,51 @@ ai.kill: ollama.kill open-webui.kill tika.kill llama.kill
 # note must be lower than 64K
 # standard port overridden by our special one
 OLLAMA_HOST ?= 127.0.0.1:11434
-# if ou have your own dev version
-OLLAMA_HOST ?= 127.0.0.1:21434
 .PHONY: ollama
 ollama:
-	export OLLAMA_HOST="$(OLLAMA_HOST)" \
-		OLLAMA_FLASH_ATTENTION=1 \
-		OLLAMA_KV_CACHE_TYPE=q4_0 \
-		&& $(call START_SERVER,ollama,ollama,serve)
-	sleep 5
-	lsof -i @localhost
-	OLLAMA_HOST="$(OLLAMA_HOST)" ollama run tulu3:8b "hello how are you?"
+	$(call start_ollama,ollama,$(OLLAMA_HOST))
+
+# if ou have your own private version
+## ollama-user: runs private version on 21434
+OLLAMA_HOST_USER ?= 127.0.0.1:21434
+.PHONY: ollama-user
+ollama-user:
+	$(call start_ollama,ollama,$(OLLAMA_HOST_USER))
+
+# if ou have organization's dev version
+## ollama-user: runs private version on 21434
+OLLAMA_HOST_DEV ?= 127.0.0.1:11434
+.PHONY: ollama-dev
+ollama-dev:
+	cd "$(WS_DIR)/git/src/sys/ollama" && \
+	make -j 5 && \
+	$(call start_ollama,./ollama,$(OLLAMA_HOST_USER))
+
+# usage $(call start_open-webui, OLLAMA_BASE_URL, open_webui backend port)
+define start_open-webui
+	@echo if Internet flaky turnoff WiFi before starting
+	@echo the webui.db configuration on the python venv where you start
+	export OLLAMA_BASE_URL="$(1)" && \
+		$(call start_server,open-webui,open-webui,serve --port $(2))
+	$(call check_ports)
+endef
 
 OLLAMA_BASE_URL ?= http://localhost/$(OLLAMA_HOST)
 OPEN_WEBUI_PORT ?= 8080
 # if you have your own ollama build
-OPEN_WEBUI_PORT ?= 28080
-# the default if you have trouble
-## open-webui: run open webui as frontend port 5173 and backend 8080
+# the default if you have trouble note the package is open-webui and ps is
+# open_webui with an underscore
+## open-webui: run packaged open webui as frontend port 5173 and backend 8080
 .PHONY: open-webui
 open-webui:
-	@echo if Internet flaky turnoff WiFi before starting
-	@echo the webui.db configuration on the python venv where you start
 	@echo recommend starting in $(WS_DIR)/git/src
-	export OLLAMA_BASE_URL="$(OLLAMA_BASE_URL)" &&\
-		$(call START_SERVER,open-webui,open-webui,serve,--port $(OPEN_WEBUI_PORT))
-	sleep 10
-	lsof -i @localhost
+	$(call start_open-webui, $(OLLAMA_BASE_URL),$(OPEN_WEBUI_PORT))
 
 USER ?= rich
 OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
 OPEN_WEBUI_FRONTEND_DEV_PORT ?= 25173
 OPEN_WEBUI_BACKEND_DEV_PORT ?= 28080
-## open-webui-user: Run local for a specific user (default rich on frontend port 25173 and backedn 28080)
+## open-webui-user: Run local for a specific user (default rich on non standard frontend port 25173 and backedn 28080)
 .PHONY: open-webui-user
 open-webui-user:
 	@echo start frontend http://localhost:$(OPEN_WEBUI_FRONTEND_DEV_PORT)
@@ -93,50 +120,45 @@ open-webui-user:
 		PORT="$(OPEN_WEBUI_BACKEND_DEV_PORT)" uv run dev.sh & 
 	@echo "webui.db is in $(OPEN_WEBUI_USER_DIR/.venv)"
 	@echo "start open-webui at localhost:$(OPEN_WEBUI_BACKEND_DEV_PORT)"
-	sleep 10
-	lsof -i @localhost
+	$(call check_ports)
 
-OPEN_WEBUI_ORG_DIR ?= $(WS_DIR)/git/src/sys/orion/extern/open-webui
-## open-webui-org: Run local for a specific org front-end port 5173 (standard) and port 8081 (nonstandard)
+OPEN_WEBUI_DEV_DIR ?= $(WS_DIR)/git/src/sys/orion/extern/open-webui
+## open-webui-dev: Run local for a specific org front-end port 5174 (nonstandard) and port 8081 (nonstandard)
 .PHONY: open-webui-org
 open-webui-org:
 	@echo start frontend
-	cd "$(OPEN_WEBUI_ORG_DIR)" && yarn install && yarn dev &
+	cd "$(OPEN_WEBUI_DEV_DIR)" && yarn install && yarn dev &
 	@echo start backend
-	cd $(OPEN_WEBUI_ORG_DIR/backend) && uv sync && uv run dev.sh
-	@echo "webui.db is in $(OPEN_WEBUI_ORG_DIR/.venv)"
+	cd $(OPEN_WEBUI_DEV_DIR/backend) && uv sync && uv run dev.sh
+	@echo "webui.db is in $(OPEN_WEBUI_DEV_DIR/.venv)"
 	@echo "start open-webui at localhost:8081"
-	sleep 10
-	lsof -i @localhost
+	$(call check_ports)
 
-## open-webui-org: Run local for a specific org (default tne on frontend port 25173 and backedn 28080)
+# usgae: $(call start_server,1password item,local port, ngrok url)
+define start_ngrok
+	command -v ngrok >/dev/null && ngrok config add-authtoken "$$(op item get $(1)" --fields "auth token" --reveal)" && \
+	$(call start_server,ngrok, ngrok http "$(2)" --url "$(3)" --oauth google --oauth-domain tne.ai --oauth-domain tongfamily.com --oauth-allow-localhost)
+	$(call check_ports)
+endef
 
-
-## ngrok: authentication front-end using ngrok Dev
+## ngrok-dev: authentication front-end using ngrok Dev
 # doing a pkill before seems to stop the run so only ai.kill does the stopping
-.PHONY: ngrok
-ngrok:
-	command -v ngrok >/dev/null && ngrok config add-authtoken "$$(op item get "ngrok Dev" --fields "auth token" --reveal)"
-	$(call START_NGROK,'ngrok Dev')
-	sleep 5
-	lsof -i @localhost
+.PHONY: ngrok-dev
+ngrok-dev:
+	$(call start_ngrok,ngrok Dev, 8080,early-lenient-goldfish.ngrok-free.app )
 
-## ngrok-user: authentication front-end using your personal account
-.PHONY: ngrok-user
+## ngrok: authentication front-end using your personal account
+.PHONY: ngrok
 ngrok-user:
-	command -v ngrok >/dev/null && ngrok config add-authtoken "$$(op item get "ngrok" --fields "auth token" --reveal)"
-	$(call START_NGROK,ngrok)
-	sleep 5
-	lsof -i @localhost
+	$(call start_ngrok,ngrok, 8080,organic-pegasus-solely.ngrok-free.app)
 
 TIKA_VERSION ?= 2.9.2
 TIKA_JAR ?= tika-server-standard-$(TIKA_VERSION).jar
 ## tika: run the tika server at 9998
 .PHONY: tika
 tika:
-	$(call START_SERVER,$(TIKA_JAR),java,-jar,"$$HOME/jar/$(TIKA_JAR)")
-	sleep 5
-	lsof -i @localhost
+	$(call start_server,$(TIKA_JAR),java,-jar,"$$HOME/jar/$(TIKA_JAR)")
+	$(call check_ports)
 
 OLLAMA_MODEL ?= $(HOME)/.ollama/models/blobs
 # huge model
@@ -155,7 +177,7 @@ LLAMA_SYSTEM_PROMPT ?= $(WS_DIR)/git/src/res/system-prompt/system-prompt.txt
 LLAMA_PORT ?= 28081
 .PHONY: llama
 llama:
-	$(call START_SERVER,llama-server,llama-server, \
+	$(call start_server,llama-server,llama-server, \
 		-c 131072 --port "$(LLAMA_PORT)",  \
 		--verbose-prompt -v, row --metrics, \
 		--flash-attn -sm row, \
@@ -163,5 +185,4 @@ llama:
 		-f "$(LLAMA_SYSTEM_PROMPT)", \
 		-m "$(OLLAMA_MODEL)/$(LLAMA_GGUF)" \
 		)
-	sleep 5
-	lsof -i @localhost
+	$(call check_ports)
