@@ -11,9 +11,10 @@ SHELL := /usr/bin/env bash
 # https://stackoverflow.com/questions/4210042/how-to-EXCLUDE-a-directory-in-find-command
 #
 # https://www.oreilly.com/library/view/managing-projects-with/0596006101/ch04.html
-PORT ?= 8080
+
+# usage: $(call start_server,pgrep string, app, arguments...)
 define start_server
-if ! pgrep -L $(1) ; then echo start $(2) && $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) \
+if ! pgrep -fL $(1) ; then $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) \
 	$(11) $(12) $(13) $(14) $(15) $(16) $(17) $(18) $(19) $(20); fi &
 endef
 
@@ -44,16 +45,26 @@ ai.kill: ollama.kill open_webui.kill tika.kill llama.kill
 	-pkill -f "$*" || true
 
 
-## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188
+## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188, llama.cpp 8081
 .PHONY: ai
-ai: ai.kill ollama open-webui tika
+ai: ollama open-webui llama tika
+
+## ai.user: starts user paackages
+.PHONY: ai.user
+ai.user: ollama-user open-webui-user tika
+
+## ai.dev: start your orgs dev servers
+.PHONY: ai.dev
+ai.dev: ollama-dev open-webui-dev tika
 
 # usage: $(call start_ollama,executable,host:port)
+# the export cannot be inside the if statement
 define start_ollama
-	export OLLAMA_HOST="$(2)" \
-		OLLAMA_FLASH_ATTENTION=1 \
-		OLLAMA_KV_CACHE_TYPE=q4_0 \
-		&& $(call start_server,ollama,$(1),serve)
+		$(call start_server,"$(2).*$(1)", \
+				OLLAMA_HOST=$(2), \
+				OLLAMA_FLASH_ATTENTION=1, \
+				OLLAMA_KV_CACHE_TYPE=q4_0, \
+			$(1) serve)
 	$(call check_ports)
 	OLLAMA_HOST="$(2)" ollama run tulu3:8b "hello how are you?"
 endef
@@ -83,7 +94,7 @@ OLLAMA_HOST_DEV ?= 127.0.0.1:11434
 ollama-dev:
 	cd "$(WS_DIR)/git/src/sys/ollama" && \
 	make -j 5 && \
-	$(call start_ollama,./ollama,$(OLLAMA_HOST_USER))
+	$(call start_ollama,./ollama,$(OLLAMA_HOST_DEV))
 
 # usage $(call start_open-webui, OLLAMA_BASE_URL, open_webui backend port)
 define start_open-webui
@@ -174,12 +185,13 @@ LLAMA_SYSTEM_PROMPT ?= $(WS_DIR)/git/src/res/system-prompt/system-prompt.txt
 # https://github.com/ggerganov/llama/discussions/8947
 ## to use cache prompting must set cahce_prompt
 # https://www.reddit.com/r/LocalLLaMA/comments/1fkv940/caching_some_prompts_when_using_llamaserver/
+LLAMA_PORT ?= 8081
 LLAMA_PORT ?= 28081
 .PHONY: llama
 llama:
 	$(call start_server,llama-server,llama-server, \
 		-c 131072 --port "$(LLAMA_PORT)",  \
-		--verbose-prompt -v, row --metrics, \
+		--verbose-prompt -v, --metrics, \
 		--flash-attn -sm row, \
 		--cache-type-k q8_0 --cache-type-v q8_0, \
 		-f "$(LLAMA_SYSTEM_PROMPT)", \
