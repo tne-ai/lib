@@ -15,7 +15,7 @@ SHELL := /usr/bin/env bash
 # usage: $(call start_server,port of service, app, arguments...)
 # this generations a strange problem 
 # if ! pgrep -fL $(1) || ! lsof -i :$(2) ; then; $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10)
-start_server = if ! lsof -i :$(1); then $(2) $(3) $(4) $(5) $(6) $(7); fi &
+start_server = if ! lsof -i :$(1); then $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10); fi &
 
 # usage $(call check_ports to see if the command wowrked)
 check_port = sleep 5 && lsof -i :$(1)
@@ -37,7 +37,7 @@ ai.kill: ollama.kill open_webui.kill tika.kill llama-server.kill vite.kill
 # ignore with a dash in gnu make so || true isn't needed but there in case
 # https://www.gnu.org/software/make/manual/make.html#Errors
 # -f means find anywhere in the argument field
-## %.kill : [ollama | open-web | ngrok | ... ].kill the % running process
+## %.kill : [ollama | open-web | ngrok | ... ].kill the % running p$rocess
 %.kill:
 	-pkill -f "$*" || true
 
@@ -58,7 +58,7 @@ ai.dev: ollama-dev open-webui-dev llama-server tika
 # the export cannot be inside the if statement
 define start_ollama =
 	$(call start_server,$(2),OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 $(1) serve)
-	$(call check_ports,$(2))
+	$(call check_port,$(2))
 	OLLAMA_HOST="$(3)" ollama run tulu3:8b "hello how are you?"
 endef
 ## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
@@ -120,11 +120,11 @@ OPEN_WEBUI_BACKEND_DEV_PORT ?= 28080
 .PHONY: open-webui-user
 open-webui-user:
 	@echo start frontend http://localhost:$(OPEN_WEBUI_FRONTEND_DEV_PORT)
-	cd "$(OPEN_WEBUI_USER_DIR)" && npm run pyodide:fetch && vite dev --host --port "$(OPEN_WEBUI_FRONTEND_DEV_PORT)" &
+	if ! lsof -i :$(OPEN_WEBUI_FRONTEND_DEV_PORT); then cd "$(OPEN_WEBUI_USER_DIR)" && npm run pyodide:fetch && vite dev --host --port "$(OPEN_WEBUI_FRONTEND_DEV_PORT)"; fi &
 	@echo start backend at http://localhost:$(OPEN_WEBUI_BACKEND_DEV_PORT)
-	cd "$(OPEN_WEBUI_USER_DIR)/backend" && \
+	if ! lsof -i :$(OPEN_WEBUI_BACKEND_DEV_PORT); then cd "$(OPEN_WEBUI_USER_DIR)/backend" && \
 		uv sync && uv pip install -r requirements.txt && uv lock && \
-		PORT="$(OPEN_WEBUI_BACKEND_DEV_PORT)" uv run dev.sh & 
+		PORT="$(OPEN_WEBUI_BACKEND_DEV_PORT)" uv run dev.sh; fi & 
 	@echo "webui.db is in $(OPEN_WEBUI_USER_DIR/.venv)"
 	@echo "start open-webui at localhost:$(OPEN_WEBUI_BACKEND_DEV_PORT)"
 	$(call check_port,$(OPEN_WEBUI_BACKEND_DEV_PORT))
@@ -166,7 +166,7 @@ TIKA_JAR ?= tika-server-standard-$(TIKA_VERSION).jar
 .PHONY: tika
 tika:
 	$(call start_server,9998,java -jar "$$HOME/jar/$(TIKA_JAR)")
-	$(call check_ports,9998)
+	$(call check_port,9998)
 
 OLLAMA_MODEL ?= $(HOME)/.ollama/models/blobs
 # huge model
