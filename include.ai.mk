@@ -101,8 +101,8 @@ define start_open-webui
 	$(call check_port,$2)
 endef
 
-OLLAMA_BASE_URL ?= http://localhost/$(OLLAMA_HOST)
 OPEN_WEBUI_PORT ?= 8080
+OLLAMA_BASE_URL ?= http://localhost:$(OLLAMA_PORT)
 # if you have your own ollama build
 # the default if you have trouble note the package is open-webui and ps is
 # open_webui with an underscore
@@ -110,7 +110,7 @@ OPEN_WEBUI_PORT ?= 8080
 .PHONY: open-webui
 open-webui:
 	@echo recommend starting in $(WS_DIR)/git/src
-	$(call start_open-webui, $(OLLAMA_BASE_URL),$(OPEN_WEBUI_PORT))
+	$(call start_open-webui,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_PORT))
 
 USER ?= rich
 OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
