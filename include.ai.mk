@@ -30,8 +30,9 @@ ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama-server.ps vite.ps
 	-ollama ps
 
 ## ai.kill: kill all ai all ai servers
+# open-webui exists in pip packages, open_webui in builds from source
 .PHONY: ai.kill
-ai.kill: ollama.kill open_webui.kill tika.kill llama-server.kill vite.kill
+ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill
 
 ## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
@@ -142,7 +143,15 @@ open-webui-dev:
 	@echo "start open-webui at localhost:8081"
 	$(call check_port,8081)
 
-# usgae: $(call start_server,1password item,local port, ngrok url)
+CODE_RUNNER_DIR ?= $(WS_DIR)/git/src/sys/troopship/code-runner
+## code-runner: Dev code-runner on port 8080
+.PHONY: code-runner
+code-runner:
+	if ! lsof -i :8080; then cd "$(CODE_RUNNER_DIR)" && \
+			source .venv/bin/activate && make run; fi  &
+	$(call check_port,8080)
+
+# usage: $(call start_server,1password item,local port, ngrok url)
 define start_ngrok
 	command -v ngrok >/dev/null && ngrok config add-authtoken "$$(op item get $(1)" --fields "auth token" --reveal)" && \
 	$(call start_server,4040,ngrok,http "$(2)" --url "$(3)" --oauth google --oauth-domain tne.ai --oauth-domain tongfamily.com --oauth-allow-localhost)
