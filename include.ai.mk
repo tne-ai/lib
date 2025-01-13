@@ -26,7 +26,7 @@ check_port = sleep 5 && lsof -i :$(1)
 
 ## ai.ps: process status of all ai processes
 .PHONY: ai.ps
-ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama-server.ps vite.ps
+ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama-server.ps vite.ps code-runner.ps
 	-ollama ps
 
 ## ai.kill: kill all ai all ai servers
@@ -53,7 +53,7 @@ ai.user: ollama-user open-webui-user llama-server-user tika
 
 ## ai.dev: start your orgs dev servers
 .PHONY: ai.dev
-ai.dev: ollama-dev open-webui-dev llama-server tika
+ai.dev: ollama-dev open-webui-dev code-runner orion
 
 # usage: $(call start_ollama,port,executable,url)
 # the export cannot be inside the if statement
@@ -136,9 +136,9 @@ OPEN_WEBUI_DEV_DIR ?= $(WS_DIR)/git/src/sys/orion/extern/open-webui
 .PHONY: open-webui-dev
 open-webui-dev:
 	@echo start frontend
-	cd "$(OPEN_WEBUI_DEV_DIR)" && yarn install && yarn dev &
+	if ! lsof -i :5174; then cd "$(OPEN_WEBUI_DEV_DIR)" && yarn install && yarn dev; fi &
 	@echo start backend
-	cd $(OPEN_WEBUI_DEV_DIR/backend) && uv sync && uv run dev.sh
+	if ! lsof -i :8081; then cd $(OPEN_WEBUI_DEV_DIR)/backend && source .venv/bin/activate && uv sync && uv run dev.sh; fi &
 	@echo "webui.db is in $(OPEN_WEBUI_DEV_DIR/.venv)"
 	@echo "start open-webui at localhost:8081"
 	$(call check_port,8081)
@@ -150,6 +150,11 @@ code-runner:
 	if ! lsof -i :8080; then cd "$(CODE_RUNNER_DIR)" && \
 			source .venv/bin/activate && make run; fi  &
 	$(call check_port,8080)
+
+## orion: start the Max app Orion
+.PHONY: orion
+orion:
+	open -a Orion.app
 
 # usage: $(call start_server,1password item,local port, ngrok url)
 define start_ngrok
