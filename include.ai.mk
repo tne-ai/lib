@@ -49,11 +49,16 @@ ai: ollama open-webui llama-server tika
 
 ## ai.user: starts user paackages
 .PHONY: ai.user
-ai.user: ollama-user open-webui-user llama-server-user tika
+ai.user: ollama open-webui-user llama-server-user tika comfyui
+
+## comfyui: Start ComfyUI Desktop
+.PHONE: comfyui
+comfyui:
+	open -a "ComfyUI.app"
 
 ## ai.dev: start your orgs dev servers
 .PHONY: ai.dev
-ai.dev: ollama-dev open-webui-dev code-runner orion
+ai.dev: ollama open-webui-dev code-runner orion
 
 # usage: $(call start_ollama,port,executable,url)
 # the export cannot be inside the if statement
@@ -76,7 +81,7 @@ ollama:
 	$(call check_port,$(OLLAMA_PORT))
 
 # if ou have your own private version
-## ollama-user: runs private version on 21434
+## ollama-user: runs private version on 21434 (deprecated with 0.5.5)
 OLLAMA_PORT_USER ?= 21434
 .PHONY: ollama-user
 ollama-user:
@@ -84,7 +89,7 @@ ollama-user:
 	$(call check_port,$(OLLAMA_PORT_USER))
 
 # if ou have organization's dev version
-## ollama-user: runs private version on 21434
+## ollama-user: runs private version on 21434 (deprecated with o.5.5)
 OLLAMA_PORT_DEV ?= 11434
 .PHONY: ollama-dev
 ollama-dev:
@@ -124,7 +129,7 @@ open-webui-user:
 	if ! lsof -i :$(OPEN_WEBUI_FRONTEND_DEV_PORT); then cd "$(OPEN_WEBUI_USER_DIR)" && npm run pyodide:fetch && vite dev --host --port "$(OPEN_WEBUI_FRONTEND_DEV_PORT)"; fi &
 	@echo start backend at http://localhost:$(OPEN_WEBUI_BACKEND_DEV_PORT)
 	if ! lsof -i :$(OPEN_WEBUI_BACKEND_DEV_PORT); then cd "$(OPEN_WEBUI_USER_DIR)/backend" && \
-		uv sync && uv pip install -r requirements.txt && uv lock && \
+		source .venv/bin/activate && uv sync && uv pip install -r requirements.txt && uv lock && \
 		PORT="$(OPEN_WEBUI_BACKEND_DEV_PORT)" uv run dev.sh; fi & 
 	@echo "webui.db is in $(OPEN_WEBUI_USER_DIR/.venv)"
 	@echo "start open-webui at localhost:$(OPEN_WEBUI_BACKEND_DEV_PORT)"
