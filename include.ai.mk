@@ -49,7 +49,7 @@ ai: ollama open-webui llama-server tika
 
 ## ai.res: starts research packages
 .PHONY: ai.res
-ai.res: ollama open-webui-res llama-server-res tika comfyui
+ai.res: ollama open-webui-res llama-server-res tika comfyui ngrok-res
 
 ## comfyui: Start ComfyUI Desktop
 .PHONE: comfyui
@@ -160,10 +160,11 @@ code-runner:
 orion:
 	open -a Orion.app
 
-# usage: $(call start_server,1password item,local port, ngrok url)
+# usage: $(call start_server,1password item,local port,ngrok url)
 define start_ngrok
-	command -v ngrok >/dev/null && ngrok config add-authtoken "$$(op item get $(1)" --fields "auth token" --reveal)" && \
-	$(call start_server,4040,ngrok,http "$(2)" --url "$(3)" --oauth google --oauth-domain tne.ai --oauth-domain tongfamily.com --oauth-allow-localhost)
+	command -v ngrok >/dev/null && \
+		ngrok config add-authtoken "$$(op item get "$(1)" --fields "auth token" --reveal)" && \
+		$(call start_server,4040,ngrok,http "$(2)" --url "$(3)" --oauth google --oauth-domain tne.ai --oauth-domain tongfamily.com --oauth-allow-localhost)
 	$(call check_port,4040)
 endef
 
@@ -171,12 +172,11 @@ endef
 # doing a pkill before seems to stop the run so only ai.kill does the stopping
 .PHONY: ngrok-dev
 ngrok-dev:
-	$(call start_ngrok,ngrok Dev, 8080,early-lenient-goldfish.ngrok-free.app )
+	$(call start_ngrok,ngrok Dev,$(OPEN_WEBUI_BACKEND_DEV_PORT),early-lenient-goldfish.ngrok-free.app)
 
 ## ngrok: authentication front-end using your personal account
 .PHONY: ngrok
-ngrok-res:
-	$(call start_ngrok,ngrok, 8080,organic-pegasus-solely.ngrok-free.app)
+	$(call start_ngrok,ngrok,8080,organic-pegasus-solely.ngrok-free.app)
 
 TIKA_VERSION ?= 2.9.2
 TIKA_JAR ?= tika-server-standard-$(TIKA_VERSION).jar
