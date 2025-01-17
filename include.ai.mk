@@ -13,7 +13,7 @@ SHELL := /usr/bin/env bash
 # https://www.oreilly.com/library/view/managing-projects-with/0596006101/ch04.html
 
 # usage: $(call start_server,port of service, app, arguments...)
-# this generations a strange problem 
+# this generations a strange problem
 # if ! pgrep -fL $(1) || ! lsof -i :$(2) ; then; $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10)
 start_server = if ! lsof -i :$(1); then $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10); fi &
 
@@ -47,9 +47,9 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 .PHONY: ai
 ai: ollama open-webui llama-server tika
 
-## ai.user: starts user paackages
-.PHONY: ai.user
-ai.user: ollama open-webui-user llama-server-user tika comfyui
+## ai.res: starts research packages
+.PHONY: ai.res
+ai.res: ollama open-webui-res llama-server-res tika comfyui
 
 ## comfyui: Start ComfyUI Desktop
 .PHONE: comfyui
@@ -81,15 +81,15 @@ ollama:
 	$(call check_port,$(OLLAMA_PORT))
 
 # if ou have your own private version
-## ollama-user: runs private version on 21434 (deprecated with 0.5.5)
-OLLAMA_PORT_USER ?= 21434
-.PHONY: ollama-user
-ollama-user:
-	$(call start_ollama,ollama,$(OLLAMA_PORT_USER),127.0.0.1:$(OLLAMA_PORT_USER))
-	$(call check_port,$(OLLAMA_PORT_USER))
+## ollama-res: runs private version on 21434 (deprecated with 0.5.5)
+OLLAMA_PORT_RES ?= 21434
+.PHONY: ollama-res
+ollama-res:
+	$(call start_ollama,ollama,$(OLLAMA_PORT_RES),127.0.0.1:$(OLLAMA_PORT_RES))
+	$(call check_port,$(OLLAMA_PORT_RES))
 
 # if ou have organization's dev version
-## ollama-user: runs private version on 21434 (deprecated with o.5.5)
+## ollama-res: runs private version on 21434 (deprecated with o.5.5)
 OLLAMA_PORT_DEV ?= 11434
 .PHONY: ollama-dev
 ollama-dev:
@@ -118,20 +118,19 @@ open-webui:
 	@echo recommend starting in $(WS_DIR)/git/src
 	$(call start_open-webui,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_PORT))
 
-USER ?= rich
-OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
+OPEN_WEBUI_RES_DIR ?= $(WS_DIR)/git/src/res/open-webui
 OPEN_WEBUI_FRONTEND_DEV_PORT ?= 25173
 OPEN_WEBUI_BACKEND_DEV_PORT ?= 28080
-## open-webui-user: Run local for a specific user (default rich on non standard frontend port 25173 and backedn 28080)
-.PHONY: open-webui-user
-open-webui-user:
+## open-webui-res: Run local for a specific user (default on non standard frontend port 25173 and backedn 28080)
+.PHONY: open-webui-res
+open-webui-res:
 	@echo start frontend http://localhost:$(OPEN_WEBUI_FRONTEND_DEV_PORT)
-	if ! lsof -i :$(OPEN_WEBUI_FRONTEND_DEV_PORT); then cd "$(OPEN_WEBUI_USER_DIR)" && npm run pyodide:fetch && vite dev --host --port "$(OPEN_WEBUI_FRONTEND_DEV_PORT)"; fi &
+	if ! lsof -i :$(OPEN_WEBUI_FRONTEND_DEV_PORT); then cd "$(OPEN_WEBUI_RES_DIR)" && npm install && npm run pyodide:fetch && vite dev --host --port "$(OPEN_WEBUI_FRONTEND_DEV_PORT)"; fi &
 	@echo start backend at http://localhost:$(OPEN_WEBUI_BACKEND_DEV_PORT)
-	if ! lsof -i :$(OPEN_WEBUI_BACKEND_DEV_PORT); then cd "$(OPEN_WEBUI_USER_DIR)/backend" && \
+	if ! lsof -i :$(OPEN_WEBUI_BACKEND_DEV_PORT); then cd "$(OPEN_WEBUI_RES_DIR)/backend" && \
 		source .venv/bin/activate && uv sync && uv pip install -r requirements.txt && uv lock && \
-		PORT="$(OPEN_WEBUI_BACKEND_DEV_PORT)" uv run dev.sh; fi & 
-	@echo "webui.db is in $(OPEN_WEBUI_USER_DIR/.venv)"
+		PORT="$(OPEN_WEBUI_BACKEND_DEV_PORT)" uv run dev.sh; fi &
+	@echo "webui.db is in $(OPEN_WEBUI_RES_DIR/.venv)"
 	@echo "start open-webui at localhost:$(OPEN_WEBUI_BACKEND_DEV_PORT)"
 	$(call check_port,$(OPEN_WEBUI_BACKEND_DEV_PORT))
 	$(call check_port,$(OPEN_WEBUI_FRONTEND_DEV_PORT))
@@ -176,7 +175,7 @@ ngrok-dev:
 
 ## ngrok: authentication front-end using your personal account
 .PHONY: ngrok
-ngrok-user:
+ngrok-res:
 	$(call start_ngrok,ngrok, 8080,organic-pegasus-solely.ngrok-free.app)
 
 TIKA_VERSION ?= 2.9.2
@@ -220,9 +219,8 @@ LLAMA_PORT ?= 8081
 llama-server:
 	$(call start_llama,$(LLAMA_PORT))
 
-LLAMA_PORT_USER ?= 28081
-## llama-user: run lllama for a user at port 28081
-.PHONY: llama-server-user
-llama-server-user:
-	$(call start_llama,$(LLAMA_PORT_USER))
-
+LLAMA_PORT_RES ?= 28081
+## llama-res: run lllama for a user at port 28081
+.PHONY: llama-server-res
+llama-server-res:
+	$(call start_llama,$(LLAMA_PORT_RES))
