@@ -49,7 +49,11 @@ ai: ollama open-webui llama-server tika
 
 ## ai.res: starts research packages
 .PHONY: ai.res
-ai.res: ollama open-webui-res llama-server-res tika comfyui ngrok-res
+ai.res: ollama open-webui-res llama-server-res tika comfyui ngrok-res comfyui
+
+USER ?= rich
+## ai.user: start a specific users version
+ai.user: ollama open-webui-user llama-server-res tika ngrok-res comfyui
 
 ## comfyui: Start ComfyUI Desktop
 .PHONE: comfyui
@@ -57,15 +61,16 @@ comfyui:
 	open -a "ComfyUI.app"
 
 ## ai.dev: start your orgs dev servers
+# note ollama-dev is not needed now that 0.5.5 is shipped
 .PHONY: ai.dev
-ai.dev: ollama open-webui-dev code-runner orion
+ai.dev: ollama open-webui-dev code-runner orion ngrok-dev
 
 # usage: $(call start_ollama,port,executable,url)
 # the export cannot be inside the if statement
 define start_ollama =
 	$(call start_server,$(2),OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 $(1) serve)
 	$(call check_port,$(2))
-	OLLAMA_HOST="$(3)" ollama run tulu3:8b "hello how are you?"
+	OLLAMA_OST="$(3)" ollama run tulu3:8b "hello how are you?"
 endef
 ## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
 # https://docs.openwebui.com/troubleshooting/connection-error/
@@ -118,22 +123,53 @@ open-webui:
 	@echo recommend starting in $(WS_DIR)/git/src
 	$(call start_open-webui,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_PORT))
 
+PYTHON ?= 3.12
+define run_open_webui_backup
+		cp "$(2)/webui.db" \
+			"$(WS_DIR)/data/webui.$(1).$(shell date +"%Y-%m-%d.%H-%M-%S").db"
+endef
+
+OPEN_WEBUI_DB ?= "$(HOME)/.local/pipx/venvs/open-webui/lib/python$(PYTHON)/site-packages/open_webui/data"
+## open-webui-backup: backup the webui.db with configs and chats
+.PHONY: open-webui-backup
+open-webui-backup:
+	$(call run_open_webui_backup,pipx,$(OPEN_WEBUI_DB))
+
+## open-webui-backup-res: backup the webui.db for research
+.PHONY: open-webui-backup-res
+open-webui-backup-res:
+	$(call run_open_webui_backup,res,$(WS_DIR)/git/src/res/open-webui/backend/data/)
+
+
+OPEN_WEBUI_FRONTEND_RES_PORT ?= 25173
+OPEN_WEBUI_BACKEND_RES_PORT ?= 28080
+# usage $(call start_open_webui,source directory)
+define start_open_webui
+	@echo start frontend http://localhost:$(OPEN_WEBUI_FRONTEND_RES_PORT)
+	if ! lsof -i :$(OPEN_WEBUI_FRONTEND_RES_PORT); then cd "$(1)" && npm install && npm run pyodide:fetch && vite dev --host --port "$(OPEN_WEBUI_FRONTEND_RES_PORT)"; fi &
+	@echo start backend at http://localhost:$(OPEN_WEBUI_BACKEND_RES_PORT)
+	if ! lsof -i :$(OPEN_WEBUI_BACKEND_RES_PORT); then cd "$(1)/backend" && \
+		uv sync && source .venv/bin/activate && uv pip install -r requirements.txt && uv lock && \
+		PORT="$(OPEN_WEBUI_BACKEND_RES_PORT)" uv run dev.sh; fi &
+	@echo "webui.db is in $(1)/.venv)"
+	@echo "start open-webui at localhost:$(OPEN_WEBUI_BACKEND_RES_PORT)"
+	$(call check_port,$(OPEN_WEBUI_BACKEND_RES_PORT))
+	$(call check_port,$(OPEN_WEBUI_FRONTEND_RES_PORT))
+endef
+
 OPEN_WEBUI_RES_DIR ?= $(WS_DIR)/git/src/res/open-webui
-OPEN_WEBUI_FRONTEND_DEV_PORT ?= 25173
-OPEN_WEBUI_BACKEND_DEV_PORT ?= 28080
-## open-webui-res: Run local for a specific user (default on non standard frontend port 25173 and backedn 28080)
+## open-webui-res: Run local for the research group
 .PHONY: open-webui-res
 open-webui-res:
-	@echo start frontend http://localhost:$(OPEN_WEBUI_FRONTEND_DEV_PORT)
-	if ! lsof -i :$(OPEN_WEBUI_FRONTEND_DEV_PORT); then cd "$(OPEN_WEBUI_RES_DIR)" && npm install && npm run pyodide:fetch && vite dev --host --port "$(OPEN_WEBUI_FRONTEND_DEV_PORT)"; fi &
-	@echo start backend at http://localhost:$(OPEN_WEBUI_BACKEND_DEV_PORT)
-	if ! lsof -i :$(OPEN_WEBUI_BACKEND_DEV_PORT); then cd "$(OPEN_WEBUI_RES_DIR)/backend" && \
-		source .venv/bin/activate && uv sync && uv pip install -r requirements.txt && uv lock && \
-		PORT="$(OPEN_WEBUI_BACKEND_DEV_PORT)" uv run dev.sh; fi &
-	@echo "webui.db is in $(OPEN_WEBUI_RES_DIR/.venv)"
-	@echo "start open-webui at localhost:$(OPEN_WEBUI_BACKEND_DEV_PORT)"
-	$(call check_port,$(OPEN_WEBUI_BACKEND_DEV_PORT))
-	$(call check_port,$(OPEN_WEBUI_FRONTEND_DEV_PORT))
+	$(call start_open_webui,$(OPEN_WEBUI_RES_DIR))
+
+
+OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/$(USER)/ml/open-webui
+## open-webui-user: Run local for a specific user (default on non standard frontend port 25173 and backedn 28080)
+.PHONY: open-webui-user
+open-webui-user:
+	$(call start_open_webui,$(OPEN_WEBUI_USER_DIR))
+
 
 OPEN_WEBUI_DEV_DIR ?= $(WS_DIR)/git/src/sys/orion/extern/open-webui
 ## open-webui-dev: Run local for a specific org front-end port 5174 (nonstandard) and port 8081 (nonstandard)
@@ -164,7 +200,7 @@ orion:
 define start_ngrok
 	command -v ngrok >/dev/null && \
 		ngrok config add-authtoken "$$(op item get "$(1)" --fields "auth token" --reveal)" && \
-		$(call start_server,4040,ngrok,http "$(2)" --url "$(3)" --oauth google --oauth-domain tne.ai --oauth-domain tongfamily.com --oauth-allow-localhost)
+		$(call start_server,4040,ngrok,http "$(2)" --url "$(3)" --oauth google --oauth-allow-domain tne.ai --oauth-allow-domain tongfamily.com)
 	$(call check_port,4040)
 endef
 
@@ -172,10 +208,16 @@ endef
 # doing a pkill before seems to stop the run so only ai.kill does the stopping
 .PHONY: ngrok-dev
 ngrok-dev:
-	$(call start_ngrok,ngrok Dev,$(OPEN_WEBUI_BACKEND_DEV_PORT),early-lenient-goldfish.ngrok-free.app)
+	$(call start_ngrok,ngrok Dev,5174,early-lenient-goldfish.ngrok-free.app)
+
+## ngrok-res: authentication front-end using your personal account
+.PHONY: ngrok-res
+ngrok-res:	
+	$(call start_ngrok,ngrok,28080,organic-pegasus-solely.ngrok-free.app)
 
 ## ngrok: authentication front-end using your personal account
 .PHONY: ngrok
+ngrok:
 	$(call start_ngrok,ngrok,8080,organic-pegasus-solely.ngrok-free.app)
 
 TIKA_VERSION ?= 2.9.2
@@ -207,7 +249,6 @@ define start_llama =
 		--verbose-prompt -v, --metrics, \
 		--flash-attn -sm row, \
 		--cache-type-k q8_0 --cache-type-v q8_0, \
-		-f "$(LLAMA_SYSTEM_PROMPT)", \
 		-m "$(OLLAMA_MODEL)/$(LLAMA_GGUF)" \
 		)
 	$(call check_port,$(1))
