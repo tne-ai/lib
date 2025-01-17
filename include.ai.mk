@@ -123,6 +123,7 @@ open-webui:
 	@echo recommend starting in $(WS_DIR)/git/src
 	$(call start_open-webui,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_PORT))
 
+OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
 PYTHON ?= 3.12
 define run_open_webui_backup
 		cp "$(2)/webui.db" \
@@ -134,6 +135,12 @@ OPEN_WEBUI_DB ?= "$(HOME)/.local/pipx/venvs/open-webui/lib/python$(PYTHON)/site-
 .PHONY: open-webui-backup
 open-webui-backup:
 	$(call run_open_webui_backup,pipx,$(OPEN_WEBUI_DB))
+
+
+## open-webui-backup-user: backup the webui.db for user
+.PHONY: open-webui-backup-user
+open-webui-backup-user:
+	$(call run_open_webui_backup,$(USER),$(OPEN_WEBUI_USER_DIR)/backend/data/)
 
 ## open-webui-backup-res: backup the webui.db for research
 .PHONY: open-webui-backup-res
@@ -164,7 +171,6 @@ open-webui-res:
 	$(call start_open_webui,$(OPEN_WEBUI_RES_DIR))
 
 
-OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/$(USER)/ml/open-webui
 ## open-webui-user: Run local for a specific user (default on non standard frontend port 25173 and backedn 28080)
 .PHONY: open-webui-user
 open-webui-user:
