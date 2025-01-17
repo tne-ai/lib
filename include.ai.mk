@@ -153,7 +153,12 @@ OPEN_WEBUI_BACKEND_RES_PORT ?= 28080
 # usage $(call start_open_webui,source directory)
 define start_open_webui
 	@echo start frontend http://localhost:$(OPEN_WEBUI_FRONTEND_RES_PORT)
-	if ! lsof -i :$(OPEN_WEBUI_FRONTEND_RES_PORT); then cd "$(1)" && npm install && npm run pyodide:fetch && vite dev --host --port "$(OPEN_WEBUI_FRONTEND_RES_PORT)"; fi &
+	if ! lsof -i :$(OPEN_WEBUI_FRONTEND_RES_PORT); then \
+		cd "$(1)" && npm install && \
+		npm run build && \
+		npm run pyodide:fetch && \
+		vite dev --host --port "$(OPEN_WEBUI_FRONTEND_RES_PORT)";\
+	fi &
 	@echo start backend at http://localhost:$(OPEN_WEBUI_BACKEND_RES_PORT)
 	if ! lsof -i :$(OPEN_WEBUI_BACKEND_RES_PORT); then cd "$(1)/backend" && \
 		uv sync && source .venv/bin/activate && uv pip install -r requirements.txt && uv lock && \
