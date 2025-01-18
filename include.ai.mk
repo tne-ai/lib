@@ -161,7 +161,7 @@ define start_open_webui
 	fi &
 	@echo start backend at http://localhost:$(OPEN_WEBUI_BACKEND_RES_PORT)
 	if ! lsof -i :$(OPEN_WEBUI_BACKEND_RES_PORT); then cd "$(1)/backend" && \
-		uv sync && source .venv/bin/activate && uv pip install -r requirements.txt && uv lock && \
+		uv sync && uv pip install -r requirements.txt && uv lock && \
 		PORT="$(OPEN_WEBUI_BACKEND_RES_PORT)" uv run dev.sh; fi &
 	@echo "webui.db is in $(1)/.venv)"
 	@echo "start open-webui at localhost:$(OPEN_WEBUI_BACKEND_RES_PORT)"
@@ -189,7 +189,7 @@ open-webui-dev:
 	@echo start frontend
 	if ! lsof -i :5174; then cd "$(OPEN_WEBUI_DEV_DIR)" && yarn install && yarn dev; fi &
 	@echo start backend
-	if ! lsof -i :8081; then cd $(OPEN_WEBUI_DEV_DIR)/backend && source .venv/bin/activate && uv sync && uv run dev.sh; fi &
+	if ! lsof -i :8081; then cd $(OPEN_WEBUI_DEV_DIR)/backend && uv run dev.sh; fi &
 	@echo "webui.db is in $(OPEN_WEBUI_DEV_DIR/.venv)"
 	@echo "start open-webui at localhost:8081"
 	$(call check_port,8081)
@@ -223,7 +223,7 @@ ngrok-dev:
 
 ## ngrok-res: authentication front-end using your personal account
 .PHONY: ngrok-res
-ngrok-res:	
+ngrok-res:
 	$(call start_ngrok,ngrok,28080,organic-pegasus-solely.ngrok-free.app)
 
 ## ngrok: authentication front-end using your personal account
