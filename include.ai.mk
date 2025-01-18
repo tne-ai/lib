@@ -179,6 +179,10 @@ open-webui-res:
 ## open-webui-user: Run local for a specific user (default on non standard frontend port 25173 and backedn 28080)
 .PHONY: open-webui-user
 open-webui-user:
+	@echo "Make sure that you are on the right branch like rich-dev"
+	@echo "Make sure you brew install asdf direnv"
+	@echo "Make sure you run to right python version asdf direnv local python 3.12.7"
+	@echo "Check with command -v python it points to a .venv in that directory"
 	$(call start_open_webui,$(OPEN_WEBUI_USER_DIR))
 
 
