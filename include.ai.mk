@@ -49,11 +49,11 @@ ai: ollama open-webui llama-server tika
 
 ## ai.res: starts research packages
 .PHONY: ai.res
-ai.res: ollama open-webui-res llama-server-res tika comfyui ngrok-res comfyui
+ai.res: ollama open-webui-res llama-server tika comfyui ngrok-res comfyui
 
 USER ?= rich
 ## ai.user: start a specific users version
-ai.user: ollama open-webui-user llama-server-res tika ngrok-res comfyui
+ai.user: ollama open-webui-user llama-server tika ngrok-res comfyui
 
 ## comfyui: Start ComfyUI Desktop
 .PHONE: comfyui
@@ -243,28 +243,32 @@ tika:
 	$(call start_server,9998,java -jar "$$HOME/jar/$(TIKA_JAR)")
 	$(call check_port,9998)
 
+
 OLLAMA_MODEL ?= $(HOME)/.ollama/models/blobs
-# huge model
-QWENCODER2.5-32B_GGUF: sha256-ac3d1ba8aa77755dab3806d9024e9c385ea0d5b412d6bdf9157f8a4a7e9fc0d9
-# find this model in $HOME/.ollama/models/library and look for shar
+QWENCODER2.5-32B_GGUF ?= sha256-ac3d1ba8aa77755dab3806d9024e9c385ea0d5b412d6bdf9157f8a4a7e9fc0d9
+# find this model in $HOME/.ollama/models/library/manifest and look for sha
 # and insert sha256- in front of the blob number
 LLAMA3.2-3B_GGUF ?= sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da77af9f7ccdff
-LLAMA_GGUF ?= $(LLAMA3.2-3B_GGUF)
-LLAMA_SYSTEM_PROMPT ?= $(WS_DIR)/git/src/res/system-prompt/system-prompt.txt
+		# -m "$(OLLAMA_MODEL)/$(LLAMA3.2-3B_GGUF)" \
+# this phi4 not compatible
+PHI4-14B_GGUF ?= sha256-fd7b6731c33c57f61767612f56517460ec2d1e2e5a3f0163e0eb3d8d8cb5df20
+# system prmpt is deprecated
+# LLAMA_SYSTEM_PROMPT ?= $(WS_DIR)/git/src/res/system-prompt/system-prompt.txt
 # https://github.com/abetlen/llama-python/issues/1359
 # https://github.com/open-webui/open-webui/discussions/7543
 # https://github.com/ggerganov/llama/discussions/8947
 ## to use cache prompting must set cahce_prompt
 # https://www.reddit.com/r/LocalLLaMA/comments/1fkv940/caching_some_prompts_when_using_llamaserver/
 
-# usage: $(call start_llama,port)
+# usage: $(call start_llama,port) 
 define start_llama =
+@echo "Start dedicate llama.cpp server with Phi4:14B search for sha"
 	$(call start_server,$(1),llama-server, \
-		-c 131072 --port "$(1)",  \
-		--verbose-prompt -v, --metrics, \
-		--flash-attn -sm row, \
-		--cache-type-k q8_0 --cache-type-v q8_0, \
-		-m "$(OLLAMA_MODEL)/$(LLAMA_GGUF)" \
+		-c 131072 --port "$(1)"  \
+		--verbose-prompt -v --metrics \
+		--flash-attn -sm row \
+		--cache-type-k q8_0 --cache-type-v q8_0 \
+		-m "$(OLLAMA_MODEL)/$(PHI4-14B_GGUF)" \
 		)
 	$(call check_port,$(1))
 endef
@@ -274,9 +278,3 @@ LLAMA_PORT ?= 8081
 .PHONY: llama-server
 llama-server:
 	$(call start_llama,$(LLAMA_PORT))
-
-LLAMA_PORT_RES ?= 28081
-## llama-res: run lllama for a user at port 28081
-.PHONY: llama-server-res
-llama-server-res:
-	$(call start_llama,$(LLAMA_PORT_RES))
