@@ -45,7 +45,7 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 
 ## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188, llama.cpp 8081
 .PHONY: ai
-ai: ollama open-webui tika
+ai: ollama open-webui tika ngrok-dev
 
 ## ai.res: starts research packages
 .PHONY: ai.res
