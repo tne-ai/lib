@@ -45,15 +45,17 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 
 ## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188, llama.cpp 8081
 .PHONY: ai
-ai: ollama open-webui llama-server tika
+ai: ollama open-webui tika
 
 ## ai.res: starts research packages
 .PHONY: ai.res
 ai.res: ollama open-webui-res llama-server tika comfyui ngrok-res comfyui
+	@echo comfy takes up lots of ram so only use if necessary
 
 USER ?= rich
 ## ai.user: start a specific users version
 ai.user: ollama open-webui-user llama-server tika ngrok-res comfyui
+	@echo comfy takes up lots of ram so only use if necessary
 
 ## comfyui: Start ComfyUI Desktop
 .PHONE: comfyui
