@@ -22,7 +22,7 @@ check_port = sleep 5 && lsof -i :$(1)
 
 ## %.ps: [ ollama | open-webui | ... ].ps process status
 %.ps:
-	-pgrep -fL "$*"
+	@-pgrep -fL "$*"
 
 ## ai.ps: process status of all ai processes
 .PHONY: ai.ps
@@ -262,7 +262,7 @@ PHI4-14B_GGUF ?= sha256-fd7b6731c33c57f61767612f56517460ec2d1e2e5a3f0163e0eb3d8d
 ## to use cache prompting must set cahce_prompt
 # https://www.reddit.com/r/LocalLLaMA/comments/1fkv940/caching_some_prompts_when_using_llamaserver/
 
-# usage: $(call start_llama,port) 
+# usage: $(call start_llama,port)
 define start_llama =
 @echo "Start dedicate llama.cpp server with Phi4:14B search for sha"
 	$(call start_server,$(1),llama-server, \
