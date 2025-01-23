@@ -709,7 +709,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# if it is a tar, will return the actual file(s) on stdout that
 	# were extracted
 	#
-	# usage: download_url url [dest_file [dest_dir [md5 [sha256]]]]
+	# usage: download_url url [dest_path [dest_dir [md5 [sha256]]]]
 	# returns: list of file extracted or downloaded
 	download_url() {
 		if (($# < 1)); then return 1; fi
