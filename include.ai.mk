@@ -45,9 +45,9 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 
 ## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188, llama.cpp 8081
 .PHONY: ai
-ai: ollama open-webui tika comfyui ngrok-dev
+ai: ollama open-webui tika comfyui ngrok
 
-## ai.res: starts research packages
+## ai.res: starts research packages reseaearch
 .PHONY: ai.res
 ai.res: ollama open-webui-res llama-server tika comfyui ngrok-res comfyui
 	@echo comfy takes up lots of ram so only use if necessary
@@ -223,19 +223,32 @@ endef
 
 ## ngrok-dev: authentication front-end using ngrok Dev
 # doing a pkill before seems to stop the run so only ai.kill does the stopping
+# development port
+DEV_PORT ?= 5174
+# default
+DEFAULT_PORT ?= 8080
+# port for experimental builds
+RESEARCH_PORT ?= 28080
+
+## ngrok-dev: development port on early-lenient-goldfish.ngrok-free.app
 .PHONY: ngrok-dev
 ngrok-dev:
-	$(call start_ngrok,ngrok Dev,5174,early-lenient-goldfish.ngrok-free.app)
+	$(call start_ngrok,ngrok Dev,$(DEV_PORT),early-lenient-goldfish.ngrok-free.app)
 
-## ngrok-res: authentication front-end using your personal account
+## ngrok2: SEcond default on early-lenient-goldfish.ngrok-free.app
+.PHONY: ngrok2
+ngrok2:
+	$(call start_ngrok,ngrok Dev,$(DEFAULT_PORT),early-lenient-goldfish.ngrok-free.app)
+
+## ngrok-res: Sepcial build on 28880 at organic-pegasus-solely.ngrok-free.app
 .PHONY: ngrok-res
 ngrok-res:
-	$(call start_ngrok,ngrok,28080,organic-pegasus-solely.ngrok-free.app)
+	$(call start_ngrok,ngrok,$(RESEARCH_PORT),organic-pegasus-solely.ngrok-free.app)
 
-## ngrok: authentication front-end using your personal account
+## ngrok: authentication for 8080 at organic-pegasus-solely.ngrok-free.app
 .PHONY: ngrok
 ngrok:
-	$(call start_ngrok,ngrok,8080,organic-pegasus-solely.ngrok-free.app)
+	$(call start_ngrok,ngrok,$(DEFAULT_PORT),organic-pegasus-solely.ngrok-free.app)
 
 TIKA_VERSION ?= 2.9.2
 TIKA_JAR ?= tika-server-standard-$(TIKA_VERSION).jar
