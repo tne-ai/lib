@@ -110,7 +110,7 @@ PIP_MKDOCS += \
 
 
 # non currently
-PIP_DEV_TOOLS += 
+PIP_DEV_TOOLS +=
 
 # development tools if you are writing python
 # these should all be installed with pipx or brew
