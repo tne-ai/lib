@@ -29,19 +29,13 @@ layout node
 # layout pipenv  ## deprecated gives you pipenv
 # layout anaconda  ## gives you anada activation (need direnvrc add)
 # layout poetry  ## poetry venv used
-# layout uv  ## uv used
-# note that layout python does not specify the minor version so does not work
-# with the code below for UV_PROJECT_ENVIRONMENT
-# layout python
-# Only create a python venv is python is locally installed with
-# asdf direnv local python _version_
+
+# For uv layouts:
+# Create a .tool-version and a .venv manually with
+# asdf direnv local python _version_._major_._minor_
 if [[ -r .tool-versions ]] && grep "^python" .tool-versions; then
 	layout uv
 fi
-# 	grep "^python" .tool-versions | cut -f 2 -d ' ' >.python_version
-# UV_PROJECT_ENVIRONMENT="$PWD/.direnv/python-$(cat .python_version)"
-# 	export UV_PROJECT_ENVIRONMENT
-# fi
 
 # https://vxlabs.com/2024/10/10/use-direnv-for-uv-with-out-of-source-virtual-environments/
 # tell uv where the direnv project lives and it is not .venv
@@ -80,7 +74,3 @@ fi
 # needed for open webui or else it will write a file.
 # [[ -v WEBUI_SECRET_KEY ]] || export "WEBUI_SECRET_KEY"="$(op item get "Open WebUI Secret Key Dev" --fields "secret key" --reveal)"
 #[[ -v DEEPSEEK_API_KEY ]] || export "DEEPSEEK_API_KEY"="$(op item get "deepseek API Key Dev" --fields "api key" --reveal)"
-
-# Added by install-ollama.sh on Thu Jan  2 11:24:08 PST 2025
-export OLLAMA_KV_CACHE_TYPE=q4_0
-export OLLAMA_FLASH_ATTENTION=1

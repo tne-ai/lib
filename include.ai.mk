@@ -58,7 +58,7 @@ ai.user: ollama open-webui-user llama-server tika ngrok-res comfyui
 	@echo comfy takes up lots of ram so only use if necessary
 
 ## comfyui: Start ComfyUI Desktop
-.PHONE: comfyui
+.PHONY: comfyui
 comfyui:
 	open -a "ComfyUI.app"
 
@@ -248,6 +248,7 @@ ngrok-res:
 ## ngrok: authentication for 8080 at organic-pegasus-solely.ngrok-free.app
 .PHONY: ngrok
 ngrok:
+	sleep 5
 	$(call start_ngrok,ngrok,$(DEFAULT_PORT),organic-pegasus-solely.ngrok-free.app)
 
 TIKA_VERSION ?= 2.9.2
@@ -255,6 +256,7 @@ TIKA_JAR ?= tika-server-standard-$(TIKA_VERSION).jar
 ## tika: run the tika server at 9998
 .PHONY: tika
 tika:
+	sleep 5
 	$(call start_server,9998,java -jar "$$HOME/jar/$(TIKA_JAR)")
 	$(call check_port,9998)
 
