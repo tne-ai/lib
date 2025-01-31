@@ -45,7 +45,7 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 
 ## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188, llama.cpp 8081
 .PHONY: ai
-ai: ollama open-webui tika comfyui ngrok
+ai: ollama tika comfyui ngrok llama-server open-webui
 
 ## ai.res: starts research packages reseaearch
 .PHONY: ai.res
@@ -109,7 +109,7 @@ ollama-dev:
 define start_open-webui
 	@echo if Internet flaky turnoff WiFi before starting
 	@echo the webui.db configuration on the python venv where you start
-	export OLLAMA_BASE_URL="$(1)" && \
+	-export OLLAMA_BASE_URL="$(1)" && \
 		$(call start_server,$(2),open-webui,serve --port $(2))
 	$(call check_port,$2)
 endef
@@ -123,7 +123,7 @@ OLLAMA_BASE_URL ?= http://localhost:$(OLLAMA_PORT)
 .PHONY: open-webui
 open-webui:
 	@echo recommend starting in $(WS_DIR)/git/src
-	$(call start_open-webui,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_PORT))
+	-$(call start_open-webui,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_PORT))
 
 OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
 PYTHON ?= 3.12
@@ -216,8 +216,8 @@ orion:
 # usage: $(call start_server,1password item,local port,ngrok url)
 define start_ngrok
 	command -v ngrok >/dev/null && \
-		ngrok config add-authtoken "$$(op item get "$(1)" --fields "auth token" --reveal)" && \
-		$(call start_server,4040,ngrok,http "$(2)" --url "$(3)" --oauth google --oauth-allow-domain tne.ai --oauth-allow-domain tongfamily.com)
+		ngrok config add-authtoken "$$(op item get "$(1)" --fields "auth token" --reveal)"
+	$(call start_server,4040,ngrok,http "$(2)" --url "$(3)" --oauth google --oauth-allow-domain tne.ai --oauth-allow-domain tongfamily.com)
 	$(call check_port,4040)
 endef
 
@@ -248,7 +248,6 @@ ngrok-res:
 ## ngrok: authentication for 8080 at organic-pegasus-solely.ngrok-free.app
 .PHONY: ngrok
 ngrok:
-	sleep 5
 	$(call start_ngrok,ngrok,$(DEFAULT_PORT),organic-pegasus-solely.ngrok-free.app)
 
 TIKA_VERSION ?= 2.9.2
@@ -256,7 +255,6 @@ TIKA_JAR ?= tika-server-standard-$(TIKA_VERSION).jar
 ## tika: run the tika server at 9998
 .PHONY: tika
 tika:
-	sleep 5
 	$(call start_server,9998,java -jar "$$HOME/jar/$(TIKA_JAR)")
 	$(call check_port,9998)
 
