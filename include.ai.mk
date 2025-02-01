@@ -269,6 +269,8 @@ LLAMA3.2-3B-GGUF ?= sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da7
 PHI4-14B-GGUF ?= sha256-fd7b6731c33c57f61767612f56517460ec2d1e2e5a3f0163e0eb3d8d8cb5df20
 DEEPSEEK-R1-14B-GGUF ?= sha256-6e9f90f02bb3b39b59e81916e8cfce9deb45aeaeb9a54a5be4414486b907dc1e
 DEEPSEEK-R1-32B-GGUF ?= sha256-6150cb382311b69f09cc0f9a1b69fc029cbd742b66bb8ec531aa5ecf5c613e93
+DEEPSEEK-R1-70B-GGUF ?= sha256-4cd576d9aa16961244012223abf01445567b061f1814b57dfef699e4cf8df339
+
 
 # system prmpt is deprecated
 # LLAMA_SYSTEM_PROMPT ?= $(WS_DIR)/git/src/res/system-prompt/system-prompt.txt
@@ -282,12 +284,13 @@ DEEPSEEK-R1-32B-GGUF ?= sha256-6150cb382311b69f09cc0f9a1b69fc029cbd742b66bb8ec53
 		# -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-14B-GGUF)" \
 		# -m "$(OLLAMA_MODEL)/$(PHI4-14B-GGUF)"
 define start_llama =
-@echo "Start dedicate llama.cpp server with DEEPSEEK-R1-Qwen-32B distilled -GGUF model"
+@echo "Start dedicate llama.cpp server with specific model"
 	$(call start_server,$(1),llama-server, \
 		-c 131072 --port "$(1)"  \
 		--verbose-prompt -v --metrics \
 		--flash-attn -sm row \
-		 -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-32B-GGUF)" \
+		--keep -1 \
+		 -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-70B-GGUF)" \
 		--cache-type-k q8_0 --cache-type-v q8_0 \
 		)
 	$(call check_port,$(1))
