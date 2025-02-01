@@ -45,7 +45,7 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 
 ## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188, llama.cpp 8081
 .PHONY: ai
-ai: ollama tika comfyui ngrok llama-server open-webui
+ai: ollama tika llama-server ngrok open-webui
 
 ## ai.res: starts research packages reseaearch
 .PHONY: ai.res
@@ -72,7 +72,7 @@ ai.dev: ollama open-webui-dev code-runner orion ngrok-dev
 define start_ollama =
 	$(call start_server,$(2),OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 $(1) serve)
 	$(call check_port,$(2))
-	OLLAMA_OST="$(3)" ollama run tulu3:8b "hello how are you?"
+	OLLAMA_HOST="$(3)" ollama run tulu3:8b "hello how are you?"
 endef
 ## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
 # https://docs.openwebui.com/troubleshooting/connection-error/
@@ -109,7 +109,7 @@ ollama-dev:
 define start_open-webui
 	@echo if Internet flaky turnoff WiFi before starting
 	@echo the webui.db configuration on the python venv where you start
-	-export OLLAMA_BASE_URL="$(1)" && \
+	-export OLLAMA_BASE_URL="$(1)" DATA_DIR="$(WS_DIR)/git/src/user/open-webui-data/demo" && \
 		$(call start_server,$(2),open-webui,serve --port $(2))
 	$(call check_port,$2)
 endef
@@ -260,13 +260,16 @@ tika:
 
 
 OLLAMA_MODEL ?= $(HOME)/.ollama/models/blobs
-QWENCODER2.5-32B_GGUF ?= sha256-ac3d1ba8aa77755dab3806d9024e9c385ea0d5b412d6bdf9157f8a4a7e9fc0d9
+QWENCODER2.5-32B-GGUF ?= sha256-ac3d1ba8aa77755dab3806d9024e9c385ea0d5b412d6bdf9157f8a4a7e9fc0d9
 # find this model in $HOME/.ollama/models/library/manifest and look for sha
 # and insert sha256- in front of the blob number
-LLAMA3.2-3B_GGUF ?= sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da77af9f7ccdff
-		# -m "$(OLLAMA_MODEL)/$(LLAMA3.2-3B_GGUF)" \
+LLAMA3.2-3B-GGUF ?= sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da77af9f7ccdff
+		# -m "$(OLLAMA_MODEL)/$(LLAMA3.2-3B-GGUF)" \
 # this phi4 not compatible
-PHI4-14B_GGUF ?= sha256-fd7b6731c33c57f61767612f56517460ec2d1e2e5a3f0163e0eb3d8d8cb5df20
+PHI4-14B-GGUF ?= sha256-fd7b6731c33c57f61767612f56517460ec2d1e2e5a3f0163e0eb3d8d8cb5df20
+DEEPSEEK-R1-14B-GGUF ?= sha256-6e9f90f02bb3b39b59e81916e8cfce9deb45aeaeb9a54a5be4414486b907dc1e
+DEEPSEEK-R1-32B-GGUF ?= sha256-6150cb382311b69f09cc0f9a1b69fc029cbd742b66bb8ec531aa5ecf5c613e93
+
 # system prmpt is deprecated
 # LLAMA_SYSTEM_PROMPT ?= $(WS_DIR)/git/src/res/system-prompt/system-prompt.txt
 # https://github.com/abetlen/llama-python/issues/1359
@@ -276,14 +279,16 @@ PHI4-14B_GGUF ?= sha256-fd7b6731c33c57f61767612f56517460ec2d1e2e5a3f0163e0eb3d8d
 # https://www.reddit.com/r/LocalLLaMA/comments/1fkv940/caching_some_prompts_when_using_llamaserver/
 
 # usage: $(call start_llama,port)
+		# -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-14B-GGUF)" \
+		# -m "$(OLLAMA_MODEL)/$(PHI4-14B-GGUF)"
 define start_llama =
-@echo "Start dedicate llama.cpp server with Phi4:14B search for sha"
+@echo "Start dedicate llama.cpp server with DEEPSEEK-R1-Qwen-32B distilled -GGUF model"
 	$(call start_server,$(1),llama-server, \
 		-c 131072 --port "$(1)"  \
 		--verbose-prompt -v --metrics \
 		--flash-attn -sm row \
+		 -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-32B-GGUF)" \
 		--cache-type-k q8_0 --cache-type-v q8_0 \
-		-m "$(OLLAMA_MODEL)/$(PHI4-14B_GGUF)" \
 		)
 	$(call check_port,$(1))
 endef
