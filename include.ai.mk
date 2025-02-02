@@ -57,7 +57,15 @@ USER ?= rich
 ai.user: ollama open-webui-user llama-server tika ngrok-res comfyui
 	@echo comfy takes up lots of ram so only use if necessary
 
+## exo: Start the exo LLM cluster system set EXO Home to 4TB Drive
+EXO_HOME ?= /Volumes/Hagibis ASM2464PD/Exo
+EXO_REPO ?= $(WS_DIR)/git/src/res/exo
+.PHONY: exo
+exo:
+	EXO_HOME="$(EXO_HOME)" uv run --directory "$(EXO_REPO)" exo
+
 ## comfyui: Start ComfyUI Desktop
+# this seems to fail unless given more time
 .PHONY: comfyui
 comfyui:
 	open -a "ComfyUI.app"
@@ -70,7 +78,7 @@ ai.dev: ollama open-webui-dev code-runner orion ngrok-dev
 # usage: $(call start_ollama,port,executable,url)
 # the export cannot be inside the if statement
 define start_ollama =
-	$(call start_server,$(2),OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 $(1) serve)
+	$(call start_server,$(2),OLLAMA_DEBUG=1 OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 $(1) serve)
 	$(call check_port,$(2))
 	OLLAMA_HOST="$(3)" ollama run tulu3:8b "hello how are you?"
 endef
@@ -291,7 +299,7 @@ define start_llama =
 		--flash-attn -sm row \
 		--keep -1 \
 		 -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-70B-GGUF)" \
-		--cache-type-k q8_0 --cache-type-v q8_0 \
+		--cache-type-k q4_0 --cache-type-v q4_0 \
 		)
 	$(call check_port,$(1))
 endef
