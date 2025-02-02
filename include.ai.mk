@@ -45,7 +45,7 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 
 ## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188, llama.cpp 8081
 .PHONY: ai
-ai: ollama tika llama-server ngrok open-webui
+ai: ollama tika ngrok open-webui
 
 ## ai.res: starts research packages reseaearch
 .PHONY: ai.res
@@ -294,11 +294,11 @@ DEEPSEEK-R1-70B-GGUF ?= sha256-4cd576d9aa16961244012223abf01445567b061f1814b57df
 define start_llama =
 @echo "Start dedicate llama.cpp server with specific model"
 	$(call start_server,$(1),llama-server, \
-		-c 131072 --port "$(1)"  \
+		-c 131072 -i-port "$(1)"  \
 		--verbose-prompt -v --metrics \
 		--flash-attn -sm row \
 		--keep -1 \
-		 -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-70B-GGUF)" \
+		 -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-14B-GGUF)" \
 		--cache-type-k q4_0 --cache-type-v q4_0 \
 		)
 	$(call check_port,$(1))
