@@ -58,11 +58,12 @@ ai.user: ollama open-webui-user llama-server tika ngrok-res comfyui
 	@echo comfy takes up lots of ram so only use if necessary
 
 ## exo: Start the exo LLM cluster system set EXO Home to 4TB Drive
+# the --directory does not work
 EXO_HOME ?= /Volumes/Hagibis ASM2464PD/Exo
 EXO_REPO ?= $(WS_DIR)/git/src/res/exo
 .PHONY: exo
 exo:
-	EXO_HOME="$(EXO_HOME)" uv run --directory "$(EXO_REPO)" exo
+	cd "$(EXO_REPO)" && EXO_HOME="$(EXO_HOME)" uv run exo
 
 ## comfyui: Start ComfyUI Desktop
 # this seems to fail unless given more time
@@ -113,77 +114,60 @@ ollama-dev:
 	$(call start_ollama,./ollama,$(OLLAMA_PORT_DEV),127.0.0.1:$(OLLAMA_HOST_DEV))
 	$(call check_port,$(OLLAMA_PORT_DEV))
 
-# usage $(call start_open-webui,OLLAMA_BASE_URL,open_webui_backend port)
+# usage $(call start_open-webui,OLLAMA_BASE_URL,data_dir,open_webui_backend port)
 define start_open-webui
-	@echo if Internet flaky turnoff WiFi before starting
+	@echo if Internet flaky turnoff set OFFLINE_MODE=1
 	@echo the webui.db configuration on the python venv where you start
-	-export OLLAMA_BASE_URL="$(1)" DATA_DIR="$(WS_DIR)/git/src/user/open-webui-data/demo" && \
-		$(call start_server,$(2),open-webui,serve --port $(2))
-	$(call check_port,$2)
+	-export OLLAMA_BASE_URL="$(1)" DATA_DIR="$(2)" && $(call start_server,$(3),open-webui,serve --port $(3))
+	$(call check_port,$(3))
 endef
 
 OPEN_WEBUI_PORT ?= 8080
 OLLAMA_BASE_URL ?= http://localhost:$(OLLAMA_PORT)
 # if you have your own ollama build
-# the default if you have trouble note the package is open-webui and ps is
+# the default if you have trouble note the package is open-webui and ps isAmake
 # open_webui with an underscore
 ## open-webui: run packaged open webui as frontend port 5173 and backend 8080
 .PHONY: open-webui
 open-webui:
 	@echo recommend starting in $(WS_DIR)/git/src
-	-$(call start_open-webui,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_PORT))
+	-$(call start_open-webui,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_PORT))
 
-OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
+# the webui.db is 300MB so blows through github LFS quota too quicklk move to
+# Google Drive
+# OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
+# https://docs.openwebui.com/getting-started/env-configuration/#directories
+OPEN_WEBUI_DATA_DIR ?= "$(HOME)/Libary/CloudStorage/GoogleDrive-$(USER)@tne.ai/Shared\ drives/app/open-webui-data/demo"
+
 PYTHON ?= 3.12
-define run_open_webui_backup
-		cp "$(2)/webui.db" \
-			"$(WS_DIR)/data/webui.$(1).$(shell date +"%Y-%m-%d.%H-%M-%S").db"
-endef
 
-OPEN_WEBUI_DB ?= "$(HOME)/.local/pipx/venvs/open-webui/lib/python$(PYTHON)/site-packages/open_webui/data"
-## open-webui-backup: backup the webui.db with configs and chats
-.PHONY: open-webui-backup
-open-webui-backup:
-	$(call run_open_webui_backup,pipx,$(OPEN_WEBUI_DB))
-
-
-## open-webui-backup-user: backup the webui.db for user
-.PHONY: open-webui-backup-user
-open-webui-backup-user:
-	$(call run_open_webui_backup,$(USER),$(OPEN_WEBUI_USER_DIR)/backend/data/)
-
-## open-webui-backup-res: backup the webui.db for research
-.PHONY: open-webui-backup-res
-open-webui-backup-res:
-	$(call run_open_webui_backup,res,$(WS_DIR)/git/src/res/open-webui/backend/data/)
-
-
-OPEN_WEBUI_FRONTEND_RES_PORT ?= 25173
-OPEN_WEBUI_BACKEND_RES_PORT ?= 28080
-# usage $(call start_open_webui,source directory)
-define start_open_webui
-	@echo start frontend http://localhost:$(OPEN_WEBUI_FRONTEND_RES_PORT)
-	if ! lsof -i :$(OPEN_WEBUI_FRONTEND_RES_PORT); then \
+# usage $(call start_open_webui_dev,source directory,data_dir,frontend port,backend port)
+# this starts the git cloned development frontend and backend
+define start_open-webui_dev
+	@echo start frontend http://localhost:$(3)
+	if ! lsof -i :$(3); then \
 		cd "$(1)" && npm install && \
 		npm run build && \
 		npm run pyodide:fetch && \
-		vite dev --host --port "$(OPEN_WEBUI_FRONTEND_RES_PORT)";\
+		DATA_DIR="$(2)" uv run vite dev --host --port "$(3)";\
 	fi &
-	@echo start backend at http://localhost:$(OPEN_WEBUI_BACKEND_RES_PORT)
-	if ! lsof -i :$(OPEN_WEBUI_BACKEND_RES_PORT); then cd "$(1)/backend" && \
+	@echo start backend at http://localhost:$(4)
+	if ! lsof -i :$(4); then cd "$(1)/backend" && \
 		uv sync && uv pip install -r requirements.txt && uv lock && \
-		PORT="$(OPEN_WEBUI_BACKEND_RES_PORT)" uv run dev.sh; fi &
+		DATA_DIR="$(2)" OLLAMA_BASE_URL="$(OLLAMA_BASE_URL)" PORT="$(4)" uv run dev.sh; fi &
 	@echo "webui.db is in $(1)/.venv)"
-	@echo "start open-webui at localhost:$(OPEN_WEBUI_BACKEND_RES_PORT)"
-	$(call check_port,$(OPEN_WEBUI_BACKEND_RES_PORT))
-	$(call check_port,$(OPEN_WEBUI_FRONTEND_RES_PORT))
+	@echo "start open-webui at localhost:$(4)"
+	$(call check_port,$(3))
+	$(call check_port,$(4))
 endef
 
 OPEN_WEBUI_RES_DIR ?= $(WS_DIR)/git/src/res/open-webui
+OPEN_WEBUI_RES_FRONTEND_PORT ?= 25173
+OPEN_WEBUI_RES_BACKEND_PORT ?= 28080
 ## open-webui-res: Run local for the research group
 .PHONY: open-webui-res
 open-webui-res:
-	$(call start_open_webui,$(OPEN_WEBUI_RES_DIR))
+	$(call start_open-webui_dev,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_FRONTEND_PORT),$(OPEN_WEBUI_RES_BACKEND_PORT))
 
 
 ## open-webui-user: Run local for a specific user (default on non standard frontend port 25173 and backedn 28080)
@@ -193,7 +177,7 @@ open-webui-user:
 	@echo "Make sure you brew install asdf direnv"
 	@echo "Make sure you run to right python version asdf direnv local python 3.12.7"
 	@echo "Check with command -v python it points to a .venv in that directory"
-	$(call start_open_webui,$(OPEN_WEBUI_USER_DIR))
+	$(call start_open-webui_dev,$(OPEN_WEBUI_USER_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_USER_FRONTEND_PORT),$(OPEN_WEBUI_USER_BACKEND_PORT
 
 
 OPEN_WEBUI_DEV_DIR ?= $(WS_DIR)/git/src/sys/orion/extern/open-webui
@@ -201,9 +185,9 @@ OPEN_WEBUI_DEV_DIR ?= $(WS_DIR)/git/src/sys/orion/extern/open-webui
 .PHONY: open-webui-dev
 open-webui-dev:
 	@echo start frontend
-	if ! lsof -i :5174; then cd "$(OPEN_WEBUI_DEV_DIR)" && yarn install && yarn dev; fi &
+	if ! lsof -i :5174; then cd "$(OPEN_WEBUI_DEV_DIR)" && DATA_DIR="$(OPEN_WEBUI_DATA_DIR)" yarn install && yarn dev; fi &
 	@echo start backend
-	if ! lsof -i :8081; then cd $(OPEN_WEBUI_DEV_DIR)/backend && uv run dev.sh; fi &
+	if ! lsof -i :8081; then cd $(OPEN_WEBUI_DEV_DIR)/backend && DATA_DIR=$(OPEN_WEBUI_DATA_DIR) PORT=8081 uv run dev.sh; fi &
 	@echo "webui.db is in $(OPEN_WEBUI_DEV_DIR/.venv)"
 	@echo "start open-webui at localhost:8081"
 	$(call check_port,8081)
@@ -272,9 +256,13 @@ QWENCODER2.5-32B-GGUF ?= sha256-ac3d1ba8aa77755dab3806d9024e9c385ea0d5b412d6bdf9
 # find this model in $HOME/.ollama/models/library/manifest and look for sha
 # and insert sha256- in front of the blob number
 LLAMA3.2-3B-GGUF ?= sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da77af9f7ccdff
-		# -m "$(OLLAMA_MODEL)/$(LLAMA3.2-3B-GGUF)" \
-# this phi4 not compatible
+#
+# does not work with full skyfall
 PHI4-14B-GGUF ?= sha256-fd7b6731c33c57f61767612f56517460ec2d1e2e5a3f0163e0eb3d8d8cb5df20
+
+# doe not work with Skyfall
+QWEN2.5-14B-GGUF ?= sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54
+
 DEEPSEEK-R1-14B-GGUF ?= sha256-6e9f90f02bb3b39b59e81916e8cfce9deb45aeaeb9a54a5be4414486b907dc1e
 DEEPSEEK-R1-32B-GGUF ?= sha256-6150cb382311b69f09cc0f9a1b69fc029cbd742b66bb8ec531aa5ecf5c613e93
 DEEPSEEK-R1-70B-GGUF ?= sha256-4cd576d9aa16961244012223abf01445567b061f1814b57dfef699e4cf8df339
@@ -291,15 +279,16 @@ DEEPSEEK-R1-70B-GGUF ?= sha256-4cd576d9aa16961244012223abf01445567b061f1814b57df
 # usage: $(call start_llama,port)
 		# -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-14B-GGUF)" \
 		# -m "$(OLLAMA_MODEL)/$(PHI4-14B-GGUF)"
+# Q8_0 cache is faster
 define start_llama =
 @echo "Start dedicate llama.cpp server with specific model"
 	$(call start_server,$(1),llama-server, \
-		-c 131072 -i-port "$(1)"  \
+		--ctx-size 131072 --port "$(1)"  \
 		--verbose-prompt -v --metrics \
-		--flash-attn -sm row \
+		--flash-attn --split-mode row \
 		--keep -1 \
 		 -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-14B-GGUF)" \
-		--cache-type-k q4_0 --cache-type-v q4_0 \
+		--cache-type-k q8_0 --cache-type-v q8_0 \
 		)
 	$(call check_port,$(1))
 endef
