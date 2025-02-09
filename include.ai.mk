@@ -45,7 +45,7 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 
 ## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188, llama.cpp 8081
 .PHONY: ai
-ai: ollama tika ngrok open-webui
+ai: ollama open-webui tika ngrok
 
 ## ai.res: starts research packages reseaearch
 .PHONY: ai.res
@@ -137,7 +137,7 @@ open-webui:
 # Google Drive
 # OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
 # https://docs.openwebui.com/getting-started/env-configuration/#directories
-OPEN_WEBUI_DATA_DIR ?= "$(HOME)/Libary/CloudStorage/GoogleDrive-$(USER)@tne.ai/Shared\ drives/app/open-webui-data/demo"
+OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(USER)@tne.ai/Shared drives/app/open-webui-data/demo
 
 PYTHON ?= 3.12
 
