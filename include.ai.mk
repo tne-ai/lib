@@ -49,12 +49,12 @@ ai: ollama open-webui tika ngrok
 
 ## ai.res: starts research packages reseaearch
 .PHONY: ai.res
-ai.res: ollama open-webui-res llama-server tika comfyui ngrok-res comfyui
+ai.res: ollama open-webui.res llama-server tika comfyui ngrok.res comfyui
 	@echo comfy takes up lots of ram so only use if necessary
 
 USER ?= rich
 ## ai.user: start a specific users version
-ai.user: ollama open-webui-user llama-server tika ngrok-res comfyui
+ai.user: ollama open-webui-user llama-server tika ngrok.res comfyui
 	@echo comfy takes up lots of ram so only use if necessary
 
 ## exo: Start the exo LLM cluster system set EXO Home to 4TB Drive
@@ -74,7 +74,7 @@ comfyui:
 ## ai.dev: start your orgs dev servers
 # note ollama-dev is not needed now that 0.5.5 is shipped
 .PHONY: ai.dev
-ai.dev: ollama open-webui-dev code-runner orion ngrok-dev
+ai.dev: ollama open-webui.dev code-runner orion ngrok.dev
 
 # usage: $(call start_ollama,port,executable,url)
 # the export cannot be inside the if statement
@@ -155,7 +155,7 @@ define start_open-webui_dev
 	if ! lsof -i :$(4); then cd "$(1)/backend" && \
 		uv sync && uv pip install -r requirements.txt && uv lock && \
 		DATA_DIR="$(2)" OLLAMA_BASE_URL="$(OLLAMA_BASE_URL)" PORT="$(4)" uv run dev.sh; fi &
-	@echo "webui.db is in $(1)/.venv)"
+	@echo "webui.db is in $(2)"
 	@echo "start open-webui at localhost:$(4)"
 	$(call check_port,$(3))
 	$(call check_port,$(4))
@@ -170,9 +170,9 @@ open-webui-res:
 	$(call start_open-webui_dev,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_FRONTEND_PORT),$(OPEN_WEBUI_RES_BACKEND_PORT))
 
 
-## open-webui-user: Run local for a specific user (default on non standard frontend port 25173 and backedn 28080)
-.PHONY: open-webui-user
-open-webui-user:
+## open-webui.user: Run local for a specific user (default on non standard frontend port 25173 and backedn 28080)
+.PHONY: open-webui.user
+open-webui.user:
 	@echo "Make sure that you are on the right branch like rich-dev"
 	@echo "Make sure you brew install asdf direnv"
 	@echo "Make sure you run to right python version asdf direnv local python 3.12.7"
@@ -181,9 +181,9 @@ open-webui-user:
 
 
 OPEN_WEBUI_DEV_DIR ?= $(WS_DIR)/git/src/sys/orion/extern/open-webui
-## open-webui-dev: Run local for a specific org front-end port 5174 (nonstandard) and port 8081 (nonstandard)
-.PHONY: open-webui-dev
-open-webui-dev:
+## open-webui.dev: Run local for a specific org front-end port 5174 (nonstandard) and port 8081 (nonstandard)
+.PHONY: open-webui.dev
+open-webui.dev:
 	@echo start frontend
 	if ! lsof -i :5174; then cd "$(OPEN_WEBUI_DEV_DIR)" && DATA_DIR="$(OPEN_WEBUI_DATA_DIR)" yarn install && yarn dev; fi &
 	@echo start backend
@@ -213,7 +213,7 @@ define start_ngrok
 	$(call check_port,4040)
 endef
 
-## ngrok-dev: authentication front-end using ngrok Dev
+## ngrok.dev: authentication front-end using ngrok Dev
 # doing a pkill before seems to stop the run so only ai.kill does the stopping
 # development port
 DEV_PORT ?= 5174
@@ -222,25 +222,25 @@ DEFAULT_PORT ?= 8080
 # port for experimental builds
 RESEARCH_PORT ?= 28080
 
-## ngrok-dev: development port on early-lenient-goldfish.ngrok-free.app
-.PHONY: ngrok-dev
-ngrok-dev:
-	$(call start_ngrok,ngrok Dev,$(DEV_PORT),early-lenient-goldfish.ngrok-free.app)
+## ngrok.dev: development port on early-lenient-goldfish.ngrok.free.app
+.PHONY: ngrok.dev
+ngrok.dev:
+	$(call start_ngrok,ngrok Dev,$(DEV_PORT),early-lenient-goldfish.ngrok.free.app)
 
-## ngrok2: SEcond default on early-lenient-goldfish.ngrok-free.app
+## ngrok2: SEcond default on early-lenient-goldfish.ngrok.free.app
 .PHONY: ngrok2
 ngrok2:
-	$(call start_ngrok,ngrok Dev,$(DEFAULT_PORT),early-lenient-goldfish.ngrok-free.app)
+	$(call start_ngrok,ngrok Dev,$(DEFAULT_PORT),early-lenient-goldfish.ngrok.free.app)
 
-## ngrok-res: Sepcial build on 28880 at organic-pegasus-solely.ngrok-free.app
-.PHONY: ngrok-res
-ngrok-res:
-	$(call start_ngrok,ngrok,$(RESEARCH_PORT),organic-pegasus-solely.ngrok-free.app)
+## ngrok.res: Sepcial build on 28880 at organic-pegasus-solely.ngrok.free.app
+.PHONY: ngrok.res
+ngrok.res:
+	$(call start_ngrok,ngrok,$(RESEARCH_PORT),organic-pegasus-solely.ngrok.free.app)
 
-## ngrok: authentication for 8080 at organic-pegasus-solely.ngrok-free.app
+## ngrok: authentication for 8080 at organic-pegasus-solely.ngrok.free.app
 .PHONY: ngrok
 ngrok:
-	$(call start_ngrok,ngrok,$(DEFAULT_PORT),organic-pegasus-solely.ngrok-free.app)
+	$(call start_ngrok,ngrok,$(DEFAULT_PORT),organic-pegasus-solely.ngrok.free.app)
 
 TIKA_VERSION ?= 2.9.2
 TIKA_JAR ?= tika-server-standard-$(TIKA_VERSION).jar
