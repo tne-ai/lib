@@ -39,7 +39,7 @@ ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama-server.ps vite.ps code-run
 ## ai.kill: kill all ai all ai servers
 # open-webui exists in pip packages, open_webui in builds from source
 .PHONY: ai.kill
-ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill ngrok.kill
+ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill node.kill code-runner.kill ngrok.kill
 
 ## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
@@ -62,7 +62,7 @@ ai.res: ollama open-webui.res llama-server tika comfyui ngrok.res comfyui
 
 USER ?= rich
 ## ai.user: start a specific users version
-ai.user: ollama open-webui-user llama-server tika ngrok.res comfyui
+ai.user: ollama open-webui.user llama-server tika ngrok.res comfyui
 	@echo comfy takes up lots of ram so only use if necessary
 
 ## exo: Start the exo LLM cluster system set EXO Home to 4TB Drive
@@ -149,23 +149,32 @@ open-webui:
 OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(USER)@tne.ai/Shared drives/app/open-webui-data/demo
 
 PYTHON ?= 3.12
-
-# usage $(call start_open_webui_src source directory,data_dir,frontend port,backend port,frontend start_script)
-# this starts the original source version of openwebui and not the tne.ai dev
-# branch TOPO merge with the tne.ai version which uses yarn instead of npm
-# for some reason ahve to to an export && before the if
-define start_open-webui_src
-  $(call start_open-webui_src_frontend,$(1),$(2),$(3),$(5))
-	$(call start_open-webui_src_backend,$(1),$(2),$(4))
+# usage $(call start_open_webui_frontend,source directory,data_dir,frontend port)
+define start_open-webui_frontend
+	@echo start frontend http://localhost:$(3)
+	if ! lsof -i :$(3); then \
+		cd "$(1)" && npm install && \
+		npm run build && \
+		npm run pyodide:fetch && \
+		DATA_DIR="$(2)" uv run vite dev --host --port "$(3)";\
+	fi &
 endef
 
-# usage $(call start_open_webui_src_frontend,source directory,data_dir,frontend port,start_script)
-define start_open-webui_src_frontend
-	export DATA_DIR="$(2)" && \
-		if ! lsof -i:$(3) -sTCP:LISTEN | grep LISTEN; then \
-		cd "$(1)" && \
-		$(4) ; fi &
-	@echo start frontend http://localhost:$(3)
+# usage $(call start_open_webui_backend,source directory,data_dir,backend port)
+define start_open-webui_backend
+	@echo start backend at http://localhost:$(3)
+	if ! lsof -i :$(3); then cd "$(1)/backend" && \
+		uv sync && uv pip install -r requirements.txt && uv lock && \
+		DATA_DIR="$(2)" OLLAMA_BASE_URL="$(OLLAMA_BASE_URL)" PORT="$(3)" uv run dev.sh; fi &
+endef
+
+# usage $(call start_open_webui_dev,source directory,data_dir,frontend port,backend port)
+# this starts the git cloned development frontend and backend
+define start_open-webui_dev
+	@echo "webui.db is in $(2)"
+	$(call start_open-webui_frontend,$(1),$(2),$(3))
+	$(call start_open-webui_backend,$(1),$(2),$(4))
+	@echo "start open-webui at localhost:$(4)"
 	$(call check_port,$(3))
 endef
 
