@@ -1,6 +1,6 @@
 ##
 ## AI tools
-#
+
 FLAGS ?=
 SHELL := /usr/bin/env bash
 # port does not work use 8080 default and is deprecated
@@ -21,8 +21,9 @@ start_server = if ! lsof -i :$(1); then $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) 
 check_port = sleep 5 && lsof -i :$(1)
 
 ## %.ps: [ ollama | open-webui | ... ].ps process status
+	# @-pgrep -fL "$*"
 %.ps:
-	@-pgrep -fL "$*"
+	@-if ! pgrep -fL "$*"; then echo "$*"; fi
 
 ## ai.ps: process status of all ai processes
 .PHONY: ai.ps
@@ -39,8 +40,9 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 # https://www.gnu.org/software/make/manual/make.html#Errors
 # -f means find anywhere in the argument field
 ## %.kill : [ollama | open-web | ngrok | ... ].kill the % running p$rocess
+	# -pkill -f "$*" || true
 %.kill:
-	-pkill -f "$*" || true
+	-if ! pkill -f $*; then echo "no $*"; fi
 
 
 ## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188, llama.cpp 8081
@@ -137,7 +139,7 @@ open-webui:
 # Google Drive
 # OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
 # https://docs.openwebui.com/getting-started/env-configuration/#directories
-OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(USER)@tne.ai/Shared drives/app/open-webui-data/demo
+OPEN_WEBUI_DATA_DIR ?= $(HOME)/Libary/CloudStorage/GoogleDrive-$(USER)@tne.ai/Shared\ drives/app/open-webui-data/demo
 
 PYTHON ?= 3.12
 
@@ -177,28 +179,39 @@ open-webui.user:
 	@echo "Make sure you brew install asdf direnv"
 	@echo "Make sure you run to right python version asdf direnv local python 3.12.7"
 	@echo "Check with command -v python it points to a .venv in that directory"
-	$(call start_open-webui_dev,$(OPEN_WEBUI_USER_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_USER_FRONTEND_PORT),$(OPEN_WEBUI_USER_BACKEND_PORT
+	$(call start_open-webui_dev,$(OPEN_WEBUI_USER_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_USER_FRONTEND_PORT),$(OPEN_WEBUI_USER_BACKEND_PORT))
 
 
 OPEN_WEBUI_DEV_DIR ?= $(WS_DIR)/git/src/sys/orion/extern/open-webui
 ## open-webui.dev: Run local for a specific org front-end port 5174 (nonstandard) and port 8081 (nonstandard)
 .PHONY: open-webui.dev
-open-webui.dev:
-	@echo start frontend
-	if ! lsof -i :5174; then cd "$(OPEN_WEBUI_DEV_DIR)" && DATA_DIR="$(OPEN_WEBUI_DATA_DIR)" yarn install && yarn dev; fi &
-	@echo start backend
-	if ! lsof -i :8081; then cd $(OPEN_WEBUI_DEV_DIR)/backend && DATA_DIR=$(OPEN_WEBUI_DATA_DIR) PORT=8081 uv run dev.sh; fi &
-	@echo "webui.db is in $(OPEN_WEBUI_DEV_DIR/.venv)"
-	@echo "start open-webui at localhost:8081"
-	$(call check_port,8081)
+open-webui.dev: open-webui.dev.frontend open-webui.dev.backend
 
+OPEN_WEBUI_DEV_FRONTEND_PORT ?= 5174
+## open-webui.dev.frontend: Run local for a specific org front-end port 5174 (nonstandard)
+.PHONY: open-webui.dev.frontend
+open-webui.dev.frontend:
+	@echo start frontend
+	if ! lsof -i :$(OPEN_WEBUI_RES_FRONTEND_PORT); then cd "$(OPEN_WEBUI_DEV_DIR)" && DATA_DIR="$(OPEN_WEBUI_DATA_DIR)" yarn install && yarn dev; fi &
+
+OPEN_WEBUI_DEV_BACKEND_PORT ?= 8081
+## open-webui.dev.backend: Run local for a specific org back-end port 8081 (nonstandard)
+.PHONY: open-webui.dev.backend
+open-webui.dev.backend:
+	@echo start backend
+	if ! lsof -i :$(OPEN_WEBUI_DEV_BACKEND_PORT); then cd "$(OPEN_WEBUI_DEV_DIR)/backend" && DATA_DIR="$(OPEN_WEBUI_DATA_DIR)" PORT=$(OPEN_WEBUI_DEV_BACKEND_PORT) uv run dev.sh; fi &
+	@echo "webui.db is in $(OPEN_WEBUI_DATA_DIR)"
+	@echo "start open-webui at localhost:$(OPEN_WEBUI_DEV_BACKEND_PORT)"
+	$(call check_port,$(OPEN_WEBUI_DEV_BACKEND_PORT))
+
+CODE_RUNNER_PORT ?= 8080
 CODE_RUNNER_DIR ?= $(WS_DIR)/git/src/sys/troopship/code-runner
-## code-runner: Dev code-runner on port 8080
+## code-runner: Dev code-runner on port CODE_RUNNER_PORT
 .PHONY: code-runner
 code-runner:
-	if ! lsof -i :8080; then cd "$(CODE_RUNNER_DIR)" && \
+	if ! lsof -i $(CODE_RUNNER_PORT); then cd "$(CODE_RUNNER_DIR)" && \
 			source .venv/bin/activate && make run; fi  &
-	$(call check_port,8080)
+	$(call check_port,CODE_RUNNER_PORT)
 
 ## orion: start the Max app Orion
 .PHONY: orion
