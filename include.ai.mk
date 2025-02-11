@@ -139,7 +139,7 @@ open-webui:
 # Google Drive
 # OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
 # https://docs.openwebui.com/getting-started/env-configuration/#directories
-OPEN_WEBUI_DATA_DIR ?= $(HOME)/Libary/CloudStorage/GoogleDrive-$(USER)@tne.ai/Shared\ drives/app/open-webui-data/demo
+OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(USER)@tne.ai/Shared\ drives/app/open-webui-data/demo
 
 PYTHON ?= 3.12
 
@@ -167,8 +167,8 @@ OPEN_WEBUI_RES_DIR ?= $(WS_DIR)/git/src/res/open-webui
 OPEN_WEBUI_RES_FRONTEND_PORT ?= 25173
 OPEN_WEBUI_RES_BACKEND_PORT ?= 28080
 ## open-webui-res: Run local for the research group
-.PHONY: open-webui-res
-open-webui-res:
+.PHONY: open-webui.res
+open-webui.res:
 	$(call start_open-webui_dev,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_FRONTEND_PORT),$(OPEN_WEBUI_RES_BACKEND_PORT))
 
 
@@ -191,15 +191,19 @@ OPEN_WEBUI_DEV_FRONTEND_PORT ?= 5174
 ## open-webui.dev.frontend: Run local for a specific org front-end port 5174 (nonstandard)
 .PHONY: open-webui.dev.frontend
 open-webui.dev.frontend:
-	@echo start frontend
-	if ! lsof -i :$(OPEN_WEBUI_RES_FRONTEND_PORT); then cd "$(OPEN_WEBUI_DEV_DIR)" && DATA_DIR="$(OPEN_WEBUI_DATA_DIR)" yarn install && yarn dev; fi &
+	if ! lsof -i :$(OPEN_WEBUI_RES_FRONTEND_PORT); then \
+		cd "$(OPEN_WEBUI_DEV_DIR)" && export DATA_DIR="$(OPEN_WEBUI_DATA_DIR)" && yarn install && yarn dev; \
+	fi &
+	$(call check_port,$(OPEN_WEBUI_DEV_FRONTEND_PORT))
 
 OPEN_WEBUI_DEV_BACKEND_PORT ?= 8081
 ## open-webui.dev.backend: Run local for a specific org back-end port 8081 (nonstandard)
 .PHONY: open-webui.dev.backend
 open-webui.dev.backend:
-	@echo start backend
-	if ! lsof -i :$(OPEN_WEBUI_DEV_BACKEND_PORT); then cd "$(OPEN_WEBUI_DEV_DIR)/backend" && DATA_DIR="$(OPEN_WEBUI_DATA_DIR)" PORT=$(OPEN_WEBUI_DEV_BACKEND_PORT) uv run dev.sh; fi &
+	if ! lsof -i :$(OPEN_WEBUI_DEV_BACKEND_PORT); then \
+		cd "$(OPEN_WEBUI_DEV_DIR)/backend" && export DATA_DIR="$(OPEN_WEBUI_DATA_DIR)" PORT=$(OPEN_WEBUI_DEV_BACKEND_PORT)  && \
+			uv run dev.sh; \
+	fi &
 	@echo "webui.db is in $(OPEN_WEBUI_DATA_DIR)"
 	@echo "start open-webui at localhost:$(OPEN_WEBUI_DEV_BACKEND_PORT)"
 	$(call check_port,$(OPEN_WEBUI_DEV_BACKEND_PORT))
