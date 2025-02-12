@@ -53,16 +53,15 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 
 ## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188, llama.cpp 8081
 .PHONY: ai
-ai: ollama open-webui tika ngrok
+ai: ollama open-webui tika
 
-## ai.res: starts research packages reseaearch
+## ai.res: starts src built in ./src/res/open-webui
 .PHONY: ai.res
-ai.res: ollama open-webui.res llama-server tika comfyui ngrok.res comfyui
-	@echo comfy takes up lots of ram so only use if necessary
+ai.res: ollama open-webui.res tika
 
 USER ?= rich
 ## ai.user: start a specific users version
-ai.user: ollama open-webui.user llama-server tika ngrok.res comfyui
+ai.user: ollama open-webui.user tika
 	@echo comfy takes up lots of ram so only use if necessary
 
 ## exo: Start the exo LLM cluster system set EXO Home to 4TB Drive
@@ -178,6 +177,12 @@ define start_open-webui_dev
 	$(call check_port,$(3))
 endef
 
+# usage $(call start_open-webui_src_frontend,source directory,data_dir,front port,frontend script to run)
+define start_open-webui_src_frontend
+
+endef
+
+
 # usage $(call start_open_webui_src_backend,source directory,data_dir,backend port)
 define start_open-webui_src_backend
 	@echo start backend at http://localhost:$(3)
@@ -191,26 +196,27 @@ define start_open-webui_src_backend
 endef
 
 OPEN_WEBUI_RES_DIR ?= $(WS_DIR)/git/src/res/open-webui
-# these are the defaults
-OPEN_WEBUI_RES_FRONTEND_PORT ?= 5173
-OPEN_WEBUI_RES_BACKEND_PORT ?= 8080
-# OPEN_WEBUI_RES_FRONTEND_PORT ?= 25173
-# OPEN_WEBUI_RES_BACKEND_PORT ?= 28080
+# these are the defaults and these work
+# OPEN_WEBUI_RES_FRONTEND_PORT ?= 5173
+# OPEN_WEBUI_RES_BACKEND_PORT ?= 8080
+# move out of the way so that you can use product open webui e
+OPEN_WEBUI_RES_FRONTEND_PORT ?= 25173
+OPEN_WEBUI_RES_BACKEND_PORT ?= 28080
 #
 OPEN_WEBUI_SRC_FRONTEND_RUN ?= npm install && npm run build && npm run pyodide:fetch && uv run vite dev --host --port $(OPEN_WEBUI_RES_FRONTEND_PORT)
 ## open-webui.res: Run local for the research group
 .PHONY: open-webui.res
 open-webui.res: open-webui.res.frontend open-webui.res.backend
 
-## open-webui.res.backend: runs the backend
-.PHONY: open-webui.res.backend
-open-webui.res.backend:
-	$(call start_open-webui_src_backend,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_BACKEND_PORT))
-
 ## open-webui.res.frontend
 .PHONY:  open-webui.res.frontend
 open-webui.res.frontend:
 	$(call start_open-webui_src_frontend,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_FRONTEND_PORT),$(OPEN_WEBUI_SRC_FRONTEND_RUN))
+
+## open-webui.res.backend: runs the backend
+.PHONY: open-webui.res.backend
+open-webui.res.backend:
+	$(call start_open-webui_src_backend,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_BACKEND_PORT))
 
 ## open-webui.user: Run local for a specific user (default on non standard frontend port 25173 and backedn 28080)
 .PHONY: open-webui.user
