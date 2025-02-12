@@ -181,15 +181,19 @@ define start_open-webui_src_backend
 	$(call check_port,$(3))
 endef
 
-OPEN_WEBUI_SRC_FRONTEND_RUN ?= npm install && npm run build && npm run pyodide:fetch && uv run vite dev --host --port $(OPEN_WEBUI_PORT)
 OPEN_WEBUI_RES_DIR ?= $(WS_DIR)/git/src/res/open-webui
-OPEN_WEBUI_RES_FRONTEND_PORT ?= 25173
-OPEN_WEBUI_RES_BACKEND_PORT ?= 28080
+# these are the defaults
+OPEN_WEBUI_RES_FRONTEND_PORT ?= 5173
+OPEN_WEBUI_RES_BACKEND_PORT ?= 8080
+# OPEN_WEBUI_RES_FRONTEND_PORT ?= 25173
+# OPEN_WEBUI_RES_BACKEND_PORT ?= 28080
+#
+OPEN_WEBUI_SRC_FRONTEND_RUN ?= npm install && npm run build && npm run pyodide:fetch && uv run vite dev --host --port $(OPEN_WEBUI_RES_FRONTEND_PORT)
 ## open-webui.res: Run local for the research group
 .PHONY: open-webui.res
 open-webui.res: open-webui.res.frontend open-webui.res.backend
 
-## open-webui.res.backend
+## open-webui.res.backend: runs the backend
 .PHONY: open-webui.res.backend
 open-webui.res.backend:
 	$(call start_open-webui_src_backend,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_BACKEND_PORT))
@@ -197,7 +201,7 @@ open-webui.res.backend:
 ## open-webui.res.frontend
 .PHONY:  open-webui.res.frontend
 open-webui.res.frontend:
-	$(call start_open-webui_src_backend,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_FRONTEND_PORT),$(OPEN_WEBUI_SRC_FRONTEND_RUN))
+	$(call start_open-webui_src_frontend,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_FRONTEND_PORT),$(OPEN_WEBUI_SRC_FRONTEND_RUN))
 
 ## open-webui.user: Run local for a specific user (default on non standard frontend port 25173 and backedn 28080)
 .PHONY: open-webui.user
@@ -215,7 +219,7 @@ OPEN_WEBUI_DEV_DIR ?= $(WS_DIR)/git/src/sys/orion/extern/open-webui
 open-webui.dev: open-webui.dev.frontend open-webui.dev.backend
 
 OPEN_WEBUI_DEV_FRONTEND_PORT ?= 5174
-OPEN_WEBUI_DEV_FRONTEDN_RUN ?= yarn install && yarn dev
+OPEN_WEBUI_DEV_FRONTEND_RUN ?= yarn install && yarn dev
 ## open-webui.dev.frontend: Run local for a specific org front-end port 5174 (nonstandard)
 .PHONY: open-webui.dev.frontend
 open-webui.dev.frontend:
