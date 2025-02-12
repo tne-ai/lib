@@ -1,16 +1,13 @@
 ##
 ## AI tools
-
+PYTHON ?= 3.12
 FLAGS ?=
 SHELL := /usr/bin/env bash
+WS_DIR ?= $(HOME)/wsn
+BIN_DIR ?= $(WS_DIR)/git/src/bin
+
 # port does not work use 8080 default and is deprecated
 # PORT ?= 1314
-# does not work the EXCLUDEd directories are still listed
-# https://www.theunixschool.com/2012/07/find-command-15-examples-to-EXCLUDE.html
-# EXCLUDE := -type d \( -name extern -o -name .git \) -prune -o
-# https://stackoverflow.com/questions/4210042/how-to-EXCLUDE-a-directory-in-find-command
-#
-# https://www.oreilly.com/library/view/managing-projects-with/0596006101/ch04.html
 
 # usage: $(call start_server,port of service, app, arguments...)
 # this generations a strange problem
@@ -20,8 +17,6 @@ start_server = if ! lsof -i:$(1) -sTCP:LISTEN; then $(2) $(3) $(4) $(5) $(6) $(7
 # usage $(call check_ports to see if the command wowrked)
 check_port = sleep 5 && lsof -i:$(1) -sTCP:LISTEN
 
-WS_DIR ?= $(HOME)/wsn
-BIN_DIR ?= $(WS_DIR)/git/src/bin
 ## ai.install: installation requires ./src/bin
 .PHONY: ai.install
 	$(BIN_DIR)/install-ai.sh -v
@@ -39,7 +34,7 @@ ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama-server.ps vite.ps code-run
 ## ai.kill: kill all ai all ai servers
 # open-webui exists in pip packages, open_webui in builds from source
 .PHONY: ai.kill
-ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill node.kill code-runner.kill ngrok.kill
+ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill ngrok.kill
 
 ## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
@@ -50,38 +45,22 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 %.kill:
 	-if ! pkill -f $*; then echo "no $*"; fi
 
-
 ## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188, llama.cpp 8081
 .PHONY: ai
 ai: ollama open-webui tika
 
-## ai.res: starts src built in ./src/res/open-webui
+## ai.res: starts research packages reseaearch
 .PHONY: ai.res
 ai.res: ollama open-webui.res tika
 
 USER ?= rich
 ## ai.user: start a specific users version
 ai.user: ollama open-webui.user tika
-	@echo comfy takes up lots of ram so only use if necessary
-
-## exo: Start the exo LLM cluster system set EXO Home to 4TB Drive
-# the --directory does not work
-EXO_HOME ?= /Volumes/Hagibis ASM2464PD/Exo
-EXO_REPO ?= $(WS_DIR)/git/src/res/exo
-.PHONY: exo
-exo:
-	cd "$(EXO_REPO)" && EXO_HOME="$(EXO_HOME)" uv run exo
-
-## comfyui: Start ComfyUI Desktop
-# this seems to fail unless given more time
-.PHONY: comfyui
-comfyui:
-	open -a "ComfyUI.app"
 
 ## ai.dev: start your orgs dev servers
 # note ollama-dev is not needed now that 0.5.5 is shipped
 .PHONY: ai.dev
-ai.dev: ollama open-webui.dev code-runner orion ngrok.dev
+ai.dev: ollama open-webui.dev code-runner orion
 
 # usage: $(call start_ollama,port,executable,url)
 # the export cannot be inside the if statement
@@ -94,9 +73,7 @@ endef
 # https://docs.openwebui.com/troubleshooting/connection-error/
 # 0.0.0.0 means it will serve remote openwebui clients
 # https://github.com/ollama/ollama/blob/main/docs/faq.md
-# port where tne.ai taking up the real one
 # note must be lower than 64K
-# standard port overridden by our special one
 OLLAMA_PORT ?=11434
 .PHONY: ollama
 ollama:
@@ -104,18 +81,18 @@ ollama:
 	$(call check_port,$(OLLAMA_PORT))
 
 # if ou have your own private version
-## ollama-res: runs private version on 21434 (deprecated with 0.5.5)
+## ollama.res: runs private version on 21434 (deprecated with 0.5.5)
 OLLAMA_PORT_RES ?= 21434
-.PHONY: ollama-res
-ollama-res:
+.PHONY: ollama.res
+ollama.res:
 	$(call start_ollama,ollama,$(OLLAMA_PORT_RES),127.0.0.1:$(OLLAMA_PORT_RES))
 	$(call check_port,$(OLLAMA_PORT_RES))
 
-# if ou have organization's dev version
-## ollama-res: runs private version on 21434 (deprecated with o.5.5)
+# if you have organization's dev version
+## ollama.dev: runs private version on 21434 (deprecated with o.5.5)
 OLLAMA_PORT_DEV ?= 11434
-.PHONY: ollama-dev
-ollama-dev:
+.PHONY: ollama.dev
+ollama.dev:
 	cd "$(WS_DIR)/git/src/sys/ollama" && \
 	make -j 5 && \
 	$(call start_ollama,./ollama,$(OLLAMA_PORT_DEV),127.0.0.1:$(OLLAMA_HOST_DEV))
@@ -137,7 +114,7 @@ OLLAMA_BASE_URL ?= http://localhost:$(OLLAMA_PORT)
 ## open-webui: run packaged open webui as frontend port 5173 and backend 8080
 .PHONY: open-webui
 open-webui:
-	@echo recommend starting in $(WS_DIR)/git/src
+	@echo recommend starting in $(WS_DIR)/git/src/lib
 	-$(call start_open-webui,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_PORT))
 
 # the webui.db is 300MB so blows through github LFS quota too quicklk move to
@@ -147,63 +124,46 @@ open-webui:
 # note that these strings are always quoted so do not put a backslash in Shared drievs
 OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(USER)@tne.ai/Shared drives/app/open-webui-data/demo
 
-PYTHON ?= 3.12
-# usage $(call start_open_webui_frontend,source directory,data_dir,frontend port)
-define start_open-webui_frontend
+# this starts the original source version of openwebui and not the tne.ai dev
+# branch TOPO merge with the tne.ai version which uses yarn instead of npm
+# for some reason ahve to to an export && before the if
+# usage $(call start_open_webui_src,ollama base url,source directory,data_dir,frontend port,backend port,frontend start_script)
+define start_open-webui_src
+  $(call start_open-webui_src_frontend,$(2),$(3),$(4),$(6))
+	$(call start_open-webui_src_backend,$(1),$(2),$(3),$(4),$(5))
+endef
+
+# usage $(call start_open_webui_src_frontend,source directory,data_dir,frontend port,start_script)
+define start_open-webui_src_frontend
+	export DATA_DIR="$(2)" && \
+		if ! lsof -i:$(3) -sTCP:LISTEN | grep LISTEN; then \
+		cd "$(1)" && \
+		$(4) ; fi &
 	@echo start frontend http://localhost:$(3)
-	if ! lsof -i :$(3); then \
-		cd "$(1)" && npm install && \
-		npm run build && \
-		npm run pyodide:fetch && \
-		DATA_DIR="$(2)" uv run vite dev --host --port "$(3)";\
-	fi &
-endef
-
-# usage $(call start_open_webui_backend,source directory,data_dir,backend port)
-define start_open-webui_backend
-	@echo start backend at http://localhost:$(3)
-	if ! lsof -i :$(3); then cd "$(1)/backend" && \
-		uv sync && uv pip install -r requirements.txt && uv lock && \
-		DATA_DIR="$(2)" OLLAMA_BASE_URL="$(OLLAMA_BASE_URL)" PORT="$(3)" uv run dev.sh; fi &
-endef
-
-# usage $(call start_open_webui_dev,source directory,data_dir,frontend port,backend port)
-# this starts the git cloned development frontend and backend
-define start_open-webui_dev
-	@echo "webui.db is in $(2)"
-	$(call start_open-webui_frontend,$(1),$(2),$(3))
-	$(call start_open-webui_backend,$(1),$(2),$(4))
-	@echo "start open-webui at localhost:$(4)"
 	$(call check_port,$(3))
 endef
 
-# usage $(call start_open-webui_src_frontend,source directory,data_dir,front port,frontend script to run)
-define start_open-webui_src_frontend
-
-endef
-
-
-# usage $(call start_open_webui_src_backend,source directory,data_dir,backend port)
+# usage $(call start_open_webui_src_backend,ollama base url,source directory,data_dir,backend port)
 define start_open-webui_src_backend
-	@echo start backend at http://localhost:$(3)
-	export DATA_DIR="$(2)" OLLAMA_BASE_URL="$(OLLAMA_BASE_URL)" PORT="$(3)"  && \
-		if ! lsof -i:$(3) -sTCP:LISTEN; then cd "$(1)/backend" && \
+	@echo start backend at http://localhost:$(4)
+	export DATA_DIR="$(3)" OLLAMA_BASE_URL="$(1)" PORT="$(4)"  && \
+		if ! lsof -i:$(4) -sTCP:LISTEN; then cd "$(2)/backend" && \
 		uv sync && uv pip install -r requirements.txt && uv lock && \
 		uv run dev.sh; fi &
-	@echo "webui.db is in $(2)"
-	@echo "start open-webui at localhost:$(3)"
-	$(call check_port,$(3))
+	@echo "webui.db is in $(3)"
+	@echo "start open-webui at localhost:$(4)"
+	$(call check_port,$(4))
 endef
 
 OPEN_WEBUI_RES_DIR ?= $(WS_DIR)/git/src/res/open-webui
-# these are the defaults and these work
-# OPEN_WEBUI_RES_FRONTEND_PORT ?= 5173
-# OPEN_WEBUI_RES_BACKEND_PORT ?= 8080
-# move out of the way so that you can use product open webui e
-OPEN_WEBUI_RES_FRONTEND_PORT ?= 25173
-OPEN_WEBUI_RES_BACKEND_PORT ?= 28080
-#
+# these are the defaults work
+OPEN_WEBUI_RES_FRONTEND_PORT ?= 5173
+OPEN_WEBUI_RES_BACKEND_PORT ?= 8080
+# These do not work how does the backend know where the front end is?
+# OPEN_WEBUI_RES_FRONTEND_PORT ?= 25173
+# OPEN_WEBUI_RES_BACKEND_PORT ?= 28080
 OPEN_WEBUI_SRC_FRONTEND_RUN ?= npm install && npm run build && npm run pyodide:fetch && uv run vite dev --host --port $(OPEN_WEBUI_RES_FRONTEND_PORT)
+
 ## open-webui.res: Run local for the research group
 .PHONY: open-webui.res
 open-webui.res: open-webui.res.frontend open-webui.res.backend
@@ -216,7 +176,7 @@ open-webui.res.frontend:
 ## open-webui.res.backend: runs the backend
 .PHONY: open-webui.res.backend
 open-webui.res.backend:
-	$(call start_open-webui_src_backend,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_BACKEND_PORT))
+	$(call start_open-webui_src_backend,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_BACKEND_PORT))
 
 ## open-webui.user: Run local for a specific user (default on non standard frontend port 25173 and backedn 28080)
 .PHONY: open-webui.user
@@ -225,7 +185,7 @@ open-webui.user:
 	@echo "Make sure you brew install asdf direnv"
 	@echo "Make sure you run to right python version asdf direnv local python 3.12.7"
 	@echo "Check with command -v python it points to a .venv in that directory"
-	$(call start_open-webui_src,$(OPEN_WEBUI_USER_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_USER_FRONTEND_PORT),$(OPEN_WEBUI_USER_BACKEND_PORT),$(OPEN_WEBUI_SRC_FRONTEND_RUN))
+	$(call start_open-webui_src,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_USER_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_USER_FRONTEND_PORT),$(OPEN_WEBUI_USER_BACKEND_PORT),$(OPEN_WEBUI_SRC_FRONTEND_RUN))
 
 
 OPEN_WEBUI_DEV_DIR ?= $(WS_DIR)/git/src/sys/orion/extern/open-webui
@@ -244,7 +204,7 @@ OPEN_WEBUI_DEV_BACKEND_PORT ?= 8081
 ## open-webui.dev.backend: Run local for a specific org back-end port 8081 (nonstandard)
 .PHONY: open-webui.dev.backend
 open-webui.dev.backend:
-	$(call start_open-webui_src_backend,$(OPEN_WEBUI_DEV_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_DEV_BACKEND_PORT))
+	$(call start_open-webui_src_backend,$(OLLAMA_BASE_URL,$(OPEN_WEBUI_DEV_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_DEV_BACKEND_PORT))
 
 CODE_RUNNER_PORT ?= 8080
 CODE_RUNNER_DIR ?= $(WS_DIR)/git/src/sys/troopship/code-runner
@@ -353,3 +313,17 @@ LLAMA_PORT ?= 8081
 .PHONY: llama-server
 llama-server:
 	$(call start_llama,$(LLAMA_PORT))
+
+## exo: Start the exo LLM cluster system set EXO Home to 4TB Drive
+# the --directory does not work
+EXO_HOME ?= /Volumes/Hagibis ASM2464PD/Exo
+EXO_REPO ?= $(WS_DIR)/git/src/res/exo
+.PHONY: exo
+exo:
+	cd "$(EXO_REPO)" && EXO_HOME="$(EXO_HOME)" uv run exo
+
+## comfyui: Start ComfyUI Desktop
+# this seems to fail unless given more time
+.PHONY: comfyui
+comfyui:
+	open -a "ComfyUI.app"
