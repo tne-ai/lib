@@ -15,10 +15,10 @@ SHELL := /usr/bin/env bash
 # usage: $(call start_server,port of service, app, arguments...)
 # this generations a strange problem
 # if ! pgrep -fL $(1) || ! lsof -i :$(2) ; then; $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10)
-start_server = if ! lsof -i :$(1); then $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10); fi &
+start_server = if ! lsof -i:$(1) -sTCP:LISTEN; then $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10); fi &
 
 # usage $(call check_ports to see if the command wowrked)
-check_port = sleep 5 && lsof -i :$(1)
+check_port = sleep 5 && lsof -i:$(1) -sTCP:LISTEN
 
 WS_DIR ?= $(HOME)/wsn
 BIN_DIR ?= $(WS_DIR)/git/src/bin
@@ -145,7 +145,8 @@ open-webui:
 # Google Drive
 # OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
 # https://docs.openwebui.com/getting-started/env-configuration/#directories
-OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(USER)@tne.ai/Shared\ drives/app/open-webui-data/demo
+# note that these strings are always quoted so do not put a backslash in Shared drievs
+OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(USER)@tne.ai/Shared drives/app/open-webui-data/demo
 
 PYTHON ?= 3.12
 
@@ -161,7 +162,7 @@ endef
 # usage $(call start_open_webui_src_frontend,source directory,data_dir,frontend port,start_script)
 define start_open-webui_src_frontend
 	export DATA_DIR="$(2)" && \
-	if ! lsof -i :$(3); then \
+		if ! lsof -i:$(3) -sTCP:LISTEN | grep LISTEN; then \
 		cd "$(1)" && \
 		$(4) ; fi &
 	@echo start frontend http://localhost:$(3)
@@ -172,7 +173,7 @@ endef
 define start_open-webui_src_backend
 	@echo start backend at http://localhost:$(3)
 	export DATA_DIR="$(2)" OLLAMA_BASE_URL="$(OLLAMA_BASE_URL)" PORT="$(3)"  && \
-	if ! lsof -i :$(3); then cd "$(1)/backend" && \
+		if ! lsof -i:$(3) -sTCP:LISTEN; then cd "$(1)/backend" && \
 		uv sync && uv pip install -r requirements.txt && uv lock && \
 		uv run dev.sh; fi &
 	@echo "webui.db is in $(2)"
@@ -190,15 +191,13 @@ open-webui.res: open-webui.res.frontend open-webui.res.backend
 
 ## open-webui.res.backend
 .PHONY: open-webui.res.backend
-start_open-webui_src_backend:
+open-webui.res.backend:
 	$(call start_open-webui_src_backend,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_BACKEND_PORT))
 
 ## open-webui.res.frontend
 .PHONY:  open-webui.res.frontend
 open-webui.res.frontend:
 	$(call start_open-webui_src_backend,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_FRONTEND_PORT),$(OPEN_WEBUI_SRC_FRONTEND_RUN))
-
-
 
 ## open-webui.user: Run local for a specific user (default on non standard frontend port 25173 and backedn 28080)
 .PHONY: open-webui.user
@@ -226,14 +225,14 @@ OPEN_WEBUI_DEV_BACKEND_PORT ?= 8081
 ## open-webui.dev.backend: Run local for a specific org back-end port 8081 (nonstandard)
 .PHONY: open-webui.dev.backend
 open-webui.dev.backend:
-	$(call start_open_webui_src_backend,$(OPEN_WEBUI_DEV_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_DEV_BACKEND_PORT))
+	$(call start_open-webui_src_backend,$(OPEN_WEBUI_DEV_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_DEV_BACKEND_PORT))
 
 CODE_RUNNER_PORT ?= 8080
 CODE_RUNNER_DIR ?= $(WS_DIR)/git/src/sys/troopship/code-runner
 ## code-runner: Dev code-runner on port CODE_RUNNER_PORT
 .PHONY: code-runner
 code-runner:
-	if ! lsof -i $(CODE_RUNNER_PORT); then cd "$(CODE_RUNNER_DIR)" && \
+	if ! lsof -i:$(CODE_RUNNER_PORT) -sTCP:LISTEN; then cd "$(CODE_RUNNER_DIR)" && \
 			source .venv/bin/activate && make run; fi  &
 	$(call check_port,CODE_RUNNER_PORT)
 
