@@ -15,7 +15,7 @@ BIN_DIR ?= $(WS_DIR)/git/src/bin
 start_server = if ! lsof -i:$(1) -sTCP:LISTEN; then $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10); fi &
 
 # usage $(call check_ports to see if the command wowrked)
-check_port = lsof -i:$(1) -sTCP:LISTEN
+check_port = -lsof -i:$(1) -sTCP:LISTEN
 
 ## ai.install: installation requires ./src/bin
 .PHONY: ai.install
