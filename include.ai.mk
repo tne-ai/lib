@@ -20,6 +20,12 @@ start_server = if ! lsof -i :$(1); then $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) 
 # usage $(call check_ports to see if the command wowrked)
 check_port = sleep 5 && lsof -i :$(1)
 
+WS_DIR ?= $(HOME)/wsn
+BIN_DIR ?= $(WS_DIR)/git/src/bin
+## ai.install: installation requires ./src/bin
+.PHONY: ai.install
+	$(BIN_DIR)/install-ai.sh -v
+
 ## %.ps: [ ollama | open-webui | ... ].ps process status
 	# @-pgrep -fL "$*"
 %.ps:
@@ -143,33 +149,55 @@ OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(USER)@tne.ai/S
 
 PYTHON ?= 3.12
 
-# usage $(call start_open_webui_dev,source directory,data_dir,frontend port,backend port)
-# this starts the git cloned development frontend and backend
-define start_open-webui_dev
-	@echo start frontend http://localhost:$(3)
-	if ! lsof -i :$(3); then \
-		cd "$(1)" && npm install && \
-		npm run build && \
-		npm run pyodide:fetch && \
-		DATA_DIR="$(2)" uv run vite dev --host --port "$(3)";\
-	fi &
-	@echo start backend at http://localhost:$(4)
-	if ! lsof -i :$(4); then cd "$(1)/backend" && \
-		uv sync && uv pip install -r requirements.txt && uv lock && \
-		DATA_DIR="$(2)" OLLAMA_BASE_URL="$(OLLAMA_BASE_URL)" PORT="$(4)" uv run dev.sh; fi &
-	@echo "webui.db is in $(2)"
-	@echo "start open-webui at localhost:$(4)"
-	$(call check_port,$(3))
-	$(call check_port,$(4))
+# usage $(call start_open_webui_src source directory,data_dir,frontend port,backend port,frontend start_script)
+# this starts the original source version of openwebui and not the tne.ai dev
+# branch TOPO merge with the tne.ai version which uses yarn instead of npm
+# for some reason ahve to to an export && before the if
+define start_open-webui_src
+  $(call start_open-webui_src_frontend,$(1),$(2),$(3),$(5))
+	$(call start_open-webui_src_backend,$(1),$(2),$(4))
 endef
 
+# usage $(call start_open_webui_src_frontend,source directory,data_dir,frontend port,start_script)
+define start_open-webui_src_frontend
+	export DATA_DIR="$(2)" && \
+	if ! lsof -i :$(3); then \
+		cd "$(1)" && \
+		$(4) ; fi &
+	@echo start frontend http://localhost:$(3)
+	$(call check_port,$(3))
+endef
+
+# usage $(call start_open_webui_src_backend,source directory,data_dir,backend port)
+define start_open-webui_src_backend
+	@echo start backend at http://localhost:$(3)
+	export DATA_DIR="$(2)" OLLAMA_BASE_URL="$(OLLAMA_BASE_URL)" PORT="$(3)"  && \
+	if ! lsof -i :$(3); then cd "$(1)/backend" && \
+		uv sync && uv pip install -r requirements.txt && uv lock && \
+		uv run dev.sh; fi &
+	@echo "webui.db is in $(2)"
+	@echo "start open-webui at localhost:$(3)"
+	$(call check_port,$(3))
+endef
+
+OPEN_WEBUI_SRC_FRONTEND_RUN ?= npm install && npm run build && npm run pyodide:fetch && uv run vite dev --host --port $(OPEN_WEBUI_PORT)
 OPEN_WEBUI_RES_DIR ?= $(WS_DIR)/git/src/res/open-webui
 OPEN_WEBUI_RES_FRONTEND_PORT ?= 25173
 OPEN_WEBUI_RES_BACKEND_PORT ?= 28080
-## open-webui-res: Run local for the research group
+## open-webui.res: Run local for the research group
 .PHONY: open-webui.res
-open-webui.res:
-	$(call start_open-webui_dev,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_FRONTEND_PORT),$(OPEN_WEBUI_RES_BACKEND_PORT))
+open-webui.res: open-webui.res.frontend open-webui.res.backend
+
+## open-webui.res.backend
+.PHONY: open-webui.res.backend
+start_open-webui_src_backend:
+	$(call start_open-webui_src_backend,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_BACKEND_PORT))
+
+## open-webui.res.frontend
+.PHONY:  open-webui.res.frontend
+open-webui.res.frontend:
+	$(call start_open-webui_src_backend,$(OPEN_WEBUI_RES_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_RES_FRONTEND_PORT),$(OPEN_WEBUI_SRC_FRONTEND_RUN))
+
 
 
 ## open-webui.user: Run local for a specific user (default on non standard frontend port 25173 and backedn 28080)
@@ -179,7 +207,7 @@ open-webui.user:
 	@echo "Make sure you brew install asdf direnv"
 	@echo "Make sure you run to right python version asdf direnv local python 3.12.7"
 	@echo "Check with command -v python it points to a .venv in that directory"
-	$(call start_open-webui_dev,$(OPEN_WEBUI_USER_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_USER_FRONTEND_PORT),$(OPEN_WEBUI_USER_BACKEND_PORT))
+	$(call start_open-webui_src,$(OPEN_WEBUI_USER_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_USER_FRONTEND_PORT),$(OPEN_WEBUI_USER_BACKEND_PORT),$(OPEN_WEBUI_SRC_FRONTEND_RUN))
 
 
 OPEN_WEBUI_DEV_DIR ?= $(WS_DIR)/git/src/sys/orion/extern/open-webui
@@ -188,25 +216,17 @@ OPEN_WEBUI_DEV_DIR ?= $(WS_DIR)/git/src/sys/orion/extern/open-webui
 open-webui.dev: open-webui.dev.frontend open-webui.dev.backend
 
 OPEN_WEBUI_DEV_FRONTEND_PORT ?= 5174
+OPEN_WEBUI_DEV_FRONTEDN_RUN ?= yarn install && yarn dev
 ## open-webui.dev.frontend: Run local for a specific org front-end port 5174 (nonstandard)
 .PHONY: open-webui.dev.frontend
 open-webui.dev.frontend:
-	if ! lsof -i :$(OPEN_WEBUI_RES_FRONTEND_PORT); then \
-		cd "$(OPEN_WEBUI_DEV_DIR)" && export DATA_DIR="$(OPEN_WEBUI_DATA_DIR)" && yarn install && yarn dev; \
-	fi &
-	$(call check_port,$(OPEN_WEBUI_DEV_FRONTEND_PORT))
+	$(call start_open-webui_src_frontend,$(OPEN_WEBUI_DEV_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_DEV_FRONTEND_PORT),$(OPEN_WEBUI_DEV_FRONTEDN_RUN))
 
 OPEN_WEBUI_DEV_BACKEND_PORT ?= 8081
 ## open-webui.dev.backend: Run local for a specific org back-end port 8081 (nonstandard)
 .PHONY: open-webui.dev.backend
 open-webui.dev.backend:
-	if ! lsof -i :$(OPEN_WEBUI_DEV_BACKEND_PORT); then \
-		cd "$(OPEN_WEBUI_DEV_DIR)/backend" && export DATA_DIR="$(OPEN_WEBUI_DATA_DIR)" PORT=$(OPEN_WEBUI_DEV_BACKEND_PORT)  && \
-			uv run dev.sh; \
-	fi &
-	@echo "webui.db is in $(OPEN_WEBUI_DATA_DIR)"
-	@echo "start open-webui at localhost:$(OPEN_WEBUI_DEV_BACKEND_PORT)"
-	$(call check_port,$(OPEN_WEBUI_DEV_BACKEND_PORT))
+	$(call start_open_webui_src_backend,$(OPEN_WEBUI_DEV_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_DEV_BACKEND_PORT))
 
 CODE_RUNNER_PORT ?= 8080
 CODE_RUNNER_DIR ?= $(WS_DIR)/git/src/sys/troopship/code-runner
