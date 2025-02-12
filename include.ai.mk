@@ -15,7 +15,7 @@ BIN_DIR ?= $(WS_DIR)/git/src/bin
 start_server = if ! lsof -i:$(1) -sTCP:LISTEN; then $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10); fi &
 
 # usage $(call check_ports to see if the command wowrked)
-check_port = sleep 5 && lsof -i:$(1) -sTCP:LISTEN
+check_port = lsof -i:$(1) -sTCP:LISTEN
 
 ## ai.install: installation requires ./src/bin
 .PHONY: ai.install
@@ -134,8 +134,9 @@ define start_open-webui_src
 endef
 
 # usage $(call start_open_webui_src_frontend,source directory,data_dir,frontend port,start_script)
+# these both fail for some reason so ignore the errors with a dash
 define start_open-webui_src_frontend
-	export DATA_DIR="$(2)" && \
+	-export DATA_DIR="$(2)" && \
 		if ! lsof -i:$(3) -sTCP:LISTEN | grep LISTEN; then \
 		cd "$(1)" && \
 		$(4) ; fi &
@@ -146,7 +147,7 @@ endef
 # usage $(call start_open_webui_src_backend,ollama base url,source directory,data_dir,backend port)
 define start_open-webui_src_backend
 	@echo start backend at http://localhost:$(4)
-	export DATA_DIR="$(3)" OLLAMA_BASE_URL="$(1)" PORT="$(4)"  && \
+	-export DATA_DIR="$(3)" OLLAMA_BASE_URL="$(1)" PORT="$(4)"  && \
 		if ! lsof -i:$(4) -sTCP:LISTEN; then cd "$(2)/backend" && \
 		uv sync && uv pip install -r requirements.txt && uv lock && \
 		uv run dev.sh; fi &
@@ -157,11 +158,15 @@ endef
 
 OPEN_WEBUI_RES_DIR ?= $(WS_DIR)/git/src/res/open-webui
 # these are the defaults work
-OPEN_WEBUI_RES_FRONTEND_PORT ?= 5173
-OPEN_WEBUI_RES_BACKEND_PORT ?= 8080
+# OPEN_WEBUI_RES_FRONTEND_PORT ?= 5173
+# OPEN_WEBUI_RES_BACKEND_PORT ?= 8080
 # These do not work how does the backend know where the front end is?
-# OPEN_WEBUI_RES_FRONTEND_PORT ?= 25173
-# OPEN_WEBUI_RES_BACKEND_PORT ?= 28080
+# used to work in older buildsA
+# looks like main.py only allows 5173 or 5174 even with CORS_ALLOW_ORIGIN=*
+# so ports 28080 and 25173 no longer work but these seem to
+# but lower ports like 8082 work for instance
+OPEN_WEBUI_RES_FRONTEND_PORT ?= 5174
+OPEN_WEBUI_RES_BACKEND_PORT ?= 8084
 OPEN_WEBUI_SRC_FRONTEND_RUN ?= npm install && npm run build && npm run pyodide:fetch && uv run vite dev --host --port $(OPEN_WEBUI_RES_FRONTEND_PORT)
 
 ## open-webui.res: Run local for the research group
