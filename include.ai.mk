@@ -60,7 +60,8 @@ ai.user: ollama open-webui.user tika
 ## ai.dev: start your orgs dev servers
 # note ollama-dev is not needed now that 0.5.5 is shipped
 .PHONY: ai.dev
-ai.dev: ollama open-webui.dev code-runner orion
+ai.dev: ollama open-webui.dev code-runner
+	@echo "You cannot access this at 8081, you must access at 5174"
 
 # usage: $(call start_ollama,port,executable,url)
 # the export cannot be inside the if statement
@@ -203,13 +204,13 @@ OPEN_WEBUI_DEV_FRONTEND_RUN ?= yarn install && yarn dev
 ## open-webui.dev.frontend: Run local for a specific org front-end port 5174 (nonstandard)
 .PHONY: open-webui.dev.frontend
 open-webui.dev.frontend:
-	$(call start_open-webui_src_frontend,$(OPEN_WEBUI_DEV_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_DEV_FRONTEND_PORT),$(OPEN_WEBUI_DEV_FRONTEDN_RUN))
+	$(call start_open-webui_src_frontend,$(OPEN_WEBUI_DEV_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_DEV_FRONTEND_PORT),$(OPEN_WEBUI_DEV_FRONTEND_RUN))
 
 OPEN_WEBUI_DEV_BACKEND_PORT ?= 8081
 ## open-webui.dev.backend: Run local for a specific org back-end port 8081 (nonstandard)
 .PHONY: open-webui.dev.backend
 open-webui.dev.backend:
-	$(call start_open-webui_src_backend,$(OLLAMA_BASE_URL,$(OPEN_WEBUI_DEV_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_DEV_BACKEND_PORT))
+	$(call start_open-webui_src_backend,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_DEV_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_DEV_BACKEND_PORT))
 
 CODE_RUNNER_PORT ?= 8080
 CODE_RUNNER_DIR ?= $(WS_DIR)/git/src/sys/troopship/code-runner
