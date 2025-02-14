@@ -3,3 +3,4 @@
 [submodule "gmsl"]
 	path = gmsl
 	url = https://github.com/richtong/gmsl
+  branch = master
