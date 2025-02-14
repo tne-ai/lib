@@ -51,11 +51,11 @@ if eval "[[ ! -v $lib_name ]]"; then
 		fi
 	}
 
-	# run command and enable verbose and echo for dry run
+	# run github command and enable verbose and echo for dry run
 	# this require lib-log.sh
-	# usage util_cmd [-s] [-n] cmds...
+	# usage util_git_cmd [-s] [-n] cmds...
 	# -n dry_run command
-	util_cmd() {
+	util_git_cmd() {
 		local prefix_cmd
 		prefix_cmd=""
 		if [[ $1 == "-s" ]]; then
@@ -73,7 +73,8 @@ if eval "[[ ! -v $lib_name ]]"; then
 		for cmd in "$@"; do
 			# need to do the eval so to force variable parsing
 			# shellcheck disable=SC2086
-			log_verbose "run $(eval $prefix_cmd echo $cmd)"
+			log_verbose "run prefix_cmd=$prefix_cmd dry_run=$dry_run cmd=$cmd"
+			log_verbose "run eval $prefix_cmd echo $cmd"
 			# shellcheck disable=SC2086
 			if ! eval $prefix_cmd $dry_run $cmd; then
 				log_error 20 "Failed with $?: $cmd"
