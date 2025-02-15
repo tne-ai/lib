@@ -145,13 +145,14 @@ define start_open-webui_src_frontend
 	$(call check_port,$(3))
 endef
 
+# note that pyproject is above backend and you have to start bash to run dev.sh
 # usage $(call start_open_webui_src_backend,ollama base url,source directory,data_dir,backend port)
 define start_open-webui_src_backend
 	@echo start backend at http://localhost:$(4)
 	-export DATA_DIR="$(3)" OLLAMA_BASE_URL="$(1)" PORT="$(4)"  && \
 		if ! lsof -i:$(4) -sTCP:LISTEN; then cd "$(2)/backend" && \
 		uv sync && uv pip install -r requirements.txt && uv lock && \
-		uv run dev.sh; fi &
+		uv run ./dev.sh; fi &
 	@echo "webui.db is in $(3)"
 	@echo "start open-webui at localhost:$(4)"
 	$(call check_port,$(4))
