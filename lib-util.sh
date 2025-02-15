@@ -56,25 +56,24 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# usage util_git_cmd [-s] [-n] cmds...
 	# -n dry_run command
 	util_git_cmd() {
-		local prefix_cmd
-		prefix_cmd=""
-		if [[ $1 == "-s" ]]; then
-			local prefix_cmd="git submodule foreach"
+		local prefix_cmd=""
+		local dry_run=""
+		log_verbose "util_git_cmd"
+		while [[ $1 =~ ^- ]]; do
+			log_verbose "flag $1"
+			if [[ $1 == "-s" ]]; then
+				prefix_cmd="git submodule foreach --recursive"
+			elif [[ $1 == "-n" ]]; then
+				dry_run=" echo "
+			fi
 			shift
-		fi
-		local dry_run
-		dry_run=""
-		if [[ $1 == "-n" ]]; then
-			local dry_run=" echo "
-			log_verbose "dry_run is $dry_run"
-			shift
-		fi
+		done
 		# convert arguments back to an array
 		for cmd in "$@"; do
 			# need to do the eval so to force variable parsing
 			# shellcheck disable=SC2086
 			log_verbose "run prefix_cmd=$prefix_cmd dry_run=$dry_run cmd=$cmd"
-			log_verbose "run eval $prefix_cmd echo $cmd"
+			log_verbose "run eval $prefix_cmd $dry_run $cmd"
 			# shellcheck disable=SC2086
 			if ! eval $prefix_cmd $dry_run $cmd; then
 				log_error 20 "Failed with $?: $cmd"
