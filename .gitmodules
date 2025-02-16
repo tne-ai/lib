@@ -1,6 +1,2 @@
 # use https instead of ssh so netlify can access without deploy key
 # https://answers.netlify.com/t/support-guide-how-do-i-access-private-repositories-in-the-build-environment/723
-[submodule "gmsl"]
-	path = gmsl
-	url = https://github.com/richtong/gmsl
-  branch = master
