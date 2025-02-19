@@ -150,9 +150,12 @@ endef
 define start_open-webui_src_backend
 	@echo start backend at http://localhost:$(4)
 	-export DATA_DIR="$(3)" OLLAMA_BASE_URL="$(1)" PORT="$(4)"  && \
-		if ! lsof -i:$(4) -sTCP:LISTEN; then cd "$(2)/backend" && \
-		uv sync && uv pip install -r requirements.txt && uv lock && \
-		uv run ./dev.sh; fi &
+		if ! lsof -i:$(4) -sTCP:LISTEN; then \
+				cd "$(2)/backend" && \
+				if [[ -r requirements.txt ]]; then uv pip install -r requirements.txt; fi && \
+				uv lock && \
+				uv run ./dev.sh; \
+			fi &
 	@echo "webui.db is in $(3)"
 	@echo "start open-webui at localhost:$(4)"
 	$(call check_port,$(4))
