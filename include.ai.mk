@@ -34,7 +34,7 @@ ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama-server.ps vite.ps code-run
 ## ai.kill: kill all ai all ai servers
 # open-webui exists in pip packages, open_webui in builds from source
 .PHONY: ai.kill
-ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill ngrok.kill
+ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill ngrok.kill orion.kill
 
 ## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
