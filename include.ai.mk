@@ -6,6 +6,10 @@ SHELL := /usr/bin/env bash
 WS_DIR ?= $(HOME)/wsn
 BIN_DIR ?= $(WS_DIR)/git/src/bin
 
+AI_USER ?= $(USER)
+AI_ORG ?= tne.ai
+OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(AI_USER)@$(AI_ORG)/Shared drives/app/open-webui-data/$(AI_USER)
+
 # port does not work use 8080 default and is deprecated
 # PORT ?= 1314
 
@@ -47,14 +51,14 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 
 ## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188, llama.cpp 8081
 .PHONY: ai
-ai: ollama open-webui tika
+ai: ollama open-webui
 
 ## ai.res: starts research packages reseaearch
 .PHONY: ai.res
-ai.res: ollama open-webui.res tika
+ai.res: ollama open-webui.res
 
 ## ai.user: start a specific users version
-ai.user: ollama open-webui.user tika
+ai.user: ollama open-webui.user
 
 ## ai.dev: start your orgs dev servers (but not tika or jupyter)
 # note ollama-dev is not needed now that 0.5.5 is shipped
@@ -62,10 +66,17 @@ ai.user: ollama open-webui.user tika
 ai.dev: ollama.dev open-webui.dev code-runner
 	@echo "You cannot access this at 8081, you must access at 5174"
 
+## pipelines: Open WebUI pipelines
+.PHONY: pipelines
+pipelines:
+	cd "$(WS_DIR)/git/src/sys/pipelines" && \
+		$(call start_server,9099,make)
+
 ## jupyter: start jupyter lab
 .PHONY: jupyter
 jupyter:
-	$(call start_server,8889,jupyter-lab)
+	cd "$(OPEN_WEBUI_DATA_DIR)" && \
+	$(call start_server,8888,jupyter-lab)
 
 # usage: $(call start_ollama,command,port,url_port)
 # the export cannot be inside the if statement
@@ -130,8 +141,6 @@ open-webui:
 # OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
 # https://docs.openwebui.com/getting-started/env-configuration/#directories
 # note that these strings are always quoted so do not put a backslash in Shared drievs
-GOOGLE_USER ?= $(USER)@tne.ai
-OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(GOOGLE_USER)/Shared drives/app/open-webui-data/demo
 
 # this starts the original source version of openwebui and not the tne.ai dev
 # branch TOPO merge with the tne.ai version which uses yarn instead of npm
