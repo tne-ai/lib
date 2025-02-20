@@ -83,7 +83,7 @@ jupyter:
 define start_ollama =
 	$(call start_server,$(2),OLLAMA_DEBUG=1 OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 $(1) serve)
 	$(call check_port,$(2))
-	OLLAMA_HOST="$(3)" ollama run deepscaler "hello how are you?"
+	OLLAMA_HOST="$(3)" ollama run deepseek-r1:1.5b "hello how are you?"
 endef
 ## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
 # https://docs.openwebui.com/troubleshooting/connection-error/
