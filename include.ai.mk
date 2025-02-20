@@ -32,7 +32,7 @@ check_port = -lsof -i:$(1) -sTCP:LISTEN
 
 ## ai.ps: process status of all ai processes
 .PHONY: ai.ps
-ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama-server.ps vite.ps code-runner.ps
+ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama-server.ps vite.ps code-runner.ps jupyter.ps
 	-ollama ps
 
 ## ai.kill: kill all ai all ai servers
