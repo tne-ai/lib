@@ -8,7 +8,7 @@ BIN_DIR ?= $(WS_DIR)/git/src/bin
 
 AI_USER ?= $(USER)
 AI_ORG ?= tne.ai
-OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(AI_USER)@$(AI_ORG)/Shared drives/app/open-webui-data/$(AI_USER)
+OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(AI_USER)@$(AI_)/Shared drives/app/open-webui-data/$(AI_USER)
 
 # port does not work use 8080 default and is deprecated
 # PORT ?= 1314
