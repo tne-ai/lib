@@ -34,7 +34,7 @@ ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama-server.ps vite.ps code-run
 ## ai.kill: kill all ai all ai servers
 # open-webui exists in pip packages, open_webui in builds from source
 .PHONY: ai.kill
-ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill ngrok.kill orion.kill
+ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill ngrok.kill orion.kill jupyter.kill
 
 ## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
@@ -53,22 +53,26 @@ ai: ollama open-webui tika
 .PHONY: ai.res
 ai.res: ollama open-webui.res tika
 
-USER ?= rich
 ## ai.user: start a specific users version
 ai.user: ollama open-webui.user tika
 
-## ai.dev: start your orgs dev servers
+## ai.dev: start your orgs dev servers (but not tika or jupyter)
 # note ollama-dev is not needed now that 0.5.5 is shipped
 .PHONY: ai.dev
-ai.dev: ollama open-webui.dev code-runner
+ai.dev: ollama.dev open-webui.dev code-runner
 	@echo "You cannot access this at 8081, you must access at 5174"
 
-# usage: $(call start_ollama,port,executable,url)
+## jupyter: start jupyter lab
+.PHONY: jupyter
+jupyter:
+	$(call start_server,8889,jupyter-lab)
+
+# usage: $(call start_ollama,command,port,url_port)
 # the export cannot be inside the if statement
 define start_ollama =
 	$(call start_server,$(2),OLLAMA_DEBUG=1 OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 $(1) serve)
 	$(call check_port,$(2))
-	OLLAMA_HOST="$(3)" ollama run tulu3:8b "hello how are you?"
+	OLLAMA_HOST="$(3)" ollama run deepscaler "hello how are you?"
 endef
 ## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
 # https://docs.openwebui.com/troubleshooting/connection-error/
@@ -90,14 +94,17 @@ ollama.res:
 	$(call check_port,$(OLLAMA_PORT_RES))
 
 # if you have organization's dev version
-## ollama.dev: runs private version on 21434 (deprecated with o.5.5)
+# 0.5.4 build method
+	# old build method
+	# make -j 5 && \
+	# # $(call start_ollama,./ollama,$(OLLAMA_PORT_DEV),127.0.0.1:$(OLLAMA_HOST_DEV))
+## ollama.dev: runs private version on 11434 (use before 0.5.5)
+# note build 0.5.5 does not support --port
 OLLAMA_PORT_DEV ?= 11434
 .PHONY: ollama.dev
 ollama.dev:
 	cd "$(WS_DIR)/git/src/sys/ollama" && \
-	make -j 5 && \
-	$(call start_ollama,./ollama,$(OLLAMA_PORT_DEV),127.0.0.1:$(OLLAMA_HOST_DEV))
-	$(call check_port,$(OLLAMA_PORT_DEV))
+	$(call start_ollama,go run .,$(OLLAMA_PORT_DEV),127.0.0.1:$(OLLAMA_PORT_DEV))
 
 # usage $(call start_open-webui,OLLAMA_BASE_URL,data_dir,open_webui_backend port)
 define start_open-webui
@@ -123,7 +130,8 @@ open-webui:
 # OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
 # https://docs.openwebui.com/getting-started/env-configuration/#directories
 # note that these strings are always quoted so do not put a backslash in Shared drievs
-OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(USER)@tne.ai/Shared drives/app/open-webui-data/demo
+GOOGLE_USER ?= $(USER)@tne.ai
+OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(GOOGLE_USER)/Shared drives/app/open-webui-data/demo
 
 # this starts the original source version of openwebui and not the tne.ai dev
 # branch TOPO merge with the tne.ai version which uses yarn instead of npm
@@ -274,7 +282,6 @@ TIKA_JAR ?= tika-server-standard-$(TIKA_VERSION).jar
 tika:
 	$(call start_server,9998,java -jar "$$HOME/jar/$(TIKA_JAR)")
 	$(call check_port,9998)
-
 
 OLLAMA_MODEL ?= $(HOME)/.ollama/models/blobs
 QWENCODER2.5-32B-GGUF ?= sha256-ac3d1ba8aa77755dab3806d9024e9c385ea0d5b412d6bdf9157f8a4a7e9fc0d9
