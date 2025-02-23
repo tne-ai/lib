@@ -66,24 +66,35 @@ ai.user: ollama open-webui.user
 ai.dev: ollama.dev open-webui.dev code-runner
 	@echo "You cannot access this at 8081, you must access at 5174"
 
-## pipelines: Open WebUI pipelines
+## pipelines: Open WebUI pipelines (starts but can't run a pipeline yet)
 .PHONY: pipelines
 pipelines:
+	export PIPELINES_URLS="https://github.com/openw-webui/pipelines/blob/examples/main/pipelines/providers/mlx_pipeline.py"
 	cd "$(WS_DIR)/git/src/sys/pipelines" && \
 		$(call start_server,9099,make)
 
-## jupyter: start jupyter lab
+## jupyter: start jupyter lab in the studio demo user
+# https://jupyterlab.readthedocs.io/en/stable/user/directories.html
+# https://techoverflow.net/2021/06/11/how-to-disable-jupyter-token-authentication/
+# jupyter must be in user space and must have this disabled
+# password doesn't work
+	# $(call start_server,8888,uv run jupyter lab,--no-browser --LabApp.token='' --ServerApp.disable_check_xsrf=True)
+	# This asks for password but I can not figure out how to set jupyter lab
+	# password does not work either
+	# $(call start_server,8888,uv run jupyter lab,--no-browser --ServerApp.token='' --ServerApp.password=password)
+JUPYTER_APP_DIR ?= "$(WS_DIR)/git/src/user/studio-demo"
 .PHONY: jupyter
 jupyter:
-	cd "$(OPEN_WEBUI_DATA_DIR)" && \
-	$(call start_server,8888,jupyter-lab)
+	cd "$(JUPYTER_APP_DIR)" && \
+	$(call start_server,8888,uv run jupyter lab,--no-browser --ServerApp.token='' --ServerApp.disable_check_xsrf=True)
+
 
 # usage: $(call start_ollama,command,port,url_port)
 # the export cannot be inside the if statement
 define start_ollama =
 	$(call start_server,$(2),OLLAMA_DEBUG=1 OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 $(1) serve)
 	$(call check_port,$(2))
-	OLLAMA_HOST="$(3)" ollama run deepseek-r1:1.5b "hello how are you?"
+	OLLAMA_HOST="$(3)" ollama run llama3.2:1b "hello how are you?"
 endef
 ## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
 # https://docs.openwebui.com/troubleshooting/connection-error/
