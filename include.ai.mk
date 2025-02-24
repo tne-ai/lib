@@ -11,7 +11,7 @@ AI_ORG ?= tne.ai
 
 
 # different location
-ifeq ($(OS_TYPE),darwin)
+ifeq (,$(findstring darwin,$(OS_TYPE)))
 OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(AI_USER)@$(AI_ORG)/Shared drives/app/open-webui-data/$(AI_USER)
 else
 OPEN_WEBUI_DATA_DIR ?= $(WS_DIR)/cache/open-webui-data/$(AI_USER)
@@ -22,7 +22,7 @@ endif
 # this is very hard have to make an OAuth 2.0 consent screen and then an id with the right scopes
 # https://rclone.org/drive/#making-your-own-client-id
 # https://rclone.org/drive/
-# Gnome sync is easier but then you deal with GUIDs 
+# Gnome sync is easier but then you deal with GUIDs
 # https://askubuntu.com/questions/1368874/can-google-drive-desktop-be-used-on-ubuntu
 .PHONY: rclone
 rclone:
@@ -281,6 +281,21 @@ code-runner:
 .PHONY: orion
 orion:
 	open -a Orion.app
+
+## ui: start the svelt user interface to port 4000
+.PHONY: ui
+# usage: $(call start_server,port of service, app, arguments...)
+ui:
+	cd "$(WS_DIR)/git/src/app/ui" && \
+		$(call start_server,4000,make install && make run)
+
+## ui.dev: start the svelte user interface to port 4000
+.PHONY: ui.dev
+ui.dev:
+	cd $(WS_DIR)/git/src/app/ui && \
+		$(call start_server,4000,make install && make run.dev)
+
+# ui.dev: start svelte and connect to developer version
 
 # usage: $(call start_server,1password item,local port,ngrok url)
 define start_ngrok
