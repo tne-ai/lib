@@ -359,11 +359,18 @@ llama-server:
 ## exo: Start the exo LLM cluster system set EXO Home to 4TB Drive
 # the cd into directory does not work you must be in that directory
 # probably because asdf direnv does not pick it up
-EXO_HOME ?= /Volumes/Hagibis ASM2464PD/Exo
+EXO_HOME ?= "/Volumes/Hagibis ASM2464PD/Exo" \
+						"/Volumes/ThunderBay 8/Exo"
 EXO_REPO ?= $(WS_DIR)/git/src/res/exo
+# usage: $(call start_server,port of service, app, arguments...)
 .PHONY: exo
 exo:
-	pushd "$(EXO_REPO)" && source .venv/bin/activate && EXO_HOME="$(EXO_HOME)" uv run exo
+	for exo_path in $(EXO_HOME); do \
+		if [[ -e $$exo_path ]]; then \
+			export EXO_HOME="$$exo_path"; break; fi; \
+	done && \
+	cd "$(EXO_REPO)" && source .venv/bin/activate && \
+	$(call start_server,52415,uv run exo)
 
 ## comfy: Start ComfyUI Desktop
 # this seems to fail unless given more time
