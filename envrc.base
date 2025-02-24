@@ -6,7 +6,7 @@ source_up_if_exists
 dotenv_if_exists
 
 # # https://unix.stackexchange.com/questions/575481/how-can-i-find-the-ancestor-directory-with-a-given-name
-pwd="$(PWD)" && export WS_DIR="${pwd%git"${pwd#*git}"}"
+pwd="$PWD" && export WS_DIR="${pwd%git"${pwd#*git}"}"
 if [[ ! $WS_DIR =~ ws ]]; then
 	WS_DIR="$(find . -maxdepth 1 -name "ws*" -exec realpath {} \; | sort | head -n 1)"
 fi
@@ -32,7 +32,7 @@ fi
 [[ -v GROQ_API_KEY ]] || export "GROQ_API_KEY"="$(op item get "Groq API Key Dev" --fields "api key" --reveal)"
 [[ -v HF_TOKEN ]] || export "HF_TOKEN"="$(op item get "Hugging Face API Token Dev" --fields "user access token" --reveal)"
 [[ -v OPENAI_API_KEY ]] || export "OPENAI_API_KEY"="$(op item get "OpenAI API Key Dev" --fields "api key" --reveal)"
-[[ -v OPENROUTER_API_KEY ]] || export "OPENROUTER_API_KEY"="$(op item get "OpenRouter Key Dev" --fields "key" --reveal)"
+[[ -v OPENROUTER_API_KEY ]] || export "OPENROUTER_API_KEY"="$(op item get "OpenRouter API Key Dev" --fields "key" --reveal)"
 [[ -v REPLICATE_API_KEY ]] || export "REPLICATE_API_KEY"="$(op item get "Replicate API Token Dev" --fields "api token" --reveal)"
 #[[ -v SLASH_GPT_ENV_WEBPILOT_UID ]] || export "SLASH_GPT_ENV_WEBPILOT_UID"="$(op item get "Webpilot UID Dev" --fields "key" --reveal)"
 # [[ -v SUPERSET_SECRET_KEY ]] || export "SUPERSET_SECRET_KEY"="$(op item get "Apache Superset Secret Key Dev" --fields "api key" --reveal)"

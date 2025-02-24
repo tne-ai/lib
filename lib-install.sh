@@ -531,6 +531,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# usage: pipx_install [-i inject venv ] [-p python_path ] [packages...]
 	pipx_install() {
 		if (($# < 1)); then return; fi
+		log_verbose "pipx install $*"
 		local python_version
 		python_version="$(command -v python)"
 		while [[ $1 =~ ^- ]]; do

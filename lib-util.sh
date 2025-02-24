@@ -21,9 +21,21 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# how to do an indirect reference
 	eval "$lib_name=true"
 
+	# https://www.theunixschool.com/2012/04/different-ways-to-print-first-line-of.html
+	# ttps://unix.stackexachange.com/questions/108250/print-the-string-between-two-parentheses
 	# https://unix.stackexchange.com/questions/293940/how-can-i-make-press-any-key-to-continue
+	# https://www.cyberciti.biz/faq/howto-find-linux-vga-video-card-ram/
+	util_gpu_memory() {
+		if mac_is_arm; then
+			echo $(($(sysctl -n hw.memsize) / 2 ** 30))
+		elif has_nvidia; then
+			lspci -v -s `lspci | grep NVIDIA | cut -f 1 -d ' '` | grep 64-bit | awk -F "[=G]" 'NR==1 {print $2}'
+		else  # no idea
+			echo 0
+		fi
+	}
+	
 	# returns the variable key
-
 	util_press_key() {
 		read -n1 -r -p "Press anything to continue.." key
 		export key
@@ -436,7 +448,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 		esac
 	}
 
-	# Usage: in_os [ mac | windows | linux | docker | windows]
+	# Usage: in_os [ mac | windows | linux | docker ]
 	in_os() {
 		if (($# < 1)); then
 			return 0

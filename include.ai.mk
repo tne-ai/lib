@@ -8,7 +8,26 @@ BIN_DIR ?= $(WS_DIR)/git/src/bin
 
 AI_USER ?= $(USER)
 AI_ORG ?= tne.ai
+
+
+# different location
+ifeq ($(OS_TYPE),darwin)
 OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(AI_USER)@$(AI_ORG)/Shared drives/app/open-webui-data/$(AI_USER)
+else
+OPEN_WEBUI_DATA_DIR ?= $(WS_DIR)/cache/open-webui-data/$(AI_USER)
+endif
+
+## rclone: rclone sync the Linux clone of Google Drive back up
+# https://rclone.org/local/
+# this is very hard have to make an OAuth 2.0 consent screen and then an id with the right scopes
+# https://rclone.org/drive/#making-your-own-client-id
+# https://rclone.org/drive/
+# Gnome sync is easier but then you deal with GUIDs 
+# https://askubuntu.com/questions/1368874/can-google-drive-desktop-be-used-on-ubuntu
+.PHONY: rclone
+rclone:
+	mkdir -p "$(OPEN_WEBUI_DATA_DIR)"
+	rclone bisync --resync --interactive "$(OPEN_WEBUI_DATA_DIR)" "app:open-webui-data/$(AI_USER)"
 
 # port does not work use 8080 default and is deprecated
 # PORT ?= 1314
