@@ -49,9 +49,14 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 %.kill:
 	-if ! pkill -f $*; then echo "no $*"; fi
 
-## ai: start all packaged ollama:11434, open-webui:5173, 8080, tika: 9998, comfy: 8188, llama.cpp 8081
+## ai: start all packaged ollama:11434, open-webui:5173, 8080
 .PHONY: ai
 ai: ollama open-webui
+
+## ai.extras: start extra open-webui tools tika: 9998, comfy: 8188, pipelines 9099, jupyter 8888
+# does not use run llama-server for llama.cpp 8081
+.PHONY: ai.extras
+ai.extras: tika pipelines comfy jupyter
 
 ## ai.res: starts research packages reseaearch
 .PHONY: ai.res
@@ -359,8 +364,8 @@ EXO_REPO ?= $(WS_DIR)/git/src/res/exo
 exo:
 	cd "$(EXO_REPO)" && EXO_HOME="$(EXO_HOME)" uv run exo
 
-## comfyui: Start ComfyUI Desktop
+## comfy: Start ComfyUI Desktop
 # this seems to fail unless given more time
-.PHONY: comfyui
-comfyui:
+.PHONY: comfy
+comfy:
 	open -a "ComfyUI.app"
