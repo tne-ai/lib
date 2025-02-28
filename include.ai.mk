@@ -11,7 +11,7 @@ AI_ORG ?= tne.ai
 
 
 # different location
-ifeq (,$(findstring darwin,$(OS_TYPE)))
+ifeq ($(findstring darwin,$(OSTYPE)),darwin)
 OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(AI_USER)@$(AI_ORG)/Shared drives/app/open-webui-data/$(AI_USER)
 else
 OPEN_WEBUI_DATA_DIR ?= $(WS_DIR)/cache/open-webui-data/$(AI_USER)
