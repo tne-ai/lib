@@ -75,7 +75,7 @@ ai: ollama open-webui
 ## ai.extras: start extra open-webui tools tika: 9998, comfy: 8188, pipelines 9099, jupyter 8888
 # does not use run llama-server for llama.cpp 8081
 .PHONY: ai.extras
-ai.extras: tika pipelines comfy jupyter
+ai.extras: tika pipelines comfy jupyter llama-server
 
 ## ai.res: starts research packages reseaearch
 .PHONY: ai.res
@@ -97,20 +97,20 @@ pipelines:
 	cd "$(WS_DIR)/git/src/sys/pipelines" && \
 		$(call start_server,9099,make)
 
-## jupyter: start jupyter lab in the studio demo user
+## jupyter: start jupyter lab in the studio demo user with $(JUPYTERLAB_PASSWORD)
 # https://jupyterlab.readthedocs.io/en/stable/user/directories.html
 # https://techoverflow.net/2021/06/11/how-to-disable-jupyter-token-authentication/
 # jupyter must be in user space and must have this disabled
-# password doesn't work
-	# $(call start_server,8888,uv run jupyter lab,--no-browser --LabApp.token='' --ServerApp.disable_check_xsrf=True)
-	# This asks for password but I can not figure out how to set jupyter lab
-	# password does not work either
-	# $(call start_server,8888,uv run jupyter lab,--no-browser --ServerApp.token='' --ServerApp.password=password)
+# use the line below if you wnt to disable tokens and passwords which is very
+# insecure
+# $(call start_server,8888,uv run jupyter lab,--no-browser --IdentityProvider.token='' --ServerApp.disable_check_xsrf=True)
+# use this if you want a hashed password
+# $(call start_server,8888,uv run jupyter lab,--no-browser --ServerApp.token='' --ServerApp.disable_check_xsrf=True --ServerApp.password=$(JUPYTERLAB_HASHED_PASSWORD))
 JUPYTER_APP_DIR ?= "$(WS_DIR)/git/src/user/studio-demo"
 .PHONY: jupyter
 jupyter:
 	cd "$(JUPYTER_APP_DIR)" && \
-	$(call start_server,8888,uv run jupyter lab,--no-browser --ServerApp.token='' --ServerApp.disable_check_xsrf=True)
+	$(call start_server,8888,uv run jupyter lab,--no-browser --ServerApp.token="$(JUPYTERLAB_TOKEN)")
 
 
 # usage: $(call start_ollama,command,port,url_port)
@@ -287,13 +287,13 @@ orion:
 # usage: $(call start_server,port of service, app, arguments...)
 ui:
 	cd "$(WS_DIR)/git/src/app/ui" && \
-		$(call start_server,4000,make install && make run)
+		$(call start_server,5172,make install && make run)
 
 ## ui.dev: start the svelte user interface to port 4000
 .PHONY: ui.dev
 ui.dev:
 	cd $(WS_DIR)/git/src/app/ui && \
-		$(call start_server,4000,make install && make run.dev)
+		$(call start_server,5172,make install && make run.dev)
 
 # ui.dev: start svelte and connect to developer version
 
@@ -314,22 +314,22 @@ DEFAULT_PORT ?= 8080
 # port for experimental builds
 RESEARCH_PORT ?= 28080
 
-## ngrok.dev: development port on early-lenient-goldfish.ngrok.free.app
+## ngrok.dev: development port on early-lenient-goldfish.ngrok.free.app need to turn off anti-virus
 .PHONY: ngrok.dev
 ngrok.dev:
 	$(call start_ngrok,ngrok Dev,$(DEV_PORT),early-lenient-goldfish.ngrok.free.app)
 
-## ngrok2: SEcond default on early-lenient-goldfish.ngrok.free.app
+## ngrok2: SEcond default on early-lenient-goldfish.ngrok.free.app need to turn off anti-virus
 .PHONY: ngrok2
 ngrok2:
 	$(call start_ngrok,ngrok Dev,$(DEFAULT_PORT),early-lenient-goldfish.ngrok.free.app)
 
-## ngrok.res: Sepcial build on 28880 at organic-pegasus-solely.ngrok.free.app
+## ngrok.res: Sepcial build on 28880 at organic-pegasus-solely.ngrok.free.app need to turn off anti-virus
 .PHONY: ngrok.res
 ngrok.res:
 	$(call start_ngrok,ngrok,$(RESEARCH_PORT),organic-pegasus-solely.ngrok.free.app)
 
-## ngrok: authentication for 8080 at organic-pegasus-solely.ngrok.free.app
+## ngrok: authentication for 8080 at organic-pegasus-solely.ngrok.free.app need to turn off anti-virus
 .PHONY: ngrok
 ngrok:
 	$(call start_ngrok,ngrok,$(DEFAULT_PORT),organic-pegasus-solely.ngrok.free.app)
@@ -355,8 +355,11 @@ PHI4-14B-GGUF ?= sha256-fd7b6731c33c57f61767612f56517460ec2d1e2e5a3f0163e0eb3d8d
 QWEN2.5-14B-GGUF ?= sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54
 
 DEEPSEEK-R1-14B-GGUF ?= sha256-6e9f90f02bb3b39b59e81916e8cfce9deb45aeaeb9a54a5be4414486b907dc1e
+		 # -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-14B-GGUF)" \
 DEEPSEEK-R1-32B-GGUF ?= sha256-6150cb382311b69f09cc0f9a1b69fc029cbd742b66bb8ec531aa5ecf5c613e93
 DEEPSEEK-R1-70B-GGUF ?= sha256-4cd576d9aa16961244012223abf01445567b061f1814b57dfef699e4cf8df339
+
+QWEN2.5-14B-MLX ?=mlx-community/Qwen2.5-Coder-14B-Instruct-abliterated-4bit
 
 
 # system prmpt is deprecated
@@ -378,7 +381,7 @@ define start_llama =
 		--verbose-prompt -v --metrics \
 		--flash-attn --split-mode row \
 		--keep -1 \
-		 -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-14B-GGUF)" \
+		 -m "$(OLLAMA_MODEL)/$(QWEN2.5-14B-GGUF)" \
 		--cache-type-k q8_0 --cache-type-v q8_0 \
 		)
 	$(call check_port,$(1))
@@ -397,6 +400,10 @@ EXO_HOME ?= "/Volumes/Hagibis ASM2464PD/Exo" \
 						"/Volumes/ThunderBay 8/Exo"
 EXO_REPO ?= $(WS_DIR)/git/src/res/exo
 # usage: $(call start_server,port of service, app, arguments...)
+# bug https://stackoverflow.com/questions/61505394/make-error-gcc-make4-gcc-permission-denied-arch-linux
+# exo cannot be in the path and it is the directory name of $(EXO_REPO)
+# cd into a directory does not activate the .venv so need to activiate
+# explicitly and call the executable
 .PHONY: exo
 exo:
 	for exo_path in $(EXO_HOME); do \
@@ -404,7 +411,8 @@ exo:
 			export EXO_HOME="$$exo_path"; break; fi; \
 	done && \
 	cd "$(EXO_REPO)" && source .venv/bin/activate && \
-	$(call start_server,52415,uv run exo)
+	make install && \
+	$(call start_server,52415,uv run "$(EXO_REPO)/.venv/bin/exo")
 
 ## comfy: Start ComfyUI Desktop
 # this seems to fail unless given more time
