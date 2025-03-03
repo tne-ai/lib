@@ -10,12 +10,19 @@ AI_USER ?= $(USER)
 AI_ORG ?= tne.ai
 
 
-# different location
-ifeq ($(findstring darwin,$(OSTYPE)),darwin)
-OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(AI_USER)@$(AI_ORG)/Shared drives/app/open-webui-data/$(AI_USER)
+# different location depending on linux or Mac (Darwin)
+# note: OSTYPE is set
+ifneq (,$(findstring Darwin,$(shell uname -msr)))
+	OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(AI_USER)@$(AI_ORG)/Shared drives/app/open-webui-data/$(AI_USER)
 else
-OPEN_WEBUI_DATA_DIR ?= $(WS_DIR)/cache/open-webui-data/$(AI_USER)
+	OPEN_WEBUI_DATA_DIR ?= $(WS_DIR)/cache/open-webui-data/$(AI_USER)
 endif
+
+## debug: environment troubleshooting
+.PHONY: debug
+debug:
+	echo "OSTYPE=$(shell uname -msr)"
+	echo "findstring=$(findstring Darwin,$(shell uname -msr))"
 
 ## rclone: rclone sync the Linux clone of Google Drive back up
 # https://rclone.org/local/
@@ -38,7 +45,7 @@ rclone:
 start_server = if ! lsof -i:$(1) -sTCP:LISTEN; then $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10); fi &
 
 # usage $(call check_ports to see if the command wowrked)
-check_port = -lsof -i:$(1) -sTCP:LISTEN
+check_port = -sleep 5 && lsof -i:$(1) -sTCP:LISTEN
 
 ## ai.install: installation requires ./src/bin
 .PHONY: ai.install
@@ -115,6 +122,7 @@ jupyter:
 
 # usage: $(call start_ollama,command,port,url_port)
 # the export cannot be inside the if statement
+# Note ollama takes alittle time to start
 define start_ollama =
 	$(call start_server,$(2),OLLAMA_DEBUG=1 OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 $(1) serve)
 	$(call check_port,$(2))
