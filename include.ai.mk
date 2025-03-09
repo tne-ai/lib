@@ -63,8 +63,9 @@ ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama-server.ps vite.ps code-run
 
 ## ai.kill: kill all ai all ai servers
 # open-webui exists in pip packages, open_webui in builds from source
+# 9099 is pipelines
 .PHONY: ai.kill
-ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill ngrok.kill orion.kill jupyter.kill pipelines.kill
+ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill ngrok.kill orion.kill jupyter.kill 9099.kill
 
 ## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
@@ -82,7 +83,7 @@ ai: ollama open-webui
 ## ai.extras: start extra open-webui tools tika: 9998, comfy: 8188, pipelines 9099, jupyter 8888
 # does not use run llama-server for llama.cpp 8081
 .PHONY: ai.extras
-ai.extras: tika pipelines comfy jupyter llama-server
+ai.extras: tika pipelines comfy jupyter llama-server whatsapp-mod
 
 ## ai.res: starts research packages reseaearch
 .PHONY: ai.res
@@ -96,6 +97,13 @@ ai.user: ollama open-webui.user
 .PHONY: ai.dev
 ai.dev: ollama.dev open-webui.dev code-runner
 	@echo "You cannot access this at 8081, you must access at 5174"
+
+## whatsapp-mod: start the whatspp moderation interface
+.PHONY: whatsapp-mod
+whatsapp-mod:
+	cd "$(WS_DIR)/git/src/app/app-saber" && \
+		make install || true && \
+		$(call start_server,5173,make dev)
 
 ## pipelines: Open WebUI pipelines (starts but can't run a pipeline yet)
 .PHONY: pipelines
