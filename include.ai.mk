@@ -221,7 +221,6 @@ define start_open-webui_src_backend
 		if ! lsof -i:$(4) -sTCP:LISTEN; then \
 				cd "$(2)/backend" && \
 				if [[ -r requirements.txt ]]; then uv pip install -r requirements.txt; fi && \
-				uv lock && \
 				uv run ./dev.sh; \
 			fi &
 	@echo "webui.db is in $(3)"
