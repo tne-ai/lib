@@ -95,7 +95,7 @@ ai.user: ollama open-webui.user
 ## ai.dev: start your orgs dev servers (but not tika or jupyter)
 # note ollama-dev is not needed now that 0.5.5 is shipped
 .PHONY: ai.dev
-ai.dev: ollama.dev open-webui.dev code-runner
+ai.dev: ollama open-webui.dev code-runner
 	@echo "You cannot access this at 8081, you must access at 5174"
 
 ## whatsapp-mod: start the whatspp moderation interface
