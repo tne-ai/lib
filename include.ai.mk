@@ -291,7 +291,7 @@ CODE_RUNNER_DIR ?= $(WS_DIR)/git/src/sys/troopship/code-runner
 code-runner:
 	if ! lsof -i:$(CODE_RUNNER_PORT) -sTCP:LISTEN; then cd "$(CODE_RUNNER_DIR)" && \
 			source .venv/bin/activate && make run; fi  &
-	$(call check_port,CODE_RUNNER_PORT)
+	$(call check_port,$(CODE_RUNNER_PORT))
 
 ## orion: start the Max app Orion
 .PHONY: orion
