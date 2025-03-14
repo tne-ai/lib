@@ -186,6 +186,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# you will get warnings if already installed but continues
 	mas_install() {
 		if ! command -v mas &>/dev/null; then return 1; fi
+		if (($# == 0)); then return; fi
 		mas install "$@"
 	}
 	mas_uninstall() {
