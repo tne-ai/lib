@@ -130,9 +130,10 @@ jupyter:
 
 # usage: $(call start_ollama,command,port,url_port)
 # the export cannot be inside the if statement
-# Note ollama takes alittle time to start
+# Note ollama takes a little time to start
+# Add OLLAMA_DEBUG=1 if there are problems
 define start_ollama =
-	$(call start_server,$(2),OLLAMA_DEBUG=1 OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 $(1) serve)
+	$(call start_server,$(2),OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 $(1) serve)
 	$(call check_port,$(2))
 	OLLAMA_HOST="$(3)" ollama run llama3.2:1b "hello how are you?"
 endef
