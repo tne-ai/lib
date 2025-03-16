@@ -16,10 +16,15 @@ STUDIO_REPO_URL ?= git@github.com:$(ORG)/$(STUDIO_REPO)
 MIN_SUBMODULE ?= bin lib
 ## install: base install of all needed repos and tools, set $(USER) and clone into ws/git
 	# ./bin/pre-install.sh -vr $(USER) -- this install is too big
+# https://dev.to/shawon/fix-error-enospc-system-limit-for-number-of-file-watchers-reached-pfh
 .PHONY: install
 install:
 	brew install git bash huggingface-cli
 	if [[ $$OSTYPE =~ darwin ]]; then brew install mas proctools; fi
+	if [[ $$OSTYPE =~ linux ]]; then \
+		echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && \
+		sudo sysctl -p; \
+	fi
 	git submodule update --init --recursive --remote $(MIN_SUBMODULE)
 	cd bin && git switch main && git pull --ff-only
 	-cd bin &&	./git-submodule-update.sh -v
@@ -177,7 +182,7 @@ CODE_RUNNER_DIR ?= $(WS_DIR)/git/src/sys/troopship/code-runner
 .PHONY: code-runner
 code-runner:
 	if ! lsof -i:$(CODE_RUNNER_PORT) -sTCP:LISTEN; then cd "$(CODE_RUNNER_DIR)" && \
-			source .venv/bin/activate && make run; fi  &
+			uv run make run; fi  &
 	$(call check_port,$(CODE_RUNNER_PORT))
 
 ## orion: start the Max app Orion
