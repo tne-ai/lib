@@ -18,7 +18,7 @@ MIN_SUBMODULE ?= bin lib
 	# ./bin/pre-install.sh -vr $(USER) -- this install is too big
 .PHONY: install
 install:
-	brew install git bash
+	brew install git bash huggingface-cli
 	if [[ $$OSTYPE =~ darwin ]]; then brew install mas proctools; fi
 	git submodule update --init --recursive --remote $(MIN_SUBMODULE)
 	cd bin && git switch main && git pull --ff-only
@@ -31,8 +31,8 @@ install:
 		./install-python.sh -v && \
 		./install-zsh.sh -v && \
 		./install-ai.sh -v
-	pgrep -f ollama || (ollama serve &)
-	cd bin &&
+	pgrep -f ollama || ollama serve &
+	cd bin && \
 		./install-models.sh -v
 	pipx upgrade-all
 	brew upgrade
