@@ -21,7 +21,7 @@ MIN_SUBMODULE ?= bin lib
 install:
 	brew install git bash huggingface-cli
 	if [[ $$OSTYPE =~ darwin ]]; then brew install mas proctools; fi
-	if [[ $$OSTYPE =~ linux ]]; then \
+	if [[ $$OSTYPE =~ linux ]] && ! grep -q "^fs.inotify.max_user_watches" /etc/sysctl.conf; then \
 		echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && \
 		sudo sysctl -p; \
 	fi

@@ -619,6 +619,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 			shift
 		done
 		for package in "$@"; do
+			log_verbose "gem install $package"
 			if ! gem install "$package"; then
 				sudo gem install "${flags[@]}" "$package"
 			fi
