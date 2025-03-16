@@ -229,12 +229,14 @@ if eval "[[ ! -v $lib_name ]]"; then
 		if (($# < 1)); then return 1; fi
 		operation="$1"
 		shift
+		log_verbose "apt_run: operation=$operation"
 		# find all the flags at the start
 		while [[ $1 =~ ^- ]]; do
 			flags+=("$1")
 			shift
 		done
 		for package in "$@"; do
+			log_verbose "apt_run: package=$package"
 			if ! apt-cache show "$package" >/dev/null; then
 				failed+=1
 			elif ! apt_is_installed "$package"; then
