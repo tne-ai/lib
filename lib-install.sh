@@ -534,9 +534,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# usage: pipx_install [-i inject venv ] [-p python_path ] [packages...]
 	pipx_install() {
 		if (($# < 1)); then return; fi
-		log_verbose "pipx install $*"
 		local python_version
-		python_version="$(command -v python)"
 		while [[ $1 =~ ^- ]]; do
 			# one flag is for us to force use of sudo
 			if [[ $1 == -p ]]; then
@@ -557,11 +555,11 @@ if eval "[[ ! -v $lib_name ]]"; then
 			if [[ -v inject_env ]]; then
 				# the tool list should be injected
 				pipx inject "$inject_env" "$package"
+			elif [[ -n $python_version ]]; then
+				pipx upgrade --python "$python_version" "$package"
 			# the space ensures it is an exact match as version comes after
 			elif pipx list --short | grep -q "^$package "; then
 				pipx upgrade "$package"
-			else
-				pipx install --python "$python_version" "$package"
 			fi
 		done
 	}
