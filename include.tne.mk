@@ -19,22 +19,24 @@ MIN_SUBMODULE ?= bin lib
 # https://dev.to/shawon/fix-error-enospc-system-limit-for-number-of-file-watchers-reached-pfh
 .PHONY: install
 install:
-	brew install git bash huggingface-cli
+	brew install git bash huggingface-cli chezmoi
 	if [[ $$OSTYPE =~ darwin ]]; then brew install mas proctools; fi
 	if [[ $$OSTYPE =~ linux ]] && ! grep -q "^fs.inotify.max_user_watches" /etc/sysctl.conf; then \
 		echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && \
-		sudo sysctl -p; \
+		sudo sysctl -p && \
+		$(MAKE) clone; \
 	fi
 	git submodule update --init --recursive --remote $(MIN_SUBMODULE)
 	cd bin && git switch main && git pull --ff-only
 	-cd bin &&	./git-submodule-update.sh -v
 	cd bin && \
+		./install-zsh.sh -v && \
 		./install-1password.sh -v && \
-		./install-asdf.sh -v && \
+		./install-google-chrome.sh -v && \
 		./install-git-tools.sh -v && \
 		./install-node.sh -v && \
 		./install-python.sh -v && \
-		./install-zsh.sh -v && \
+		./install-asdf.sh -v && \
 		./install-ai.sh -v
 	pgrep -f ollama || ollama serve &
 	cd bin && \
