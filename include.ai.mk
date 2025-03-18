@@ -86,9 +86,18 @@ ai: ollama open-webui
 ai.extras: tika pipelines comfy jupyter llama-server whatsapp-mod
 
 ## pipelines: Open WebUI pipelines (starts but can't run a pipeline yet)
+# this inlucdes the working ones
 .PHONY: pipelines
 pipelines:
-	export PIPELINES_URLS="https://github.com/open-webui/pipelines/blob/examples/main/pipelines/providers/mlx_pipeline.py"
+	export PIPELINES_URLS="
+		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/mlx_manifold_pipeline.py
+		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/azure_deepseek_r1_pipeline.py
+		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/azure_openai_manifold_pipeline.py
+		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/azure_openai_pipeline.py
+		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/cloudflare_ai_pipeline.py
+		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/litellm_manifold_pipeline.py
+	" \
+		&& \
 	cd "$(WS_DIR)/git/src/sys/pipelines" && \
 		$(call start_server,9099,make)
 

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+source_up_if_it_exists
+dotenv_if_it_exists
+
 # # https://unix.stackexchange.com/questions/575481/how-can-i-find-the-ancestor-directory-with-a-given-name
 pwd="$PWD" && export WS_DIR="${pwd%git"${pwd#*git}"}"
 if [[ ! $WS_DIR =~ ws ]]; then
