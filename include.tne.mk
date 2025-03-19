@@ -253,6 +253,21 @@ studio:
 		git submodule | grep -q "$(STUDIO_REPO)" || \
 		git submodule add git@github.com:$(GITHUB_ORG)/$(STUDIO_REPO).git
 
+## jupyter: start jupyter lab in the studio demo user with $(JUPYTERLAB_PASSWORD)
+# https://jupyterlab.readthedocs.io/en/stable/user/directories.html
+# https://techoverflow.net/2021/06/11/how-to-disable-jupyter-token-authentication/
+# jupyter must be in user space and must have this disabled
+# use the line below if you wnt to disable tokens and passwords which is very
+# insecure
+# $(call start_server,8888,uv run jupyter lab,--no-browser --IdentityProvider.token='' --ServerApp.disable_check_xsrf=True)
+# use this if you want a hashed password
+# $(call start_server,8888,uv run jupyter lab,--no-browser --ServerApp.token='' --ServerApp.disable_check_xsrf=True --ServerApp.password=$(JUPYTERLAB_HASHED_PASSWORD))
+JUPYTER_APP_DIR ?= "$(WS_DIR)/git/src/user/studio-demo"
+.PHONY: jupyter
+jupyter:
+	cd "$(JUPYTER_APP_DIR)" && \
+	$(call start_server,8888,uv run jupyter lab,--no-browser --ServerApp.token="$(JUPYTERLAB_TOKEN)")
+
 APP_PREFIX ?= app
 APP_NAME ?= maria
 APP_REPO ?= $(APP_PREFIX)-$(APP_NAME)
