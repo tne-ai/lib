@@ -17,6 +17,8 @@ MIN_SUBMODULE ?= bin lib
 ## install: base install of all needed repos and tools, set $(USER) and clone into ws/git
 	# ./bin/pre-install.sh -vr $(USER) -- this install is too big
 # https://dev.to/shawon/fix-error-enospc-system-limit-for-number-of-file-watchers-reached-pfh
+# need a source of .bashrc because install-python updates the path for
+# open-webui
 .PHONY: install
 install:
 	brew install git bash huggingface-cli chezmoi
@@ -36,6 +38,7 @@ install:
 		./install-git-tools.sh -v && \
 		./install-node.sh -v && \
 		./install-python.sh -v && \
+		source ~/.bashrc && \
 		./install-asdf.sh -v && \
 		./install-ai.sh -v
 	pgrep -f ollama || ollama serve &
@@ -43,7 +46,6 @@ install:
 		./install-models.sh -v
 	pipx upgrade-all
 	brew upgrade
-	git submodule foreach --recursive git pull --ff-only
 
 ## auth0-id: what is your auth0 id for your $(STUDIO_EMAIL)
 # note that the shell is evaluated before the target even starts so you need
