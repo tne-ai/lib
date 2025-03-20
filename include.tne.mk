@@ -13,40 +13,6 @@ STUDIO_EMAIL ?= $(STUDIO_USER)@$(STUDIO_EMAIL_ORG)
 STUDIO_REPO ?= $(STUDIO_PREFIX)-$(STUDIO_USER)
 STUDIO_REPO_URL ?= git@github.com:$(ORG)/$(STUDIO_REPO)
 
-MIN_SUBMODULE ?= bin lib
-## install: base install of all needed repos and tools, set $(USER) and clone into ws/git
-	# ./bin/pre-install.sh -vr $(USER) -- this install is too big
-# https://dev.to/shawon/fix-error-enospc-system-limit-for-number-of-file-watchers-reached-pfh
-# need a source of .bashrc because install-python updates the path for
-# open-webui
-.PHONY: install
-install:
-	brew install git bash huggingface-cli chezmoi
-	if [[ $$OSTYPE =~ darwin ]]; then brew install mas proctools; fi
-	if [[ $$OSTYPE =~ linux ]] && ! grep -q "^fs.inotify.max_user_watches" /etc/sysctl.conf; then \
-		echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && \
-		sudo sysctl -p && \
-		$(MAKE) clone; \
-	fi
-	git submodule update --init --recursive --remote $(MIN_SUBMODULE)
-	cd bin && git switch main && git pull --ff-only
-	-cd bin &&	./git-submodule-update.sh -v
-	cd bin && \
-		./install-zsh.sh -v && \
-		./install-1password.sh -v && \
-		./install-google-chrome.sh -v && \
-		./install-git-tools.sh -v && \
-		./install-node.sh -v && \
-		./install-python.sh -v && \
-		source ~/.bashrc && \
-		./install-asdf.sh -v && \
-		./install-ai.sh -v
-	pgrep -f ollama || ollama serve &
-	cd bin && \
-		./install-models.sh -v
-	pipx upgrade-all
-	brew upgrade
-
 ## auth0-id: what is your auth0 id for your $(STUDIO_EMAIL)
 # note that the shell is evaluated before the target even starts so you need
 # https://auth0.github.io/auth0-cli/
