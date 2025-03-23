@@ -40,13 +40,6 @@ ai.user: ollama open-webui.user
 ai.dev: ollama open-webui.dev code-runner
 	@echo "You cannot access this at 8081, you must access at 5174"
 
-## whatsapp-mod: start the whatspp moderation interface
-.PHONY: whatsapp-mod
-whatsapp-mod:
-	cd "$(WS_DIR)/git/src/app/app-saber" && \
-		make install || true && \
-		$(call start_server,5173,make dev)
-
 
 # if ou have your own private version
 ## ollama.res: runs private version on 21434 (deprecated with 0.5.5)
@@ -235,6 +228,22 @@ JUPYTER_APP_DIR ?= "$(WS_DIR)/git/src/user/studio-demo"
 jupyter:
 	cd "$(JUPYTER_APP_DIR)" && \
 	$(call start_server,8888,uv run jupyter lab,--no-browser --ServerApp.token="$(JUPYTERLAB_TOKEN)")
+
+## pipelines: Open WebUI pipelines (starts but can't run a pipeline yet)
+# this inlucdes the working ones
+.PHONY: pipelines
+pipelines:
+	export PIPELINES_URLS=" \
+		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/mlx_manifold_pipeline.py \
+		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/azure_deepseek_r1_pipeline.py \
+		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/azure_openai_manifold_pipeline.py \
+		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/azure_openai_pipeline.py \
+		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/cloudflare_ai_pipeline.py \
+		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/litellm_manifold_pipeline.py \
+	" \
+		&& \
+	cd "$(WS_DIR)/git/src/sys/pipelines" && \
+		$(call start_server,9099,make)
 
 APP_PREFIX ?= app
 APP_NAME ?= maria

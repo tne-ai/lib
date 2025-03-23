@@ -83,29 +83,13 @@ ai: ollama open-webui
 ## ai.extras: start extra open-webui tools tika: 9998, comfy: 8188, pipelines 9099, jupyter 8888
 # does not use run llama-server for llama.cpp 8081
 .PHONY: ai.extras
-ai.extras: tika pipelines comfy jupyter llama-server whatsapp-mod
-
-## pipelines: Open WebUI pipelines (starts but can't run a pipeline yet)
-# this inlucdes the working ones
-.PHONY: pipelines
-pipelines:
-	export PIPELINES_URLS="
-		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/mlx_manifold_pipeline.py
-		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/azure_deepseek_r1_pipeline.py
-		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/azure_openai_manifold_pipeline.py
-		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/azure_openai_pipeline.py
-		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/cloudflare_ai_pipeline.py
-		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/litellm_manifold_pipeline.py
-	" \
-		&& \
-	cd "$(WS_DIR)/git/src/sys/pipelines" && \
-		$(call start_server,9099,make)
+ai.extras: tika pipelines jupyter
 
 # usage: $(call start_ollama,command,port,url_port)
 # the export cannot be inside the if statement
 # Note ollama takes a little time to start
 # Add OLLAMA_DEBUG=1 if there are problems
-define start_ollama =
+define start_ollama
 	$(call start_server,$(2),OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 $(1) serve)
 	$(call check_port,$(2))
 	OLLAMA_HOST="$(3)" ollama run llama3.2:1b "hello how are you?"
@@ -225,12 +209,12 @@ QWEN2.5-14B-MLX ?=mlx-community/Qwen2.5-Coder-14B-Instruct-abliterated-4bit
 ## to use cache prompting must set cahce_prompt
 # https://www.reddit.com/r/LocalLLaMA/comments/1fkv940/caching_some_prompts_when_using_llamaserver/
 
-# usage: $(call start_llama,port)
 		# -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-14B-GGUF)" \
 		# -m "$(OLLAMA_MODEL)/$(PHI4-14B-GGUF)"
 # Q8_0 cache is faster
-define start_llama =
-@echo "Start dedicate llama.cpp server with specific model"
+# usage: $(call start_llama,port)
+define start_llama
+	@echo "Start dedicate llama.cpp server with specific model"
 	$(call start_server,$(1),llama-server, \
 		--ctx-size 131072 --port "$(1)"  \
 		--verbose-prompt -v --metrics \
