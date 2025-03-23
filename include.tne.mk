@@ -146,6 +146,7 @@ OPEN_WEBUI_DEV_BACKEND_PORT ?= 8081
 ## open-webui.dev.backend: Run local for a specific org back-end port 8081 (nonstandard)
 .PHONY: open-webui.dev.backend
 open-webui.dev.backend:
+	sleep 5
 	$(call start_open-webui_src_backend,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_DEV_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_DEV_BACKEND_PORT))
 
 CODE_RUNNER_PORT ?= 8080
