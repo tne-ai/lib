@@ -63,11 +63,20 @@ ollama.dev:
 	$(call start_ollama,go run .,$(OLLAMA_PORT_DEV),127.0.0.1:$(OLLAMA_PORT_DEV))
 
 
+## exo.hagabis: Start the exo LLM cluster system on Hagibis
+.PHONY: exo.hagabis
+exo.hagabis:
+	EXO_HOME="/Volumes/Hagibis ASM2464PD/Exo" make exo
+
+## exo.thunderbay: Start the exo LLM cluster system on Thunderbay
+.PHONY: exo.thunderbay
+exo.thunderbay:
+	EXO_HOME="/Volumes/ThunderBay 8/Exo" make exo
+
+
 ## exo: Start the exo LLM cluster system set EXO Home to 4TB Drive
 # the cd into directory does not work you must be in that directory
 # probably because asdf direnv does not pick it up
-EXO_HOME ?= "/Volumes/Hagibis ASM2464PD/Exo" \
-	"/Volumes/ThunderBay 8/Exo"
 EXO_REPO ?= $(WS_DIR)/git/src/res/exo
 # usage: $(call start_server,port of service, app, arguments...)
 # bug https://stackoverflow.com/questions/61505394/make-error-gcc-make4-gcc-permission-denied-arch-linux
