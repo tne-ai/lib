@@ -552,14 +552,17 @@ if eval "[[ ! -v $lib_name ]]"; then
 			fi
 		done
 		for package in "$@"; do
+			log_verbose "pipx install $package"
 			if [[ -v inject_env ]]; then
 				# the tool list should be injected
 				pipx inject "$inject_env" "$package"
-			elif [[ -n $python_version ]]; then
+			elif [[ -v python_version ]]; then
 				pipx upgrade --python "$python_version" "$package"
 			# the space ensures it is an exact match as version comes after
 			elif pipx list --short | grep -q "^$package "; then
 				pipx upgrade "$package"
+			else
+				pipx install "$package"
 			fi
 		done
 	}

@@ -65,7 +65,7 @@ ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama-server.ps vite.ps code-run
 # open-webui exists in pip packages, open_webui in builds from source
 # 9099 is pipelines
 .PHONY: ai.kill
-ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill ngrok.kill orion.kill jupyter.kill 9099.kill
+ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill ngrok.kill orion.kill jupyter.kill 9099.kill openai-edge-tts.kill
 
 ## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
@@ -79,11 +79,6 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 ## ai: start all packaged ollama:11434, open-webui:5173, 8080
 .PHONY: ai
 ai: ollama open-webui
-
-## ai.extras: start extra open-webui tools tika: 9998, comfy: 8188, pipelines 9099, jupyter 8888
-# does not use run llama-server for llama.cpp 8081
-.PHONY: ai.extras
-ai.extras: tika pipelines jupyter
 
 # usage: $(call start_ollama,command,port,url_port)
 # the export cannot be inside the if statement
@@ -123,6 +118,7 @@ OLLAMA_BASE_URL ?= http://localhost:$(OLLAMA_PORT)
 open-webui:
 	@echo recommend starting in $(WS_DIR)/git/src/lib
 	-$(call start_open-webui,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_PORT))
+
 
 # the webui.db is 300MB so blows through github LFS quota too quicklk move to
 # Google Drive
@@ -165,14 +161,6 @@ define start_open-webui_src_backend
 	$(call check_port,$(4))
 endef
 
-# usage: $(call start_server,1password item,local port,ngrok url)
-define start_ngrok
-	command -v ngrok >/dev/null && \
-		ngrok config add-authtoken "$$(op item get "$(1)" --fields "auth token" --reveal)"
-	$(call start_server,4040,ngrok,http "$(2)" --url "$(3)" --oauth google --oauth-allow-domain tne.ai --oauth-allow-domain tongfamily.com)
-	$(call check_port,4040)
-endef
-
 TIKA_VERSION ?= 2.9.2
 TIKA_JAR ?= tika-server-standard-$(TIKA_VERSION).jar
 ## tika: run the tika server at 9998
@@ -197,8 +185,6 @@ DEEPSEEK-R1-14B-GGUF ?= sha256-6e9f90f02bb3b39b59e81916e8cfce9deb45aeaeb9a54a5be
 		 # -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-14B-GGUF)" \
 DEEPSEEK-R1-32B-GGUF ?= sha256-6150cb382311b69f09cc0f9a1b69fc029cbd742b66bb8ec531aa5ecf5c613e93
 DEEPSEEK-R1-70B-GGUF ?= sha256-4cd576d9aa16961244012223abf01445567b061f1814b57dfef699e4cf8df339
-
-QWEN2.5-14B-MLX ?=mlx-community/Qwen2.5-Coder-14B-Instruct-abliterated-4bit
 
 
 # system prmpt is deprecated
@@ -237,3 +223,13 @@ llama-server:
 .PHONY: comfy
 comfy:
 	open -a "ComfyUI.app"
+
+## mlx: start the MacOS mlx server using huggingface cli download on port 9000
+# assumes you did a download of these
+QWEN2.5-14B-MLX ?= models--mlx-community--Qwen2.5-Coder-14B-Instruct-abliterated-4bit
+DEEPSEEK-R1-DISTILL-LLAMA-70B-4bit ?= models--mlx-community--DeepSeek-R1-Distill-Llama-70B-4bit
+HF_HUB_CACHE ?= $(HOME)/.cache/huggingface/hub
+MLX_PORT ?= 9000
+.PHONY: mlx
+mlx:
+	$(call start_server,$(MLX_PORT),mlx_lm.server --port $(MLX_PORT))

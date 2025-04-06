@@ -41,6 +41,32 @@ ai.dev: ollama open-webui.dev code-runner
 	@echo "You cannot access this at 8081, you must access at 5174"
 
 
+
+## ai.extras: start extra open-webui tools tika: 9998, comfy: 8188, pipelines 9099, jupyter 8888
+# does not use run llama-server for llama.cpp 8081
+.PHONY: ai.extras
+ai.extras: tika jupyter
+
+MCPO_CONFIG ?= $(WS_DIR)/git/src/lib/claude-desktop.json
+MCPO_PORT ?= 8000
+## mcpo: allow openAPI/Swagger REST API called to MCP Servers from claude-desktop.json
+## see https://github.com/punkpeye/awesome-mcp-servers
+#
+.PHONY: mcpo
+mcpo:
+	$(call start_server,$(MCPO_PORT),mcpo --port "$(MCPO_PORT)" --config "$(MCPO_CONFIG)")
+
+
+## ai.all: All the extras used for research purposes
+.PHONY: ai.all
+ai.all: ai.extras pipelines openai-edge-tts comfy mlx
+
+## ai.all.open: open all ai services
+.PHONY: ai.all.open
+ai.all.open:
+	for port in 9000 5050; do open http://localhost:$$port/v1/models; done
+	for port in 9998 8000 8888 52415 5174; do open http://localhost:$$port; done
+
 # if ou have your own private version
 ## ollama.res: runs private version on 21434 (deprecated with 0.5.5)
 OLLAMA_PORT_RES ?= 21434
@@ -185,9 +211,17 @@ DEFAULT_PORT ?= 8080
 # port for experimental builds
 RESEARCH_PORT ?= 28080
 
+
+# usage: $(call start_server,1password item,local port,ngrok url)
+define start_ngrok
+	command -v ngrok >/dev/null && \
+		ngrok config add-authtoken "$$(op item get "$(1)" --fields "auth token" --reveal)"
+	$(call start_server,4040,ngrok,http "$(2)" --url "$(3)" --oauth google --oauth-allow-domain tne.ai --oauth-allow-domain tongfamily.com)
+	$(call check_port,4040)
+endef
 ## ngrok.dev: development port on early-lenient-goldfish.ngrok.free.app need to turn off anti-virus
-.PHONY: ngrok.dev
-ngrok.dev:
+.PHONY: ngrok
+ngrok:
 	$(call start_ngrok,ngrok Dev,$(DEV_PORT),early-lenient-goldfish.ngrok.free.app)
 
 ## ngrok2: SEcond default on early-lenient-goldfish.ngrok.free.app need to turn off anti-virus
@@ -200,9 +234,9 @@ ngrok2:
 ngrok.res:
 	$(call start_ngrok,ngrok,$(RESEARCH_PORT),organic-pegasus-solely.ngrok.free.app)
 
-## ngrok: authentication for 8080 at organic-pegasus-solely.ngrok.free.app need to turn off anti-virus
-.PHONY: ngrok
-ngrok:
+## ngrok.rich: authentication for 8080 at organic-pegasus-solely.ngrok.free.app need to turn off anti-virus
+.PHONY: ngrok.rich
+ngrok.rich:
 	$(call start_ngrok,ngrok,$(DEFAULT_PORT),organic-pegasus-solely.ngrok.free.app)
 # ui.dev: start svelte and connect to developer version
 
@@ -241,19 +275,25 @@ jupyter:
 
 ## pipelines: Open WebUI pipelines (starts but can't run a pipeline yet)
 # this inlucdes the working ones
+# the mlx does not seem to work anymore
+# https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/mlx_manifold_pipeline.py \
 .PHONY: pipelines
 pipelines:
-	export PIPELINES_URLS=" \
-		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/mlx_manifold_pipeline.py \
+	PIPELINES_URLS=" \
 		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/azure_deepseek_r1_pipeline.py \
 		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/azure_openai_manifold_pipeline.py \
 		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/azure_openai_pipeline.py \
 		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/cloudflare_ai_pipeline.py \
 		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/litellm_manifold_pipeline.py \
 	" \
-		&& \
 	cd "$(WS_DIR)/git/src/sys/pipelines" && \
 		$(call start_server,9099,make)
+
+## openai-edge-tts: openai compatible api to free Microsoft edge-tts
+.PHONY: openai-edge-tts
+openai-edge-tts:
+	cd $(WS_DIR)/git/src/sys/openai-edge-tts && uv pip install -r requirements.txt && \
+		$(call start_server,5050,uv run app/server.py)
 
 APP_PREFIX ?= app
 APP_NAME ?= maria
