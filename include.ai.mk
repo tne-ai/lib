@@ -65,7 +65,7 @@ ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama-server.ps vite.ps code-run
 # open-webui exists in pip packages, open_webui in builds from source
 # 9099 is pipelines
 .PHONY: ai.kill
-ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill ngrok.kill orion.kill jupyter.kill 9099.kill openai-edge-tts.kill
+ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill ngrok.kill orion.kill jupyter.kill 9099.kill openai-edge-tts.kill exo.kill
 
 ## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
