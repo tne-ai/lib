@@ -29,12 +29,12 @@ if eval "[[ ! -v $lib_name ]]"; then
 		if mac_is_arm; then
 			echo $(($(sysctl -n hw.memsize) / 2 ** 30))
 		elif has_nvidia; then
-			lspci -v -s `lspci | grep NVIDIA | cut -f 1 -d ' '` | grep 64-bit | awk -F "[=G]" 'NR==1 {print $2}'
-		else  # no idea
+			lspci -v -s "$(lspci | grep NVIDIA | cut -f 1 -d ' ')" | grep 64-bit | awk -F "[=G]" 'NR==1 {print $2}'
+		else # no idea
 			echo 0
 		fi
 	}
-	
+
 	# returns the variable key
 	util_press_key() {
 		read -n1 -r -p "Press anything to continue.." key
