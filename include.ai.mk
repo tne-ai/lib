@@ -44,6 +44,9 @@ rclone:
 # if ! pgrep -fL $(1) || ! lsof -i :$(2) ; then; $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10)
 start_server = if ! lsof -i:$(1) -sTCP:LISTEN; then $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10); fi &
 
+# usage: $(call open_server,port of service, url_suffix)
+open_server = if lsof -i:$(1) -sTCP:LISTEN; then open "http://localhost:$(1)$(2)"; fi &
+
 # usage $(call check_ports to see if the command wowrked)
 check_port = -sleep 5 && lsof -i:$(1) -sTCP:LISTEN
 
@@ -76,9 +79,17 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 %.kill:
 	-if ! pkill -f $*; then echo "no $*"; fi
 
-## ai: start all packaged ollama:11434, open-webui:5173, 8080
+## ai: start all packaged ollama and open-webui
 .PHONY: ai
-ai: ollama open-webui
+ai: ollama open-webui tika mcpo
+
+## open: open ai ports ports ollama:11434, open-webui:8080
+.PHONY: open
+open:
+	$(call open_server,$(OPEN_WEBUI_PORT))
+	$(call open_server,$(OLLAMA_PORT),/api/tags)
+	$(call open_server,$(TIKA_PORT))
+	$(call open_server,$(MCPO_PORT),/docs)
 
 # usage: $(call start_ollama,command,port,url_port)
 # the export cannot be inside the if statement
@@ -163,6 +174,7 @@ endef
 
 TIKA_VERSION ?= 2.9.2
 TIKA_JAR ?= tika-server-standard-$(TIKA_VERSION).jar
+TIKA_PORT ?= 9998
 ## tika: run the tika server at 9998
 .PHONY: tika
 tika:
@@ -212,12 +224,13 @@ define start_llama
 	$(call check_port,$(1))
 endef
 
-## llama-server: run llama.cpp server at port 8081 (default is 8080) with qwen
-LLAMA_PORT ?= 8081
+## llama-server: run llama.cpp server at port 8082 (default is 8080) with qwen
+LLAMA_PORT ?= 8082
 .PHONY: llama-server
 llama-server:
 	$(call start_llama,$(LLAMA_PORT))
 
+COMFY_PORT ?= 8000
 ## comfy: Start ComfyUI Desktop
 # this seems to fail unless given more time
 .PHONY: comfy
@@ -233,3 +246,12 @@ MLX_PORT ?= 9000
 .PHONY: mlx
 mlx:
 	$(call start_server,$(MLX_PORT),mlx_lm.server --port $(MLX_PORT))
+
+MCPO_CONFIG ?= $(WS_DIR)/git/src/lib/claude-desktop.json
+MCPO_PORT ?= 8000
+## mcpo: allow openAPI/Swagger REST API called to MCP Servers from claude-desktop.json
+## see https://github.com/punkpeye/awesome-mcp-servers
+#
+.PHONY: mcpo
+mcpo:
+	$(call start_server,$(MCPO_PORT),mcpo --port "$(MCPO_PORT)" --config "$(MCPO_CONFIG)")

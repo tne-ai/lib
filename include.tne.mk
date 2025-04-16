@@ -42,30 +42,32 @@ ai.dev: ollama open-webui.dev code-runner
 
 
 
-## ai.extras: start extra open-webui tools tika: 9998, comfy: 8188, pipelines 9099, jupyter 8888
+## ai.extras: start ai components that need to be git cloned locally
 # does not use run llama-server for llama.cpp 8081
 .PHONY: ai.extras
-ai.extras: tika jupyter
+ai.extras: ai jupyter pipelines openai-edge-tts exo
 
-MCPO_CONFIG ?= $(WS_DIR)/git/src/lib/claude-desktop.json
-MCPO_PORT ?= 8000
-## mcpo: allow openAPI/Swagger REST API called to MCP Servers from claude-desktop.json
-## see https://github.com/punkpeye/awesome-mcp-servers
-#
-.PHONY: mcpo
-mcpo:
-	$(call start_server,$(MCPO_PORT),mcpo --port "$(MCPO_PORT)" --config "$(MCPO_CONFIG)")
+# https://stackoverflow.com/questions/59356703/api-passing-bearer-token-to-get-http-url
+## open.extras: open in browser
+.PHONY: open.extras
+open.extras: open
+	$(call open_server,$(JUPYTER_PORT),/?token=$(JUPYTERLAB_TOKEN))
+	$(call open_server,$(PIPELINES_PORT))
+	@echo token=, access_token=, bearer= does not work
+	$(call open_server,$(OPEN_EDGE_TTS_PORT),/v1/voices/all?access_token=$(OPEN_EDGE_TTS_TOKEN))
+	$(call open_server,$(EXO_PORT))
 
 
-## ai.all: All the extras used for research purposes
+## ai.all: These are not loaded because they take up lots of ram (eg comfy, mlx, )
 .PHONY: ai.all
-ai.all: ai.extras pipelines openai-edge-tts comfy mlx
+ai.all: ai.extras comfy mlx llama-server
 
-## ai.all.open: open all ai services
-.PHONY: ai.all.open
-ai.all.open:
-	for port in 9000 5050; do open http://localhost:$$port/v1/models; done
-	for port in 9998 8000 8888 52415 5174; do open http://localhost:$$port; done
+## open.all: open the extra ram required servers in browser
+.PHONY: open.all
+open.all: open.extras
+	$(call open_server,$(COMFY_PORT),/v1/models)
+	$(call open_server,$(MLX_PORT),/v1/models)
+	$(call open_server,$(LLAMA_SERVER_PORT),/v1/models)
 
 # if ou have your own private version
 ## ollama.res: runs private version on 21434 (deprecated with 0.5.5)
@@ -104,6 +106,7 @@ exo.thunderbay:
 # the cd into directory does not work you must be in that directory
 # probably because asdf direnv does not pick it up
 EXO_REPO ?= $(WS_DIR)/git/src/res/exo
+EXO_PORT ?= 52415
 # usage: $(call start_server,port of service, app, arguments...)
 # bug https://stackoverflow.com/questions/61505394/make-error-gcc-make4-gcc-permission-denied-arch-linux
 # exo cannot be in the path and it is the directory name of $(EXO_REPO)
@@ -117,7 +120,7 @@ exo:
 	done && \
 	cd "$(EXO_REPO)" && source .venv/bin/activate && \
 	make install && \
-	$(call start_server,52415,uv run "$(EXO_REPO)/.venv/bin/exo")
+	$(call start_server,$(EXO_PORT),uv run "$(EXO_REPO)/.venv/bin/exo" --disable-tui)
 
 OPEN_WEBUI_RES_DIR ?= $(WS_DIR)/git/src/res/open-webui
 # these are the defaults work
@@ -268,15 +271,17 @@ studio:
 # use this if you want a hashed password
 # $(call start_server,8888,uv run jupyter lab,--no-browser --ServerApp.token='' --ServerApp.disable_check_xsrf=True --ServerApp.password=$(JUPYTERLAB_HASHED_PASSWORD))
 JUPYTER_APP_DIR ?= "$(WS_DIR)/git/src/user/studio-demo"
+JUPYTER_PORT ?= 8888
 .PHONY: jupyter
 jupyter:
 	cd "$(JUPYTER_APP_DIR)" && \
-	$(call start_server,8888,uv run jupyter lab,--no-browser --ServerApp.token="$(JUPYTERLAB_TOKEN)")
+	$(call start_server,$(JUPYTER_PORT),uv run jupyter lab,--no-browser --ServerApp.token=$(JUPYTERLAB_TOKEN))
 
+PIPELINES_PORT ?= 9099
 ## pipelines: Open WebUI pipelines (starts but can't run a pipeline yet)
 # this inlucdes the working ones
 # the mlx does not seem to work anymore
-# https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/mlx_manifold_pipeline.py \
+# https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/mlx_manifold_pipeline.py
 .PHONY: pipelines
 pipelines:
 	PIPELINES_URLS=" \
@@ -287,13 +292,16 @@ pipelines:
 		https://github.com/open-webui/pipelines/blob/main/examples/pipelines/providers/litellm_manifold_pipeline.py \
 	" \
 	cd "$(WS_DIR)/git/src/sys/pipelines" && \
-		$(call start_server,9099,make)
+		$(call start_server,$(PIPELINES_PORT),make)
 
+
+OPEN_EDGE_TTS_TOKEN ?= your_api_key_here
+OPEN_EDGE_TTS_PORT ?= 5050
 ## openai-edge-tts: openai compatible api to free Microsoft edge-tts
 .PHONY: openai-edge-tts
 openai-edge-tts:
 	cd $(WS_DIR)/git/src/sys/openai-edge-tts && uv pip install -r requirements.txt && \
-		$(call start_server,5050,uv run app/server.py)
+		$(call start_server,$(OPEN_EDGE_TTS_PORT),uv run app/server.py)
 
 APP_PREFIX ?= app
 APP_NAME ?= maria
