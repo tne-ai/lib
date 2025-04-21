@@ -21,6 +21,10 @@ if eval "[[ ! -v $lib_name ]]"; then
 	# how to do an indirect reference
 	eval "$lib_name=true"
 
+	util_disk_used() {
+		df -k . | sed 1d | awk 'FNR == 1 {print $5}' | cut -f 1 -d "%"
+	}
+
 	# https://www.theunixschool.com/2012/04/different-ways-to-print-first-line-of.html
 	# ttps://unix.stackexachange.com/questions/108250/print-the-string-between-two-parentheses
 	# https://unix.stackexchange.com/questions/293940/how-can-i-make-press-any-key-to-continue
@@ -29,12 +33,12 @@ if eval "[[ ! -v $lib_name ]]"; then
 		if mac_is_arm; then
 			echo $(($(sysctl -n hw.memsize) / 2 ** 30))
 		elif has_nvidia; then
-			lspci -v -s `lspci | grep NVIDIA | cut -f 1 -d ' '` | grep 64-bit | awk -F "[=G]" 'NR==1 {print $2}'
-		else  # no idea
+			lspci -v -s $(lspci | grep NVIDIA | cut -f 1 -d ' ') | grep 64-bit | awk -F "[=G]" 'NR==1 {print $2}'
+		else # no idea
 			echo 0
 		fi
 	}
-	
+
 	# returns the variable key
 	util_press_key() {
 		read -n1 -r -p "Press anything to continue.." key
