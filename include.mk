@@ -12,7 +12,7 @@ GIT_ORG ?= richtong
 ORG ?=
 LIB_DIR ?= $(WS_DIR)/git/src/lib
 
-SUBMODULE_HOME ?= "$(WS_DIR)
+SUBMODULE_HOME ?= $(WS_DIR)
 NEW_REPO ?=
 name ?= $$(basename "$(PWD)")
 # if you have include.python installed then it uses the environment but by
