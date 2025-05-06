@@ -1,0 +1,13 @@
+
+.DEFAULT_GOAL := help
+.PHONY: help
+help: $(MAKEFILE_LIST)
+	@sed -n 's/^##//p' $(MAKEFILE_LIST)
+
+## install: craete uv environment and add requirements
+.PHONY: install
+install:
+	uv pip install -r requirements.txt
+
+.PHONY: run
+run:

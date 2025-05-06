@@ -13,6 +13,25 @@ STUDIO_EMAIL ?= $(STUDIO_USER)@$(STUDIO_EMAIL_ORG)
 STUDIO_REPO ?= $(STUDIO_PREFIX)-$(STUDIO_USER)
 STUDIO_REPO_URL ?= git@github.com:$(ORG)/$(STUDIO_REPO)
 
+# ports must be high as they are used in .kill substitutions
+JUPYTER_PORT ?= 8888
+OLLAMA_PORT_RES ?= 21434
+CODE_RUNNER_PORT ?= 8080
+EXO_PORT ?= 52415
+OLLAMA_PORT_DEV ?= 11434
+GRAPHAI_PORT ?= 8085
+GRAPYS_PORT ?= 8087
+TNEGRAPH_PORT ?= 8086
+OPEN_WEBUI_RES_FRONTEND_PORT ?= 5174
+OPEN_WEBUI_RES_BACKEND_PORT ?= 8084
+OPEN_EDGE_TTS_PORT ?= 5050
+PIPELINES_PORT ?= 9099
+NGROK_DEV_PORT ?= 5174
+# default
+NGROK_PORT ?= 8080
+# port for experimental builds
+NGROK_RESEARCH_PORT ?= 28080
+
 ## auth0-id: what is your auth0 id for your $(STUDIO_EMAIL)
 # note that the shell is evaluated before the target even starts so you need
 # https://auth0.github.io/auth0-cli/
@@ -45,8 +64,7 @@ ai.dev: ollama open-webui.dev code-runner
 ## ai.extras: start ai components that need to be git cloned locally
 # does not use run llama-server for llama.cpp 8081
 .PHONY: ai.extras
-ai.extras: ai jupyter pipelines openai-edge-tts exo
-
+ai.extras: ai jupyter pipelines openai-edge-tts mcpo graphai tnegraph grapys
 # https://stackoverflow.com/questions/59356703/api-passing-bearer-token-to-get-http-url
 ## open.extras: open in browser
 .PHONY: open.extras
@@ -55,12 +73,29 @@ open.extras: open
 	$(call open_server,$(PIPELINES_PORT))
 	@echo token=, access_token=, bearer= does not work
 	$(call open_server,$(OPEN_EDGE_TTS_PORT),/v1/voices/all?access_token=$(OPEN_EDGE_TTS_TOKEN))
-	$(call open_server,$(EXO_PORT))
+	$(call open_server,$(MCPO_PORT),/docs)
+	$(call open_server,$(GRAPHAI_PORT),/v1/models)
+	$(call open_server,$(TNEGRAPH_PORT),/v1/models)
+	$(call open_server,$(GRAPYS_PORT))
+
+## ps.extras : open the ai and all the extras
+.PHONY: ps.extras
+ps.extras: ps jupyter.ps pipelines.ps open-edge-tts.ps mcpo.ps tnegraph.ps grapys.ps
+
+## kill.extras: kill ai and all the extra s
+.PHONY: kill.extras
+kill.extras: kill orion.kill code-runner.kill \
+	jupyter.kill $(JUPYTER_PORT).kill \
+	openai-edge-tts.kill $(OPEN_EDGE_TTS_PORT).kill \
+	mcpo.kill $(MCPO_PORT).kill \
+	graphai.kill $(GRAPHAI_PORT).kill \
+	tnegraph.kill $(TNEGRAPH_PORT).kill \
+	grapys.kill $(GRAPYS_PORT).kill
 
 
 ## ai.all: These are not loaded because they take up lots of ram (eg comfy, mlx, )
 .PHONY: ai.all
-ai.all: ai.extras comfy mlx llama-server
+ai.all: ai.extras comfy mlx llama-server exo
 
 ## open.all: open the extra ram required servers in browser
 .PHONY: open.all
@@ -68,10 +103,23 @@ open.all: open.extras
 	$(call open_server,$(COMFY_PORT),/v1/models)
 	$(call open_server,$(MLX_PORT),/v1/models)
 	$(call open_server,$(LLAMA_SERVER_PORT),/v1/models)
+	$(call open_server,$(EXO_PORT))
+
+
+## ps.all : open the ai and all the extras and all the other services
+.PHONY: ps.all
+ps.all: ps.extras comfy.ps mlx.ps llama-server.ps exo.ps
+
+## kill.all: kill  ai, extras all other services
+kill.all: kill.extras \
+	comfy.kill $(COMFY_PORT).kill \
+	edge-tts.kill $(EDGE_TTS_PORT).kill \
+	mlx.kill $(MLX_PORT).kill \
+	llama-server.kill $(LLAMA_SERVER_PORT).kill \
+	exo.kill $(EXO_PORT).kill
 
 # if ou have your own private version
 ## ollama.res: runs private version on 21434 (deprecated with 0.5.5)
-OLLAMA_PORT_RES ?= 21434
 .PHONY: ollama.res
 ollama.res:
 	$(call start_ollama,ollama,$(OLLAMA_PORT_RES),127.0.0.1:$(OLLAMA_PORT_RES))
@@ -84,12 +132,28 @@ ollama.res:
 	# # $(call start_ollama,./ollama,$(OLLAMA_PORT_DEV),127.0.0.1:$(OLLAMA_HOST_DEV))
 ## ollama.dev: runs private version on 11434 (use before 0.5.5)
 # note build 0.5.5 does not support --port
-OLLAMA_PORT_DEV ?= 11434
 .PHONY: ollama.dev
 ollama.dev:
 	cd "$(WS_DIR)/git/src/sys/ollama" && \
 	$(call start_ollama,go run .,$(OLLAMA_PORT_DEV),127.0.0.1:$(OLLAMA_PORT_DEV))
 
+
+# graphai: GraphAI OpenAI API Compatible Server
+.PHONY: graphai
+graphai:
+	$(call start_server,$(GRAPHAI_PORT),cd "$(WS_DIR)/git/src/sys/graphai-utils/packages/express" && PORT=$(GRAPHAI_PORT) yarn run server)
+
+# grapys: GraphAI EDitor
+.PHONY: grapys
+grapys:
+	$(call start_server,$(GRAPYS_PORT),cd "$(WS_DIR)/git/src/sys/grapysi" && PORT=$(GRAPYS_PORT) make run)
+
+
+
+# tnegraph: TNE.ai GraphAI OpenAI API Compatible Server
+.PHONY: tnegraph
+tnegraph:
+	$(call start_server,$(TNEGRAPH_PORT),cd "$(WS_DIR)/git/src/sys/troopship/graphai" && PORT=$(TNEGRAPH_PORT) make run)
 
 ## exo.hagabis: Start the exo LLM cluster system on Hagibis
 .PHONY: exo.hagabis
@@ -106,7 +170,6 @@ exo.thunderbay:
 # the cd into directory does not work you must be in that directory
 # probably because asdf direnv does not pick it up
 EXO_REPO ?= $(WS_DIR)/git/src/res/exo
-EXO_PORT ?= 52415
 # usage: $(call start_server,port of service, app, arguments...)
 # bug https://stackoverflow.com/questions/61505394/make-error-gcc-make4-gcc-permission-denied-arch-linux
 # exo cannot be in the path and it is the directory name of $(EXO_REPO)
@@ -131,8 +194,6 @@ OPEN_WEBUI_RES_DIR ?= $(WS_DIR)/git/src/res/open-webui
 # looks like main.py only allows 5173 or 5174 even with CORS_ALLOW_ORIGIN=*
 # so ports 28080 and 25173 no longer work but these seem to
 # but lower ports like 8082 work for instance
-OPEN_WEBUI_RES_FRONTEND_PORT ?= 5174
-OPEN_WEBUI_RES_BACKEND_PORT ?= 8084
 OPEN_WEBUI_SRC_FRONTEND_RUN ?= npm install && npm run build && npm run pyodide:fetch && uv run vite dev --host --port $(OPEN_WEBUI_RES_FRONTEND_PORT)
 
 ## open-webui.res: Run local for the research group
@@ -178,7 +239,6 @@ open-webui.dev.backend:
 	sleep 5
 	$(call start_open-webui_src_backend,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_DEV_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_DEV_BACKEND_PORT))
 
-CODE_RUNNER_PORT ?= 8080
 CODE_RUNNER_DIR ?= $(WS_DIR)/git/src/sys/troopship/code-runner
 ## code-runner: Dev code-runner on port CODE_RUNNER_PORT
 .PHONY: code-runner
@@ -208,11 +268,6 @@ ui.dev:
 ## ngrok.dev: authentication front-end using ngrok Dev
 # doing a pkill before seems to stop the run so only ai.kill does the stopping
 # development port
-DEV_PORT ?= 5174
-# default
-DEFAULT_PORT ?= 8080
-# port for experimental builds
-RESEARCH_PORT ?= 28080
 
 
 # usage: $(call start_server,1password item,local port,ngrok url)
@@ -225,22 +280,22 @@ endef
 ## ngrok.dev: development port on early-lenient-goldfish.ngrok.free.app need to turn off anti-virus
 .PHONY: ngrok
 ngrok:
-	$(call start_ngrok,ngrok Dev,$(DEV_PORT),early-lenient-goldfish.ngrok.free.app)
+	$(call start_ngrok,ngrok Dev,$(NGROK_DEV_PORT),early-lenient-goldfish.ngrok.free.app)
 
 ## ngrok2: SEcond default on early-lenient-goldfish.ngrok.free.app need to turn off anti-virus
 .PHONY: ngrok2
 ngrok2:
-	$(call start_ngrok,ngrok Dev,$(DEFAULT_PORT),early-lenient-goldfish.ngrok.free.app)
+	$(call start_ngrok,ngrok Dev,$(NGROK_PORT),early-lenient-goldfish.ngrok.free.app)
 
 ## ngrok.res: Sepcial build on 28880 at organic-pegasus-solely.ngrok.free.app need to turn off anti-virus
 .PHONY: ngrok.res
 ngrok.res:
-	$(call start_ngrok,ngrok,$(RESEARCH_PORT),organic-pegasus-solely.ngrok.free.app)
+	$(call start_ngrok,ngrok,$(NGROK_RESEARCH_PORT),organic-pegasus-solely.ngrok.free.app)
 
 ## ngrok.rich: authentication for 8080 at organic-pegasus-solely.ngrok.free.app need to turn off anti-virus
 .PHONY: ngrok.rich
 ngrok.rich:
-	$(call start_ngrok,ngrok,$(DEFAULT_PORT),organic-pegasus-solely.ngrok.free.app)
+	$(call start_ngrok,ngrok,$(NGROK_PORT),organic-pegasus-solely.ngrok.free.app)
 # ui.dev: start svelte and connect to developer version
 
 ## studio: create a studio repo and add to ./user with STUDIO_USER=trang make studio
@@ -271,13 +326,11 @@ studio:
 # use this if you want a hashed password
 # $(call start_server,8888,uv run jupyter lab,--no-browser --ServerApp.token='' --ServerApp.disable_check_xsrf=True --ServerApp.password=$(JUPYTERLAB_HASHED_PASSWORD))
 JUPYTER_APP_DIR ?= "$(WS_DIR)/git/src/user/studio-demo"
-JUPYTER_PORT ?= 8888
 .PHONY: jupyter
 jupyter:
 	cd "$(JUPYTER_APP_DIR)" && \
 	$(call start_server,$(JUPYTER_PORT),uv run jupyter lab,--no-browser --ServerApp.token=$(JUPYTERLAB_TOKEN))
 
-PIPELINES_PORT ?= 9099
 ## pipelines: Open WebUI pipelines (starts but can't run a pipeline yet)
 # this inlucdes the working ones
 # the mlx does not seem to work anymore
@@ -296,7 +349,6 @@ pipelines:
 
 
 OPEN_EDGE_TTS_TOKEN ?= your_api_key_here
-OPEN_EDGE_TTS_PORT ?= 5050
 ## openai-edge-tts: openai compatible api to free Microsoft edge-tts
 .PHONY: openai-edge-tts
 openai-edge-tts:

@@ -9,6 +9,17 @@ BIN_DIR ?= $(WS_DIR)/git/src/bin
 AI_USER ?= $(USER)
 AI_ORG ?= tne.ai
 
+# variables must be definte before their use so put high
+OLLAMA_SERVER_PORT ?=11434
+OPEN_WEBUI_PORT ?= 8080
+VITE_PORT ?= 5173
+TIKA_PORT ?= 9998
+LLAMA_SERVER_PORT ?= 8082
+MLX_PORT ?= 9000
+COMFY_PORT ?= 8000
+MCPO_PORT ?= 8001
+DOCLING_PORT ?= 5001
+
 
 # different location depending on linux or Mac (Darwin)
 # note: OSTYPE is set
@@ -52,23 +63,13 @@ check_port = -sleep 5 && lsof -i:$(1) -sTCP:LISTEN
 
 ## ai.install: installation requires ./src/bin
 .PHONY: ai.install
+ai.install:
 	$(BIN_DIR)/install-ai.sh -v
 
 ## %.ps: [ ollama | open-webui | ... ].ps process status
 	# @-pgrep -fL "$*"
 %.ps:
 	@-if ! pgrep -fL "$*"; then echo "$*"; fi
-
-## ai.ps: process status of all ai processes
-.PHONY: ai.ps
-ai.ps: ollama.ps open_webui.ps ngrok.ps tika.ps llama-server.ps vite.ps code-runner.ps jupyter.ps
-	-ollama ps
-
-## ai.kill: kill all ai all ai servers
-# open-webui exists in pip packages, open_webui in builds from source
-# 9099 is pipelines
-.PHONY: ai.kill
-ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill vite.kill code-runner.kill ngrok.kill orion.kill jupyter.kill 9099.kill openai-edge-tts.kill exo.kill
 
 ## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
@@ -81,15 +82,31 @@ ai.kill: ollama.kill open-webui.kill open_webui.kill tika.kill llama-server.kill
 
 ## ai: start all packaged ollama and open-webui
 .PHONY: ai
-ai: ollama open-webui tika mcpo
+ai: ollama open-webui tika docling
 
 ## open: open ai ports ports ollama:11434, open-webui:8080
 .PHONY: open
 open:
 	$(call open_server,$(OPEN_WEBUI_PORT))
-	$(call open_server,$(OLLAMA_PORT),/api/tags)
+	$(call open_server,$(OLLAMA_SERVER_PORT),/api/tags)
 	$(call open_server,$(TIKA_PORT))
-	$(call open_server,$(MCPO_PORT),/docs)
+	$(call open_server,$(DOCLING_PORT),/ui)
+
+## ps: process status of all ai processes
+.PHONY: ps
+ps: ollama.ps open_webui.ps tika.ps docling.ps
+	-ollama ps
+
+## kill: kill all ai all ai servers
+# open-webui exists in pip packages, open_webui in builds from source
+# 9099 is pipelines
+.PHONY: kill
+
+kill: ollama.kill $(OLLAMA_SERVER_PORT).kill \
+	open_webui.kill open-webui.kill $(OPEN_WEBUI_PORT).kill \
+	tika.kill $(TIKA_PORT).kill \
+	docling.kill $(DOCLING_PORT).kill \
+	vite.kill $(VITE_PORT).kill
 
 # usage: $(call start_ollama,command,port,url_port)
 # the export cannot be inside the if statement
@@ -105,11 +122,10 @@ endef
 # 0.0.0.0 means it will serve remote openwebui clients
 # https://github.com/ollama/ollama/blob/main/docs/faq.md
 # note must be lower than 64K
-OLLAMA_PORT ?=11434
 .PHONY: ollama
 ollama:
-	$(call start_ollama,ollama,$(OLLAMA_PORT),127.0.0.1:$(OLLAMA_PORT))
-	$(call check_port,$(OLLAMA_PORT))
+	$(call start_ollama,ollama,$(OLLAMA_SERVER_PORT),127.0.0.1:$(OLLAMA_SERVER_PORT))
+	$(call check_port,$(OLLAMA_SERVER_PORT))
 
 # usage $(call start_open-webui,OLLAMA_BASE_URL,data_dir,open_webui_backend port)
 define start_open-webui
@@ -119,8 +135,7 @@ define start_open-webui
 	$(call check_port,$(3))
 endef
 
-OPEN_WEBUI_PORT ?= 8080
-OLLAMA_BASE_URL ?= http://localhost:$(OLLAMA_PORT)
+OLLAMA_BASE_URL ?= http://localhost:$(OLLAMA_SERVER_PORT)
 # if you have your own ollama build
 # the default if you have trouble note the package is open-webui and ps isAmake
 # open_webui with an underscore
@@ -174,30 +189,38 @@ endef
 
 TIKA_VERSION ?= 2.9.2
 TIKA_JAR ?= tika-server-standard-$(TIKA_VERSION).jar
-TIKA_PORT ?= 9998
 ## tika: run the tika server at 9998
 .PHONY: tika
 tika:
 	$(call start_server,9998,java -jar "$$HOME/jar/$(TIKA_JAR)")
 	$(call check_port,9998)
 
+## docling: Alternative to tika for pdf, md, html, csv and images
+# https://docling-project.github.io/docling/usage/supported_formats/#supported-input-formats
+.PHONY: docling
+docling:
+	$(call start_server,$(DOCLING_PORT),docling-serve run --enable-ui --port $(DOCLING_PORT))
+	$(call check_port,$(DOCLING_PORT))
+	@echo "docling at http://locahost:$(DOCLING_PORT)/ui"
+
+
+
 OLLAMA_MODEL ?= $(HOME)/.ollama/models/blobs
-QWENCODER2.5-32B-GGUF ?= sha256-ac3d1ba8aa77755dab3806d9024e9c385ea0d5b412d6bdf9157f8a4a7e9fc0d9
-# find this model in $HOME/.ollama/models/library/manifest and look for sha
-# and insert sha256- in front of the blob number
-LLAMA3.2-3B-GGUF ?= sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da77af9f7ccdff
-#
-# does not work with full skyfall
+# look in the blog list to match this find this model in
+# $HOME/.ollama/models/manifests/registry/<model name> and look for sha of the
+# largest blob and insert sha256- in front of the blob number
+
 PHI4-14B-GGUF ?= sha256-fd7b6731c33c57f61767612f56517460ec2d1e2e5a3f0163e0eb3d8d8cb5df20
-
-# doe not work with Skyfall
-QWEN2.5-14B-GGUF ?= sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54
-
 DEEPSEEK-R1-14B-GGUF ?= sha256-6e9f90f02bb3b39b59e81916e8cfce9deb45aeaeb9a54a5be4414486b907dc1e
-		 # -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-14B-GGUF)" \
 DEEPSEEK-R1-32B-GGUF ?= sha256-6150cb382311b69f09cc0f9a1b69fc029cbd742b66bb8ec531aa5ecf5c613e93
 DEEPSEEK-R1-70B-GGUF ?= sha256-4cd576d9aa16961244012223abf01445567b061f1814b57dfef699e4cf8df339
-
+# llama-server cannot  use Mistral architecture models or Gemma
+MISTRAL-SMALL-3.1-24B-GGUF ?= sha256-1fa8532d986d729117d6b5ac2c884824d0717c9468094554fd1d36412c740cfc
+GEMMA3-27B-GGUF ?= e796792eba26c4d3b04b0ac5adb01a453dd9ec2dfd83b6c59cbf6fe5f30b0f68
+# deprecated with Qwen3
+QWENCODER2.5-32B-GGUF ?= sha256-ac3d1ba8aa77755dab3806d9024e9c385ea0d5b412d6bdf9157f8a4a7e9fc0d9
+QWEN2.5-14B-GGUF ?= sha256-2049f5674b1e92b4463e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54
+LLAMA3.2-3B-GGUF ?= sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da77af9f7ccdff
 
 # system prmpt is deprecated
 # LLAMA_SYSTEM_PROMPT ?= $(WS_DIR)/git/src/res/system-prompt/system-prompt.txt
@@ -218,19 +241,17 @@ define start_llama
 		--verbose-prompt -v --metrics \
 		--flash-attn --split-mode row \
 		--keep -1 \
-		 -m "$(OLLAMA_MODEL)/$(QWEN2.5-14B-GGUF)" \
+		 -m "$(OLLAMA_MODEL)/$(PHI4-14B-GGUF)" \
 		--cache-type-k q8_0 --cache-type-v q8_0 \
 		)
 	$(call check_port,$(1))
 endef
 
 ## llama-server: run llama.cpp server at port 8082 (default is 8080) with qwen
-LLAMA_PORT ?= 8082
 .PHONY: llama-server
 llama-server:
-	$(call start_llama,$(LLAMA_PORT))
+	$(call start_llama,$(LLAMA_SERVER_PORT))
 
-COMFY_PORT ?= 8000
 ## comfy: Start ComfyUI Desktop
 # this seems to fail unless given more time
 .PHONY: comfy
@@ -242,13 +263,11 @@ comfy:
 QWEN2.5-14B-MLX ?= models--mlx-community--Qwen2.5-Coder-14B-Instruct-abliterated-4bit
 DEEPSEEK-R1-DISTILL-LLAMA-70B-4bit ?= models--mlx-community--DeepSeek-R1-Distill-Llama-70B-4bit
 HF_HUB_CACHE ?= $(HOME)/.cache/huggingface/hub
-MLX_PORT ?= 9000
 .PHONY: mlx
 mlx:
 	$(call start_server,$(MLX_PORT),mlx_lm.server --port $(MLX_PORT))
 
 MCPO_CONFIG ?= $(WS_DIR)/git/src/lib/claude-desktop.json
-MCPO_PORT ?= 8000
 ## mcpo: allow openAPI/Swagger REST API called to MCP Servers from claude-desktop.json
 ## see https://github.com/punkpeye/awesome-mcp-servers
 #
