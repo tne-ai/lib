@@ -61,62 +61,65 @@ ai.dev: ollama open-webui.dev code-runner
 
 
 
-## ai.extras: start ai components that need to be git cloned locally
+## ai.tne: start the minial componets to build and debug tne applications
 # does not use run llama-server for llama.cpp 8081
-.PHONY: ai.extras
-ai.extras: ai jupyter pipelines openai-edge-tts mcpo graphai tnegraph grapys
+.PHONY: ai.tne
+ai.tne: ai jupyter mcpo graphai tnegraph grapys code-runner
 # https://stackoverflow.com/questions/59356703/api-passing-bearer-token-to-get-http-url
-## open.extras: open in browser
-.PHONY: open.extras
-open.extras: open
+## open.tne: open in browser
+.PHONY: open.tne
+open.tne: open
 	$(call open_server,$(JUPYTER_PORT),/?token=$(JUPYTERLAB_TOKEN))
-	$(call open_server,$(PIPELINES_PORT))
-	@echo token=, access_token=, bearer= does not work
-	$(call open_server,$(OPEN_EDGE_TTS_PORT),/v1/voices/all?access_token=$(OPEN_EDGE_TTS_TOKEN))
 	$(call open_server,$(MCPO_PORT),/docs)
 	$(call open_server,$(GRAPHAI_PORT),/v1/models)
 	$(call open_server,$(TNEGRAPH_PORT),/v1/models)
 	$(call open_server,$(GRAPYS_PORT))
 
-## ps.extras : open the ai and all the extras
-.PHONY: ps.extras
-ps.extras: ps jupyter.ps pipelines.ps open-edge-tts.ps mcpo.ps tnegraph.ps grapys.ps
+## ps.tne : open the ai and all the extras
+.PHONY: ps.tne
+ps.tne: ps jupyter.ps mcpo.ps graphai.ps tnegraph.ps grapys.ps code-runner.ps
 
-## kill.extras: kill ai and all the extra s
-.PHONY: kill.extras
-kill.extras: kill orion.kill code-runner.kill \
+## kill.tne: kill ai and all the extra s
+.PHONY: kill.tne
+kill.tne: kill orion.kill code-runner.kill \
 	jupyter.kill $(JUPYTER_PORT).kill \
-	openai-edge-tts.kill $(OPEN_EDGE_TTS_PORT).kill \
 	mcpo.kill $(MCPO_PORT).kill \
 	graphai.kill $(GRAPHAI_PORT).kill \
-	tnegraph.kill $(TNEGRAPH_PORT).kill \
-	grapys.kill $(GRAPYS_PORT).kill
+	troopship.kill tnegraph.kill $(TNEGRAPH_PORT).kill \
+	grapys.kill $(GRAPYS_PORT).kill \
+	code-runner.kill $(CODE_RUNNER_PORT).kill
 
 
-## ai.all: These are not loaded because they take up lots of ram (eg comfy, mlx, )
+## ai.all: Start if you have lots of ram to run optional Comfy and LLM runners...
 .PHONY: ai.all
-ai.all: ai.extras comfy mlx llama-server exo
+ai.all: ai.tne comfy mlx llama-server exo docling pipelines openai-edge-tts
 
 ## open.all: open the extra ram required servers in browser
 .PHONY: open.all
-open.all: open.extras
+open.all: open.tne
+	# @echo token=, access_token=, bearer= does not work
 	$(call open_server,$(COMFY_PORT),/v1/models)
 	$(call open_server,$(MLX_PORT),/v1/models)
 	$(call open_server,$(LLAMA_SERVER_PORT),/v1/models)
 	$(call open_server,$(EXO_PORT))
+	$(call open_server,$(DOCLING_PORT),/ui)
+	$(call open_server,$(PIPELINES_PORT))
+	$(call open_server,$(OPEN_EDGE_TTS_PORT),/v1/voices/all?access_token=$(OPEN_EDGE_TTS_TOKEN))
 
 
 ## ps.all : open the ai and all the extras and all the other services
 .PHONY: ps.all
-ps.all: ps.extras comfy.ps mlx.ps llama-server.ps exo.ps
+ps.all: ps.tne comfy.ps mlx.ps llama-server.ps exo.ps open-edge-tts.ps docling.ps pipelines.ps
 
 ## kill.all: kill  ai, extras all other services
-kill.all: kill.extras \
+kill.all: kill.tne \
 	comfy.kill $(COMFY_PORT).kill \
-	edge-tts.kill $(EDGE_TTS_PORT).kill \
 	mlx.kill $(MLX_PORT).kill \
 	llama-server.kill $(LLAMA_SERVER_PORT).kill \
-	exo.kill $(EXO_PORT).kill
+	exo.kill $(EXO_PORT).kill \
+	openai-edge-tts.kill $(OPEN_EDGE_TTS_PORT).kill \
+	docling.kill $(DOCLING_PORT).kill \
+	pipelines.kill $(PIPELINES_PORT).kill
 
 # if ou have your own private version
 ## ollama.res: runs private version on 21434 (deprecated with 0.5.5)
@@ -146,9 +149,7 @@ graphai:
 # grapys: GraphAI EDitor
 .PHONY: grapys
 grapys:
-	$(call start_server,$(GRAPYS_PORT),cd "$(WS_DIR)/git/src/sys/grapysi" && PORT=$(GRAPYS_PORT) make run)
-
-
+	$(call start_server,$(GRAPYS_PORT),cd "$(WS_DIR)/git/src/sys/grapys" && PORT=$(GRAPYS_PORT) make run)
 
 # tnegraph: TNE.ai GraphAI OpenAI API Compatible Server
 .PHONY: tnegraph

@@ -80,9 +80,9 @@ ai.install:
 %.kill:
 	-if ! pkill -f $*; then echo "no $*"; fi
 
-## ai: start all packaged ollama and open-webui
+## ai: start minimal ai debug set
 .PHONY: ai
-ai: ollama open-webui tika docling
+ai: ollama open-webui tika
 
 ## open: open ai ports ports ollama:11434, open-webui:8080
 .PHONY: open
@@ -90,11 +90,10 @@ open:
 	$(call open_server,$(OPEN_WEBUI_PORT))
 	$(call open_server,$(OLLAMA_SERVER_PORT),/api/tags)
 	$(call open_server,$(TIKA_PORT))
-	$(call open_server,$(DOCLING_PORT),/ui)
 
 ## ps: process status of all ai processes
 .PHONY: ps
-ps: ollama.ps open_webui.ps tika.ps docling.ps
+ps: ollama.ps open_webui.ps tika.ps
 	-ollama ps
 
 ## kill: kill all ai all ai servers
@@ -105,7 +104,6 @@ ps: ollama.ps open_webui.ps tika.ps docling.ps
 kill: ollama.kill $(OLLAMA_SERVER_PORT).kill \
 	open_webui.kill open-webui.kill $(OPEN_WEBUI_PORT).kill \
 	tika.kill $(TIKA_PORT).kill \
-	docling.kill $(DOCLING_PORT).kill \
 	vite.kill $(VITE_PORT).kill
 
 # usage: $(call start_ollama,command,port,url_port)
@@ -267,10 +265,12 @@ HF_HUB_CACHE ?= $(HOME)/.cache/huggingface/hub
 mlx:
 	$(call start_server,$(MLX_PORT),mlx_lm.server --port $(MLX_PORT))
 
-MCPO_CONFIG ?= $(WS_DIR)/git/src/lib/claude-desktop.json
+MCPO_CONFIG ?= $(HOME)/.config/mcp/claude-desktop.json
+# set default if not set outside
+MCPO_API_KEY ?= secret_mcpo_api_key
 ## mcpo: allow openAPI/Swagger REST API called to MCP Servers from claude-desktop.json
 ## see https://github.com/punkpeye/awesome-mcp-servers
 #
 .PHONY: mcpo
 mcpo:
-	$(call start_server,$(MCPO_PORT),mcpo --port "$(MCPO_PORT)" --config "$(MCPO_CONFIG)")
+	$(call start_server,$(MCPO_PORT),mcpo --port "$(MCPO_PORT)" --api-key "$(MCPO_API_KEY)" --config "$(MCPO_CONFIG)")
