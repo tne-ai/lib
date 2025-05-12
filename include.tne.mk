@@ -80,11 +80,13 @@ open.tne: open
 ps.tne: ps jupyter.ps mcpo.ps graphai.ps tnegraph.ps grapys.ps code-runner.ps
 
 ## kill.tne: kill ai and all the extra s
+# use different names as mathcing of strings does not always work
+# mcpo needs a -9 not just a SIGTERM
 .PHONY: kill.tne
 kill.tne: kill orion.kill code-runner.kill \
 	jupyter.kill $(JUPYTER_PORT).kill \
-	mcpo.kill $(MCPO_PORT).kill \
-	graphai.kill $(GRAPHAI_PORT).kill \
+	mcpo.kill mcp.kill $(MCPO_PORT).kill \
+	graphai.kill $(GRAPHAI_PORT).kill express.kill \
 	troopship.kill tnegraph.kill $(TNEGRAPH_PORT).kill \
 	grapys.kill $(GRAPYS_PORT).kill \
 	code-runner.kill $(CODE_RUNNER_PORT).kill

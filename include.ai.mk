@@ -75,10 +75,31 @@ ai.install:
 # ignore with a dash in gnu make so || true isn't needed but there in case
 # https://www.gnu.org/software/make/manual/make.html#Errors
 # -f means find anywhere in the argument field
+#  https://www.stackstate.com/blog/sigkill-vs-sigterm-a-developers-guide-to-process-termination/
+#  Send SIGTERM 15 and wait 10 seconds then SIGKILL 9
 ## %.kill : [ollama | open-web | ngrok | ... ].kill the % running p$rocess
-	# -pkill -f "$*" || true
+# if a pkill does not work,  on stderr you can get a "Signal 15 ignored"
+# If this happens, then you need to do a kill -9
+# the bug is that in doing a pgrep, it will find the search process itself as
+# Make generates a new sheell
+# https://stackoverflow.com/questions/49040992/pgrep-returning-true-in-makefile-but-not-in-shell
+# note that you have to use the pipe because otherwise it will see the $$ in the
+# bash line
+# also the make itself may be there an give a false positive
+	# echo hello
+	# which pgrep
+	# if ! pgrep -fl ollama; then echo "no ollama"; else echo "found ollama"; fi
+	# if ! pgrep -fl ollama; then echo "no ollama"; else echo pkill -f ollama; fi
+	# if grep -q "^$$$$" <<<"$$(pgrep -f ollama)"; then echo "no ollama"; else pkill -f ollama; fi
+	# if grep -q "^$$$$" <<<"$$(pgrep -f ollama)"; then echo "no ollama"; else pkill -f ollama; fi
+foo:
+	pgrep -fl ollama
+	grep -q "^$$$$" <<<"$$(pgrep -f ollama)"
+
+# pkill -f $* 2>/dev/null || echo "no $*"
 %.kill:
-	-if ! pkill -f $*; then echo "no $*"; fi
+	echo "i am $$$$"; pgrep -fl $*
+	echo "i am $$$$"; if grep -v "^$$$$" <<<"$$(pgrep -fl $*)"; then echo "no $*"; else echo pkill -f $*; fi
 
 ## ai: start minimal ai debug set
 .PHONY: ai
@@ -91,7 +112,7 @@ open:
 	$(call open_server,$(OLLAMA_SERVER_PORT),/api/tags)
 	$(call open_server,$(TIKA_PORT))
 
-## ps: process status of all ai processes
+## ps: process status of all ai processe
 .PHONY: ps
 ps: ollama.ps open_webui.ps tika.ps
 	-ollama ps
