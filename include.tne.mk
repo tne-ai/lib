@@ -61,29 +61,30 @@ ai.dev: ollama open-webui.dev code-runner
 
 
 
-## ai.tne: start the minial componets to build and debug tne applications
+## start.tne: start the minial componets to build and debug tne applications
 # does not use run llama-server for llama.cpp 8081
-.PHONY: ai.tne
-ai.tne: ai jupyter mcpo graphai tnegraph grapys code-runner
+.PHONY: tne
+tne: ai jupyter mcpo graphai tnegraph grapys
 # https://stackoverflow.com/questions/59356703/api-passing-bearer-token-to-get-http-url
-## open.tne: open in browser
-.PHONY: open.tne
-open.tne: open
+
+## tne-open: open in browser
+.PHONY: tne-open
+tne-open: open-ai
 	$(call open_server,$(JUPYTER_PORT),/?token=$(JUPYTERLAB_TOKEN))
 	$(call open_server,$(MCPO_PORT),/docs)
 	$(call open_server,$(GRAPHAI_PORT),/v1/models)
 	$(call open_server,$(TNEGRAPH_PORT),/v1/models)
 	$(call open_server,$(GRAPYS_PORT))
 
-## ps.tne : open the ai and all the extras
-.PHONY: ps.tne
-ps.tne: ps jupyter.ps mcpo.ps graphai.ps tnegraph.ps grapys.ps code-runner.ps
+## tne-ps : open the ai and all the extras
+.PHONY: tne-ps
+tne-ps: ai-ps jupyter.ps mcpo.ps graphai.ps tnegraph.ps grapys.ps
 
 ## kill.tne: kill ai and all the extra s
 # use different names as mathcing of strings does not always work
 # mcpo needs a -9 not just a SIGTERM
-.PHONY: kill.tne
-kill.tne: kill orion.kill code-runner.kill \
+.PHONY: tne-kill
+tne-kill: ai-kill orion.kill code-runner.kill \
 	jupyter.kill $(JUPYTER_PORT).kill \
 	mcpo.kill mcp.kill $(MCPO_PORT).kill \
 	graphai.kill $(GRAPHAI_PORT).kill express.kill \
@@ -92,13 +93,13 @@ kill.tne: kill orion.kill code-runner.kill \
 	code-runner.kill $(CODE_RUNNER_PORT).kill
 
 
-## ai.all: Start if you have lots of ram to run optional Comfy and LLM runners...
-.PHONY: ai.all
-ai.all: ai.tne comfy mlx llama-server exo docling pipelines openai-edge-tts
+## all: Start if you have lots of ram to run optional Comfy and LLM runners...
+.PHONY: all
+all: tne comfy mlx llama-server exo docling pipelines openai-edge-tts
 
 ## open.all: open the extra ram required servers in browser
-.PHONY: open.all
-open.all: open.tne
+.PHONY: all-open
+all-open: tne-open
 	# @echo token=, access_token=, bearer= does not work
 	$(call open_server,$(COMFY_PORT),/v1/models)
 	$(call open_server,$(MLX_PORT),/v1/models)
@@ -109,12 +110,12 @@ open.all: open.tne
 	$(call open_server,$(OPEN_EDGE_TTS_PORT),/v1/voices/all?access_token=$(OPEN_EDGE_TTS_TOKEN))
 
 
-## ps.all : open the ai and all the extras and all the other services
-.PHONY: ps.all
-ps.all: ps.tne comfy.ps mlx.ps llama-server.ps exo.ps open-edge-tts.ps docling.ps pipelines.ps
+## all-ps : open the ai and all the extras and all the other services
+.PHONY: all-ps
+all-ps: ps.tne comfy.ps mlx.ps llama-server.ps exo.ps open-edge-tts.ps docling.ps pipelines.ps
 
-## kill.all: kill  ai, extras all other services
-kill.all: kill.tne \
+## all-kill: kill  ai, extras all other services
+all-kill-all: tne-kill \
 	comfy.kill $(COMFY_PORT).kill \
 	mlx.kill $(MLX_PORT).kill \
 	llama-server.kill $(LLAMA_SERVER_PORT).kill \
@@ -242,6 +243,7 @@ open-webui.dev.backend:
 	sleep 5
 	$(call start_open-webui_src_backend,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_DEV_DIR),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_DEV_BACKEND_PORT))
 
+# port conflicts with open-webui do not use
 CODE_RUNNER_DIR ?= $(WS_DIR)/git/src/sys/troopship/code-runner
 ## code-runner: Dev code-runner on port CODE_RUNNER_PORT
 .PHONY: code-runner

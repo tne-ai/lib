@@ -69,7 +69,7 @@ ai.install:
 ## %.ps: [ ollama | open-webui | ... ].ps process status
 	# @-pgrep -fL "$*"
 %.ps:
-	@-if ! pgrep -fL "$*"; then echo "$*"; fi
+	if ! pgrep -fl $*; then echo $*; fi
 
 ## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
@@ -86,43 +86,55 @@ ai.install:
 # note that you have to use the pipe because otherwise it will see the $$ in the
 # bash line
 # also the make itself may be there an give a false positive
-	# echo hello
-	# which pgrep
-	# if ! pgrep -fl ollama; then echo "no ollama"; else echo "found ollama"; fi
-	# if ! pgrep -fl ollama; then echo "no ollama"; else echo pkill -f ollama; fi
+# echo hello
+# which pgrep
+# if ! pgrep -fl ollama; then echo "no ollama"; else echo "found ollama"; fi
+# if ! pgrep -fl ollama; then echo "no ollama"; else echo pkill -f ollama; fi
+# if grep -q "^$$$$" <<<"$$(pgrep -f ollama)"; then echo "no ollama"; else pkill -f ollama; fi
 	# if grep -q "^$$$$" <<<"$$(pgrep -f ollama)"; then echo "no ollama"; else pkill -f ollama; fi
-	# if grep -q "^$$$$" <<<"$$(pgrep -f ollama)"; then echo "no ollama"; else pkill -f ollama; fi
+	# if pgrep -fl %*; then pkill -l $*; fi
+	# grep -q "^$$$$" <<<"$$(pgrep -f ollama)"
+	# if grep -v "^$$$$" <<<"$$(pgrep -fl ollama)"; then echo "no foo"; else echo pkill -f $*; fi
+	# There is always going to be the current process in addition to anything
+	# running
+	#
 foo:
-	pgrep -fl ollama
-	grep -q "^$$$$" <<<"$$(pgrep -f ollama)"
+	@pgrep -fl ollama || true
+	@pgrep -fl ollama | wc -l
+	@if (( $$(pgrep -fl ollama | wc -l) >  1 )); \
+		then \
+			echo ollama;  \
+			pkill -f ollama \
+		; else echo \
+			no ollama \
+	; fi
 
-# pkill -f $* 2>/dev/null || echo "no $*"
+# kill -f $* 2>/dev/null || echo "no $*"
+# if grep -v "^$$$$" <<<"$$(pgrep -fl $*)"; then echo "no $*"; else echo pkill -f $*; fi
 %.kill:
-	echo "i am $$$$"; pgrep -fl $*
-	echo "i am $$$$"; if grep -v "^$$$$" <<<"$$(pgrep -fl $*)"; then echo "no $*"; else echo pkill -f $*; fi
+	if (( $$(pgrep -fl $* | wc -l) > 1 )) && ! pkill -f $*; then echo pkill error; fi
 
 ## ai: start minimal ai debug set
 .PHONY: ai
 ai: ollama open-webui tika
 
-## open: open ai ports ports ollama:11434, open-webui:8080
-.PHONY: open
-open:
+## ai-open: open ai ports ports ollama:11434, open-webui:8080
+.PHONY: ai-open
+ai-open:
 	$(call open_server,$(OPEN_WEBUI_PORT))
 	$(call open_server,$(OLLAMA_SERVER_PORT),/api/tags)
 	$(call open_server,$(TIKA_PORT))
 
-## ps: process status of all ai processe
-.PHONY: ps
-ps: ollama.ps open_webui.ps tika.ps
+## ai-ps: process status of all ai processe
+.PHONY: ai-ps
+ai-ps: ollama.ps open_webui.ps tika.ps
 	-ollama ps
 
-## kill: kill all ai all ai servers
 # open-webui exists in pip packages, open_webui in builds from source
 # 9099 is pipelines
-.PHONY: kill
-
-kill: ollama.kill $(OLLAMA_SERVER_PORT).kill \
+## ai-kill: kill all ai all ai servers
+.PHONY: ai-kill
+ai-kill: ollama.kill $(OLLAMA_SERVER_PORT).kill \
 	open_webui.kill open-webui.kill $(OPEN_WEBUI_PORT).kill \
 	tika.kill $(TIKA_PORT).kill \
 	vite.kill $(VITE_PORT).kill
