@@ -111,8 +111,18 @@ foo:
 
 # kill -f $* 2>/dev/null || echo "no $*"
 # if grep -v "^$$$$" <<<"$$(pgrep -fl $*)"; then echo "no $*"; else echo pkill -f $*; fi
+# note some need a hard kill -9 SIGKILL while this only gives a -15 SIGTERM
+# so after a pkill we wait 5 an$d
+# if (( $$(pgrep -fl $* | wc -l) > 1 )) && ! pkill -f $*; then
+#
+grep-kill = (( $$(pgrep -fl $* | wc -l) > 1 )) && ! pkill $2 -f $1
+
 %.kill:
-	if (( $$(pgrep -fl $* | wc -l) > 1 )) && ! pkill -f $*; then echo pkill error; fi
+	if $(call grep-kill,$*); then echo pkill error; else sleep 2 && \
+			if $(call grep-kill,$*,-9); then \
+				echo pkill -9 error \
+			; fi \
+	; fi &
 
 ## ai: start minimal ai debug set
 .PHONY: ai

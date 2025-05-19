@@ -80,7 +80,7 @@ tne-open: open-ai
 .PHONY: tne-ps
 tne-ps: ai-ps jupyter.ps mcpo.ps graphai.ps tnegraph.ps grapys.ps
 
-## kill.tne: kill ai and all the extra s
+## tne-kill: kill ai and all the extra s
 # use different names as mathcing of strings does not always work
 # mcpo needs a -9 not just a SIGTERM
 .PHONY: tne-kill
@@ -115,7 +115,8 @@ all-open: tne-open
 all-ps: ps.tne comfy.ps mlx.ps llama-server.ps exo.ps open-edge-tts.ps docling.ps pipelines.ps
 
 ## all-kill: kill  ai, extras all other services
-all-kill-all: tne-kill \
+.PHONY: all-kill
+all-kill: tne-kill \
 	comfy.kill $(COMFY_PORT).kill \
 	mlx.kill $(MLX_PORT).kill \
 	llama-server.kill $(LLAMA_SERVER_PORT).kill \
