@@ -64,12 +64,12 @@ ai.dev: ollama open-webui.dev code-runner
 ## start.tne: start the minial componets to build and debug tne applications
 # does not use run llama-server for llama.cpp 8081
 .PHONY: tne
-tne: ai jupyter mcpo graphai tnegraph grapys
+tne: ai jupyter mcpo graphai tnegraph grapys anemll
 # https://stackoverflow.com/questions/59356703/api-passing-bearer-token-to-get-http-url
 
 ## tne-open: open in browser
 .PHONY: tne-open
-tne-open: open-ai
+tne-open: ai-open
 	$(call open_server,$(JUPYTER_PORT),/?token=$(JUPYTERLAB_TOKEN))
 	$(call open_server,$(MCPO_PORT),/docs)
 	$(call open_server,$(GRAPHAI_PORT),/v1/models)
@@ -143,6 +143,13 @@ ollama.res:
 ollama.dev:
 	cd "$(WS_DIR)/git/src/sys/ollama" && \
 	$(call start_ollama,go run .,$(OLLAMA_PORT_DEV),127.0.0.1:$(OLLAMA_PORT_DEV))
+
+ANEMLL_PORT ?= 8400
+## anemll: Start the AneMLL server that runs on the Apple Neural Engine default 8400
+.PHONY: anemll
+anemll:
+	cd "$(WS_DIR)/git/src/res/anemll-server" && \
+	$(call start_server,$(ANEMLL_PORT),uv run make run)
 
 
 # graphai: GraphAI OpenAI API Compatible Server

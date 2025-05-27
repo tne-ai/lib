@@ -153,8 +153,13 @@ ai-kill: ollama.kill $(OLLAMA_SERVER_PORT).kill \
 # the export cannot be inside the if statement
 # Note ollama takes a little time to start
 # Add OLLAMA_DEBUG=1 if there are problems
+OLLAMA_CONTEXT_LENGTH ?= 131072
+OLLAMA_FLASH_ATTENTION ?= 1
+OLLAMA_KV_CACHE_TYPE ?= q4_0
 define start_ollama
-	$(call start_server,$(2),OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 $(1) serve)
+	$(call start_server,$(2),OLLAMA_CONTEXT_LENGTH=$(OLLAMA_CONTEXT_LENGTH) \
+		OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=$(OLLAMA_FLASH_ATTENTION) \
+		OLLAMA_KV_CACHE_TYPE=$(OLLAMA_KV_CACHE_TYPE) $(1) serve)
 	$(call check_port,$(2))
 	OLLAMA_HOST="$(3)" ollama run llama3.2:1b "hello how are you?"
 endef
@@ -163,6 +168,7 @@ endef
 # 0.0.0.0 means it will serve remote openwebui clients
 # https://github.com/ollama/ollama/blob/main/docs/faq.md
 # note must be lower than 64K
+# set the default context high for coding apps
 .PHONY: ollama
 ollama:
 	$(call start_ollama,ollama,$(OLLAMA_SERVER_PORT),127.0.0.1:$(OLLAMA_SERVER_PORT))
@@ -175,6 +181,11 @@ define start_open-webui
 	-export OLLAMA_BASE_URL="$(1)" DATA_DIR="$(2)" && $(call start_server,$(3),open-webui,serve --port $(3))
 	$(call check_port,$(3))
 endef
+
+## ollama-ls: List models by size
+.PHONY: ollama-ls
+ollama-ls:
+	ollama ls | sort -k3 -hr
 
 OLLAMA_BASE_URL ?= http://localhost:$(OLLAMA_SERVER_PORT)
 # if you have your own ollama build

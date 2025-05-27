@@ -182,7 +182,27 @@ if eval "[[ ! -v $lib_name ]]"; then
 		fi
 		return 1
 	}
-	# Mac App Store
+
+	# code_install [extensions] for vscode and vscodium
+	code_install() {
+		local editor
+		# look for vscode based editors
+		for editor in code codium cursor; do
+			if command -v "$editor" >/dev/null; then
+				editors+=("$editor")
+			fi
+		done
+		for editor in "${editors[@]}"; do
+			installed="($editor --list-extensions)"
+			for ext in "${VSCODE[@]}"; do
+				if [[ ! $installed =~ $ext ]]; then
+					"$editor" --install-extension "$ext"
+				fi
+			done
+		done
+	}
+
+	# Mac App Store appears to be broken as of Sequoia
 	# you will get warnings if already installed but continues
 	mas_install() {
 		if ! command -v mas &>/dev/null; then return 1; fi
