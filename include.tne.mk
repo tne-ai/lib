@@ -144,6 +144,14 @@ ollama.dev:
 	cd "$(WS_DIR)/git/src/sys/ollama" && \
 	$(call start_ollama,go run .,$(OLLAMA_PORT_DEV),127.0.0.1:$(OLLAMA_PORT_DEV))
 
+
+QDRANT_PORT ?= 6333
+## qdrant: Vector database for Roo Cline (use with Ollmaa)
+.PHONY: qdrant
+qdrant:
+	cd "$(WS_DIR)/git/src/sys/qdrant" && \
+	$(call start_server,$(QDRANT_PORT),make run)
+
 ANEMLL_PORT ?= 8400
 ## anemll: Start the AneMLL server that runs on the Apple Neural Engine default 8400
 .PHONY: anemll
