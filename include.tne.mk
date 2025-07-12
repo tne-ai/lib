@@ -31,6 +31,9 @@ NGROK_DEV_PORT ?= 5174
 NGROK_PORT ?= 8080
 # port for experimental builds
 NGROK_RESEARCH_PORT ?= 28080
+QDRANT_PORT ?= 6333
+ANEMLL_PORT ?= 8400
+MCPO_PORT ?= 8001
 
 ## auth0-id: what is your auth0 id for your $(STUDIO_EMAIL)
 # note that the shell is evaluated before the target even starts so you need
@@ -64,7 +67,7 @@ ai.dev: ollama open-webui.dev code-runner
 ## start.tne: start the minial componets to build and debug tne applications
 # does not use run llama-server for llama.cpp 8081
 .PHONY: tne
-tne: ai jupyter mcpo graphai tnegraph grapys anemll
+tne: ai jupyter mcpo pipelines comfy openai-edge-tts docling qdrant
 # https://stackoverflow.com/questions/59356703/api-passing-bearer-token-to-get-http-url
 
 ## tne-open: open in browser
@@ -72,58 +75,62 @@ tne: ai jupyter mcpo graphai tnegraph grapys anemll
 tne-open: ai-open
 	$(call open_server,$(JUPYTER_PORT),/?token=$(JUPYTERLAB_TOKEN))
 	$(call open_server,$(MCPO_PORT),/docs)
-	$(call open_server,$(GRAPHAI_PORT),/v1/models)
-	$(call open_server,$(TNEGRAPH_PORT),/v1/models)
-	$(call open_server,$(GRAPYS_PORT))
+	$(call open_server,$(PIPELINES_PORT))
+	$(call open_server,$(COMFY_PORT),/v1/models)
+	$(call open_server,$(OPEN_EDGE_TTS_PORT),/v1/voices/all?access_token=$(OPEN_EDGE_TTS_TOKEN))
+	$(call open_server,$(DOCLING_PORT),/ui)
+	$(call open_server,$(QDRANT_PORT))
 
 ## tne-ps : open the ai and all the extras
 .PHONY: tne-ps
-tne-ps: ai-ps jupyter.ps mcpo.ps graphai.ps tnegraph.ps grapys.ps
+tne-ps: ai-ps jupyter.ps mcpo.ps pipelines.ps comfy.ps open-edge-tts.ps docling.ps qdrant.ps
 
 ## tne-kill: kill ai and all the extra s
 # use different names as mathcing of strings does not always work
 # mcpo needs a -9 not just a SIGTERM
 .PHONY: tne-kill
-tne-kill: ai-kill orion.kill code-runner.kill \
+tne-kill: ai-kill \
 	jupyter.kill $(JUPYTER_PORT).kill \
 	mcpo.kill mcp.kill $(MCPO_PORT).kill \
-	graphai.kill $(GRAPHAI_PORT).kill express.kill \
-	troopship.kill tnegraph.kill $(TNEGRAPH_PORT).kill \
-	grapys.kill $(GRAPYS_PORT).kill \
-	code-runner.kill $(CODE_RUNNER_PORT).kill
+	pipelines.kill $(PIPELINES_PORT).kill \
+	comfy.kill $(COMFY_PORT).kill \
+	openai-edge-tts.kill $(OPEN_EDGE_TTS_PORT).kill \
+	docling.kill $(DOCLING_PORT).kill \
+	qdrant.kill $(QDRANT_PORT).kill
 
 
 ## all: Start if you have lots of ram to run optional Comfy and LLM runners...
 .PHONY: all
-all: tne comfy mlx llama-server exo docling pipelines openai-edge-tts
+all: tne graphai tnegraph mlx llama-server exo grapys anemll qdrant
 
 ## open.all: open the extra ram required servers in browser
 .PHONY: all-open
 all-open: tne-open
 	# @echo token=, access_token=, bearer= does not work
-	$(call open_server,$(COMFY_PORT),/v1/models)
+	$(call open_server,$(GRAPHAI_PORT),/v1/models)
+	$(call open_server,$(TNEGRAPH_PORT),/v1/models)
 	$(call open_server,$(MLX_PORT),/v1/models)
 	$(call open_server,$(LLAMA_SERVER_PORT),/v1/models)
 	$(call open_server,$(EXO_PORT))
-	$(call open_server,$(DOCLING_PORT),/ui)
-	$(call open_server,$(PIPELINES_PORT))
-	$(call open_server,$(OPEN_EDGE_TTS_PORT),/v1/voices/all?access_token=$(OPEN_EDGE_TTS_TOKEN))
+	$(call open_server,$(GRAPYS_PORT))
+	$(call open_server,$(ANEMLL_PORT))
 
 
 ## all-ps : open the ai and all the extras and all the other services
 .PHONY: all-ps
-all-ps: ps.tne comfy.ps mlx.ps llama-server.ps exo.ps open-edge-tts.ps docling.ps pipelines.ps
+all-ps: ps.tne mlx.ps llama-server.ps exo.ps graphai.ps tnegraph.ps grapys.ps anemll.ps
 
 ## all-kill: kill  ai, extras all other services
 .PHONY: all-kill
 all-kill: tne-kill \
-	comfy.kill $(COMFY_PORT).kill \
 	mlx.kill $(MLX_PORT).kill \
 	llama-server.kill $(LLAMA_SERVER_PORT).kill \
 	exo.kill $(EXO_PORT).kill \
-	openai-edge-tts.kill $(OPEN_EDGE_TTS_PORT).kill \
-	docling.kill $(DOCLING_PORT).kill \
-	pipelines.kill $(PIPELINES_PORT).kill
+	graphai.kill $(GRAPHAI_PORT).kill express.kill \
+	troopship.kill tnegraph.kill $(TNEGRAPH_PORT).kill \
+	grapys.kill $(GRAPYS_PORT).kill \
+	code-runner.kill $(CODE_RUNNER_PORT).kill \
+	anemll.kill $(ANEMLL_PORT).kill \
 
 # if ou have your own private version
 ## ollama.res: runs private version on 21434 (deprecated with 0.5.5)
@@ -145,14 +152,12 @@ ollama.dev:
 	$(call start_ollama,go run .,$(OLLAMA_PORT_DEV),127.0.0.1:$(OLLAMA_PORT_DEV))
 
 
-QDRANT_PORT ?= 6333
 ## qdrant: Vector database for Roo Cline (use with Ollmaa)
 .PHONY: qdrant
 qdrant:
 	cd "$(WS_DIR)/git/src/sys/qdrant" && \
 	$(call start_server,$(QDRANT_PORT),make run)
 
-ANEMLL_PORT ?= 8400
 ## anemll: Start the AneMLL server that runs on the Apple Neural Engine default 8400
 .PHONY: anemll
 anemll:

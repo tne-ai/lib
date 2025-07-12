@@ -404,7 +404,7 @@ config_lines_to_line() {
 # and returns the state of the file.
 # if the file dopes not exist we create all the parent directories and then the
 # file
-# usage: config__mark -f [file [ comment-prefix [ marker ]]]
+# usage: config__mark -f [file [ comment-prefix [ comment-postfix [ marker ]]]]
 # -f means force a new marker
 # returns: 0 if marker was found
 #          1 no marker found so we added and this is a fresh file
@@ -416,14 +416,15 @@ config_mark() {
 	fi
 	local file=${1:-"$(config_profile)"}
 	local comment_prefix="${2:-"#"}"
-	local marker="${3:-"Added by $SCRIPTNAME"}"
+	local comment_postfix="${3:-""}"
+	local marker="${4:-"Added by $SCRIPTNAME"}"
 
 	config_touch "$file"
 	# need the -- incase the comment_prefix has a leading -
 	if ${force:-false} || ! grep -q -- "$comment_prefix $marker" "$file"; then
 		# do not quote config_sudo because it can return null
 		# https://stackoverflow.com/questions/3005963/how-can-i-have-a-newline-in-a-string-in-sh
-		$(config_sudo "$file") tee -a "$file" <<<$'\n'"$comment_prefix $marker on $(date)" >/dev/null
+		$(config_sudo "$file") tee -a "$file" <<<$'\n'"$comment_prefix $marker on $(date) $comment_postfix" >/dev/null
 		return 1
 	fi
 }

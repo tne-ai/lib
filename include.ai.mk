@@ -120,7 +120,7 @@ grep-kill = (( $$(pgrep -fl $* | wc -l) > 1 )) && ! pkill $2 -f $1
 %.kill:
 	if $(call grep-kill,$*); then echo pkill error; else sleep 2 && \
 			if $(call grep-kill,$*,-9); then \
-				echo pkill -9 error \
+				echo pkill -9 $* error \
 			; fi \
 	; fi &
 
@@ -161,7 +161,7 @@ define start_ollama
 		OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=$(OLLAMA_FLASH_ATTENTION) \
 		OLLAMA_KV_CACHE_TYPE=$(OLLAMA_KV_CACHE_TYPE) $(1) serve)
 	$(call check_port,$(2))
-	OLLAMA_HOST="$(3)" ollama run llama3.2:1b "hello how are you?"
+	OLLAMA_HOST="$(3)" ollama run qwen3:4b-Q4_K_M "hello how are you?"
 endef
 ## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
 # https://docs.openwebui.com/troubleshooting/connection-error/

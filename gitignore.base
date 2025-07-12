@@ -114,3 +114,44 @@ venv/
 wheels/
 yarn-debug.log*
 yarn-error.log*
+.DS_store
+.sconsign.dblite
+*.cache
+*.bak
+*~
+*.swp
+
+# no big files
+*.zip
+*.exe
+
+# sublime excludes
+*.sublime-project
+sublime-workspace
+
+# scons excludes
+*cscope*
+/scons.err
+/scons.log
+
+# python related
+*.pyc
+__pycache__
+.ipynb_checkpoints/
+.local/
+.cache/
+.ipython/
+.jupyter/
+.virtual_documents/
+
+# for python virtual environments
+venv/
+
+# Local Netlify folder
+.netlify
+
+# Mkdocs site output
+site/
+
+# Nodes folders
+node_modules
