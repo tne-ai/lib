@@ -91,7 +91,7 @@ tne-ps: ai-ps jupyter.ps mcpo.ps pipelines.ps comfy.ps open-edge-tts.ps docling.
 .PHONY: tne-kill
 tne-kill: ai-kill \
 	jupyter.kill $(JUPYTER_PORT).kill \
-	mcpo.kill mcp.kill $(MCPO_PORT).kill \
+	mcp.kill mcpo.kill mcp.kill $(MCPO_PORT).kill \
 	pipelines.kill $(PIPELINES_PORT).kill \
 	comfy.kill $(COMFY_PORT).kill \
 	openai-edge-tts.kill $(OPEN_EDGE_TTS_PORT).kill \

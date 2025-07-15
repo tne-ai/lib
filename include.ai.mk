@@ -114,7 +114,7 @@ foo:
 # note some need a hard kill -9 SIGKILL while this only gives a -15 SIGTERM
 # so after a pkill we wait 5 an$d
 # if (( $$(pgrep -fl $* | wc -l) > 1 )) && ! pkill -f $*; then
-#
+
 grep-kill = (( $$(pgrep -fl $* | wc -l) > 1 )) && ! pkill $2 -f $1
 
 %.kill:
@@ -327,4 +327,4 @@ MCPO_API_KEY ?= secret_mcpo_api_key
 #
 .PHONY: mcpo
 mcpo:
-	$(call start_server,$(MCPO_PORT),mcpo --port "$(MCPO_PORT)" --api-key "$(MCPO_API_KEY)" --config "$(MCPO_CONFIG)")
+	$(call start_server,$(MCPO_PORT),uvx mcpo --port "$(MCPO_PORT)" --api-key "$(MCPO_API_KEY)" --config "$(MCPO_CONFIG)")
