@@ -71,13 +71,11 @@ ai.install:
 %.ps:
 	if ! pgrep -fl $*; then echo $*; fi
 
-## %.kill:
 # ignore with a dash in gnu make so || true isn't needed but there in case
 # https://www.gnu.org/software/make/manual/make.html#Errors
 # -f means find anywhere in the argument field
 #  https://www.stackstate.com/blog/sigkill-vs-sigterm-a-developers-guide-to-process-termination/
 #  Send SIGTERM 15 and wait 10 seconds then SIGKILL 9
-## %.kill : [ollama | open-web | ngrok | ... ].kill the % running p$rocess
 # if a pkill does not work,  on stderr you can get a "Signal 15 ignored"
 # If this happens, then you need to do a kill -9
 # the bug is that in doing a pgrep, it will find the search process itself as
@@ -98,16 +96,6 @@ ai.install:
 	# There is always going to be the current process in addition to anything
 	# running
 	#
-foo:
-	@pgrep -fl ollama || true
-	@pgrep -fl ollama | wc -l
-	@if (( $$(pgrep -fl ollama | wc -l) >  1 )); \
-		then \
-			echo ollama;  \
-			pkill -f ollama \
-		; else echo \
-			no ollama \
-	; fi
 
 # kill -f $* 2>/dev/null || echo "no $*"
 # if grep -v "^$$$$" <<<"$$(pgrep -fl $*)"; then echo "no $*"; else echo pkill -f $*; fi
@@ -115,29 +103,49 @@ foo:
 # so after a pkill we wait 5 an$d
 # if (( $$(pgrep -fl $* | wc -l) > 1 )) && ! pkill -f $*; then
 
+# this is only needed for original pgrep in MacOS
+# the GNU grep does not find itself
 grep-kill = (( $$(pgrep -fl $* | wc -l) > 1 )) && ! pkill $2 -f $1
-
-%.kill:
+old.%.kill:
 	if $(call grep-kill,$*); then echo pkill error; else sleep 2 && \
 			if $(call grep-kill,$*,-9); then \
 				echo pkill -9 $* error \
 			; fi \
 	; fi &
 
+
+# debugging for this one command
+		# echo "found $*:" && pgrep -fl "$*" && \
+		# echo "no make or pgrep" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' || true ;\
+		# echo "pid only" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | cut -f 1 -d ' '  && echo  || true\
+		# echo "kill" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | cut -f 1 -d ' ' | xargs -r kill $$signal || true && sleep 1 \
+## [ollama | open-web | ngrok | ... ].kill the % running process gracefull then -9
+# use grep to look for make or pgrep as the makefile will span this
+# xargs -r means do not run the kill if there are no such processes
+# if grep -vE fails so there are no processes it generates an error so need ||
+# true to mask this as we just want to go on
+# do loop so you first normally terminate and if this doesn't work then kill it
+# run in background as this is slow
+%.kill:
+	for signal in "" "-9"; do \
+		pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | cut -f 1 -d ' ' | xargs -r kill $$signal || true && sleep 5 \
+	; done &
+
+
 ## ai: start minimal ai debug set
 .PHONY: ai
-ai: ollama open-webui tika
+ai: ollama open-webui docling
 
 ## ai-open: open ai ports ports ollama:11434, open-webui:8080
 .PHONY: ai-open
 ai-open:
 	$(call open_server,$(OPEN_WEBUI_PORT))
 	$(call open_server,$(OLLAMA_SERVER_PORT),/api/tags)
-	$(call open_server,$(TIKA_PORT))
+	$(call open_server,$(DOCLING_PORT),/ui)
 
 ## ai-ps: process status of all ai processe
 .PHONY: ai-ps
-ai-ps: ollama.ps open_webui.ps tika.ps
+ai-ps: ollama.ps open_webui.ps docling.ps
 	-ollama ps
 
 # open-webui exists in pip packages, open_webui in builds from source
@@ -146,8 +154,8 @@ ai-ps: ollama.ps open_webui.ps tika.ps
 .PHONY: ai-kill
 ai-kill: ollama.kill $(OLLAMA_SERVER_PORT).kill \
 	open_webui.kill open-webui.kill $(OPEN_WEBUI_PORT).kill \
-	tika.kill $(TIKA_PORT).kill \
-	vite.kill $(VITE_PORT).kill
+	vite.kill $(VITE_PORT).kill \
+	docling.kill $(DOCLING_PORT).kill  docling-serve.kill \
 
 # usage: $(call start_ollama,command,port,url_port)
 # the export cannot be inside the if statement
