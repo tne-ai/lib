@@ -115,21 +115,22 @@ old.%.kill:
 
 
 # debugging for this one command
-		# echo "found $*:" && pgrep -fl "$*" && \
-		# echo "no make or pgrep" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' || true ;\
-		# echo "pid only" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | cut -f 1 -d ' '  && echo  || true\
 		# echo "kill" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | cut -f 1 -d ' ' | xargs -r kill $$signal || true && sleep 1 \
 ## [ollama | open-web | ngrok | ... ].kill the % running process gracefull then -9
+		# echo "found $*:" && pgrep -fl "$*"; \
+		# echo "no make or pgrep" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' || true ; \
 # use grep to look for make or pgrep as the makefile will span this
 # xargs -r means do not run the kill if there are no such processes
 # if grep -vE fails so there are no processes it generates an error so need ||
 # true to mask this as we just want to go on
 # do loop so you first normally terminate and if this doesn't work then kill it
 # run in background as this is slow
+# you cannot use cut for the field because pid can have a space in them
 %.kill:
 	for signal in "" "-9"; do \
-		pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | cut -f 1 -d ' ' | xargs -r kill $$signal || true && sleep 5 \
-	; done &
+		echo "pid only" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | awk '{print $$1}' || true; \
+		echo "$$signal" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | awk '{print $$1}' | xargs -r kill $$signal || true && sleep 5; \
+	done &
 
 
 ## ai: start minimal ai debug set
