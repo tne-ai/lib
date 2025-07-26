@@ -50,7 +50,7 @@ auth0-id:
 
 
 ## ai.res: starts research packages reseaearch
-.PHONY: ai.res
+aPHONY: ai.res
 ai.res: ollama open-webui.res
 
 ## ai.user: start a specific users version
@@ -151,6 +151,10 @@ ollama.dev:
 
 
 ## qdrant: Vector database for Roo Cline (use with Ollmaa)
+# need more max open variables and the double underscores are correct
+# on the Mac the soft limit per process is only 256 so bump it
+# this only applies to the current running process
+	# $(call start_server,$(QDRANT_PORT),ulimit 2048 && QDRANT__STORAGE__ROCKSDB__MAX_OPEN_FILES=2048 make run)
 .PHONY: qdrant
 qdrant:
 	cd "$(WS_DIR)/git/src/sys/qdrant" && \

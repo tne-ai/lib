@@ -13,7 +13,7 @@ fi
 layout go
 layout node
 # Only create a python venv is python is locally installed with asdf cmd direnv set _python _version_
-if [[ -r .tool-versions ]] && grep "^python" .tool-versions; then
+if [[ -r .python-version ]] || [[ -r .tool-versions ]] && grep "^python" .tool-versions; then
 	layout uv
 fi
 
