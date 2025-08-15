@@ -67,7 +67,7 @@ ai.dev: ollama open-webui.dev code-runner
 ## start.tne: start the minial componets to build and debug tne applications
 # does not use run llama-server for llama.cpp 8081
 .PHONY: tne
-tne: ai jupyter mcpo pipelines comfy openai-edge-tts qdrant
+tne: ai jupyter mcpo pipelines comfy openai-edge-tts qdrant docling
 # https://stackoverflow.com/questions/59356703/api-passing-bearer-token-to-get-http-url
 
 ## tne-open: open in browser
@@ -78,11 +78,12 @@ tne-open: ai-open
 	$(call open_server,$(PIPELINES_PORT))
 	$(call open_server,$(COMFY_PORT),/v1/models)
 	$(call open_server,$(OPEN_EDGE_TTS_PORT),/v1/voices/all?access_token=$(OPEN_EDGE_TTS_TOKEN))
-	$(call open_server,$(QDRANT_PORT))
+	$(call open_server,$(QDRANT_PORT),/dashboard)
+	$(call open_server,$(DOCLING_PORT),/ui)
 
 ## tne-ps : open the ai and all the extras
 .PHONY: tne-ps
-tne-ps: ai-ps jupyter.ps mcpo.ps pipelines.ps comfy.ps open-edge-tts.ps .ps qdrant.ps
+tne-ps: ai-ps jupyter.ps mcpo.ps pipelines.ps comfy.ps open-edge-tts.ps .ps qdrant.ps docling.ps
 
 ## tne-kill: kill ai and all the extra s
 # use different names as mathcing of strings does not always work
@@ -94,7 +95,9 @@ tne-kill: ai-kill \
 	pipelines.kill $(PIPELINES_PORT).kill \
 	comfy.kill $(COMFY_PORT).kill \
 	openai-edge-tts.kill $(OPEN_EDGE_TTS_PORT).kill \
-	qdrant.kill $(QDRANT_PORT).kill
+	qdrant.kill $(QDRANT_PORT).kill \
+	docling.kill $(DOCLING_PORT).kill  docling-serve.kill \
+	vite.kill $(VITE_PORT).kill
 
 
 ## all: Start if you have lots of ram to run optional Comfy and LLM runners...

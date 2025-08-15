@@ -135,28 +135,56 @@ old.%.kill:
 
 ## ai: start minimal ai debug set
 .PHONY: ai
-ai: ollama open-webui docling
+ai: ollama open-webui
+
+## ai-max: allocate maximum RAM to the GPU, reduces all other app memory
+.PHONY: ai-max
+ai-max: set-gpu-max-memory ollama open-webui
+
+## set-gpu-max-memory: Set GPU limits
+.PHONY: set-gpu-max-memory
+set-gpu-max-memory:
+	MEMORY="$$(($$(sysctl -n hw.memsize) / 2 ** 30))" && \
+	if ((MEMORY <= 16)); then \
+		MEMORY_SYSTEM="$${MEMORY_SYSTEM:-5}" && \
+		MEMORY_GPU="$${MEMORY_GPU:-2}"; \
+	elif ((MEMORY <= 32)); then \
+		MEMORY_SYSTEM="$${MEMORY_SYSTEM:-6}" && \
+		MEMORY_GPU="$${MEMORY_GPU:-4}"; \
+	elif ((MEMORY <= 64)); then \
+		MEMORY_SYSTEM="$${MEMORY_SYSTEM:-7}" && \
+		MEMORY_GPU="$${MEMORY_GPU:-5}"; \
+	elif ((MEMORY <= 128)); then \
+		MEMORY_SYSTEM="$${MEMORY_SYSTEM:-9}" && \
+		MEMORY_GPU="$${MEMORY_GPU:-9}"; \
+	elif ((MEMORY <= 256)); then \
+		MEMORY_SYSTEM="$${MEMORY_SYSTEM:-10}" && \
+		MEMORY_GPU="$${MEMORY_GPU:-10}"; \
+	else \
+		MEMORY_SYSTEM="$${MEMORY_SYSTEM:-10}" && \
+		MEMORY_GPU="$${MEMORY_GPU:-10}"; \
+	fi &&  \
+	sudo sysctl iogpu.wired_limit_mb=$$(bc -l <<<"($$MEMORY - $$MEMORY_GPU)*1024")
 
 ## ai-open: open ai ports ports ollama:11434, open-webui:8080
 .PHONY: ai-open
 ai-open:
 	$(call open_server,$(OPEN_WEBUI_PORT))
 	$(call open_server,$(OLLAMA_SERVER_PORT),/api/tags)
-	$(call open_server,$(DOCLING_PORT),/ui)
 
 ## ai-ps: process status of all ai processe
 .PHONY: ai-ps
-ai-ps: ollama.ps open_webui.ps docling.ps
+ai-ps: ollama.ps open_webui.ps
 	-ollama ps
 
 # open-webui exists in pip packages, open_webui in builds from source
-# 9099 is pipelines
+# reset the gpu memory limit to the default
 ## ai-kill: kill all ai all ai servers
 .PHONY: ai-kill
 ai-kill: ollama.kill $(OLLAMA_SERVER_PORT).kill \
-	open_webui.kill open-webui.kill $(OPEN_WEBUI_PORT).kill \
-	vite.kill $(VITE_PORT).kill \
-	docling.kill $(DOCLING_PORT).kill  docling-serve.kill \
+	open_webui.kill open-webui.kill $(OPEN_WEBUI_PORT).kill
+		sudo sysctl iogpu.wired_limit_mb=0
+
 
 # usage: $(call start_ollama,command,port,url_port)
 # the export cannot be inside the if statement
@@ -322,11 +350,14 @@ comfy:
 ## mlx: start the MacOS mlx server using huggingface cli download on port 9000
 # assumes you did a download of these
 QWEN2.5-14B-MLX ?= models--mlx-community--Qwen2.5-Coder-14B-Instruct-abliterated-4bit
-DEEPSEEK-R1-DISTILL-LLAMA-70B-4bit ?= models--mlx-community--DeepSeek-R1-Distill-Llama-70B-4bit
+DEEPSEEK-R1-DISTILL-LLAMA-70B-4BIT ?= models--mlx-community--DeepSeek-R1-Distill-Llama-70B-4bit
+GLM-4.5-AIR-4BIT ?= models--mlx-community--GLM-4.5-Air-4bit/snapshots/60837794f3caafc4682dd1a9188a82c55a9100ef
+GLM-4.5-AIR-3BIT ?= models--mlx-community--GLM-4.5-Air-3bit/
+
 HF_HUB_CACHE ?= $(HOME)/.cache/huggingface/hub
 .PHONY: mlx
 mlx:
-	$(call start_server,$(MLX_PORT),mlx_lm.server --port $(MLX_PORT))
+	$(call start_server,$(MLX_PORT),mlx_lm.server --port $(MLX_PORT) --model "$(HF_HUB_CACHE)/$(GLM-4.5-AIR-4BIT)")
 
 MCPO_CONFIG ?= $(HOME)/.config/mcp/claude-desktop.json
 # set default if not set outside
