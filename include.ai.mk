@@ -134,12 +134,13 @@ old.%.kill:
 
 
 ## ai: start minimal ai debug set
+# move to lm-studio backend
 .PHONY: ai
-ai: ollama open-webui
+ai: lms-server open-webui qdrant docling
 
 ## ai-max: allocate maximum RAM to the GPU, reduces all other app memory
 .PHONY: ai-max
-ai-max: set-gpu-max-memory ollama open-webui
+ai-max: set-gpu-max-memory lms-server open-webui
 
 ## set-gpu-max-memory: Set GPU limits
 .PHONY: set-gpu-max-memory
@@ -167,24 +168,33 @@ set-gpu-max-memory:
 	sudo sysctl iogpu.wired_limit_mb=$$(bc -l <<<"($$MEMORY - $$MEMORY_GPU)*1024")
 
 ## ai-open: open ai ports ports ollama:11434, open-webui:8080
+	# $(call open_server,$(OLLAMA_SERVER_PORT),/api/tags)
 .PHONY: ai-open
 ai-open:
 	$(call open_server,$(OPEN_WEBUI_PORT))
-	$(call open_server,$(OLLAMA_SERVER_PORT),/api/tags)
+	open -a "LM Studio"
 
 ## ai-ps: process status of all ai processe
+	# -ollama ps
 .PHONY: ai-ps
-ai-ps: ollama.ps open_webui.ps
-	-ollama ps
+ai-ps: open_webui.ps qdrant.ps docling.ps
+	lms server status
 
 # open-webui exists in pip packages, open_webui in builds from source
 # reset the gpu memory limit to the default
 ## ai-kill: kill all ai all ai servers
 .PHONY: ai-kill
-ai-kill: ollama.kill $(OLLAMA_SERVER_PORT).kill \
-	open_webui.kill open-webui.kill $(OPEN_WEBUI_PORT).kill
-		sudo sysctl iogpu.wired_limit_mb=0
+ai-kill: $(OLLAMA_SERVER_PORT).kill \
+	open_webui.kill open-webui.kill $(OPEN_WEBUI_PORT).kill \
+	docling.kill \
+	qdrant.kill
+	sudo sysctl iogpu.wired_limit_mb=0
+	lms server stop
 
+## lms-server: LM Studio server
+.PHONY: lms-server
+lms-server:
+	lms server start
 
 # usage: $(call start_ollama,command,port,url_port)
 # the export cannot be inside the if statement
