@@ -1,4 +1,5 @@
 # gitignore base list
+.svelte-kit
 !.vscode/extensions.json
 *$py.class
 *.bak
