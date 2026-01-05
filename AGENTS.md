@@ -400,7 +400,7 @@ my-agent: ## Run my custom agent
 
 ## Integration with AI Assistants
 
-This library is designed to work well with AI assistants like Claude. See [claude.md](claude.md) for:
+This library is designed to work well with AI assistants like Claude. See [CLAUDE.md](CLAUDE.md) for:
 
 - Repository architecture overview
 - Code style guidelines

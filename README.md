@@ -346,5 +346,5 @@ Browse documentation files in the [docs](docs) directory.
 
 - [DEVELOPER.md](DEVELOPER.md) - Developer guide, git workflows, best practices
 - [CODE_PRACTICES.md](CODE_PRACTICES.md) - Coding guidelines
-- [claude.md](claude.md) - AI assistant guidelines
-- [agents.md](agents.md) - Agent patterns and automation
+- [CLAUDE.md](CLAUDE.md) - AI assistant guidelines
+- [AGENTS.md](AGENTS.md) - Agent patterns and automation
