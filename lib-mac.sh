@@ -3,6 +3,41 @@
 ## Mac OS X specific routines
 ##
 
+# plist_mark domain
+#   Returns 0 if scripts have already configured this domain (sentinel exists)
+#   Returns 1 if not yet configured
+plist_mark() {
+	local domain="${1:?plist_mark: domain required}"
+	defaults read "$domain" scriptConfigApplied &>/dev/null
+}
+
+# plist_add domain <<-EOF
+#     key -type value
+#     key -dict k1 v1 k2 v2
+# EOF
+#   Runs `defaults write domain` for each non-blank, non-comment line
+#   from stdin, then writes a sentinel key. Caller should guard with
+#   plist_mark if idempotency is needed.
+#   Lines are word-split, so values must not contain spaces.
+plist_add() {
+	local domain="${1:?plist_add: domain required}"
+
+	log_verbose "configuring plist $domain"
+	while IFS= read -r line; do
+		# trim leading whitespace
+		line="${line#"${line%%[![:space:]]*}"}"
+		# skip blank lines and comments
+		[[ -z $line || $line == \#* ]] && continue
+		# word-split is intentional — each line is defaults write args
+		# shellcheck disable=SC2086
+		defaults write "$domain" $line
+	done
+
+	# write sentinel so plist_mark returns true on next check
+	defaults write "$domain" scriptConfigApplied -bool true
+	log_verbose "plist $domain configured"
+}
+
 # https://stackoverflow.com/questions/9483959/osx-10-8-loginitems
 # https://apple.stackexchange.com/questions/310495/can-login-items-be-added-via-the-command-line-in-high-sierra
 ## usage: mac_login_item [items...]

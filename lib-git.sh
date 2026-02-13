@@ -16,8 +16,8 @@ git_default_branch() {
 	if (($# >= 1)); then
 		remote="$1"
 	fi
-	git remote set-head "$remote" --auto
-	basename "$(git rev-parse --abbrev-ref origin/HEAD)"
+	git remote set-head "$remote" --auto >/dev/null 2>&1 || true
+	basename "$(git rev-parse --abbrev-ref "$remote/HEAD")"
 
 }
 
