@@ -577,7 +577,11 @@ if eval "[[ ! -v $lib_name ]]"; then
 				# the tool list should be injected
 				pipx inject "$inject_env" "$package"
 			elif [[ -v python_version ]]; then
-				pipx upgrade --python "$python_version" "$package"
+				if pipx list --short | grep -q "^$package "; then
+					pipx upgrade --python "$python_version" "$package"
+				else
+					pipx install --python "$python_version" "$package"
+				fi
 			# the space ensures it is an exact match as version comes after
 			elif pipx list --short | grep -q "^$package "; then
 				pipx upgrade "$package"
