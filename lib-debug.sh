@@ -18,7 +18,7 @@ lib_name=${lib_name//-/_}
 #echo eval [[ -z \${$lib_name-} ]] returns
 #eval [[ -z \${$lib_name-} ]]
 #echo $?
-if eval "[[ ! -v $lib_name ]]"; then
+if eval "[[ -z \${$lib_name+x} ]]"; then
 	# how to do an indirect reference
 	eval "$lib_name=true"
 
@@ -87,9 +87,11 @@ if eval "[[ ! -v $lib_name ]]"; then
 	}
 
 	# on success: log_exit "message"
+	# bare exit inherits $? from last command; log_verbose returns 1
+	# when VERBOSE is unset, so we must explicitly exit 0
 	log_exit() {
 		log_verbose "$*"
-		exit
+		exit 0
 	}
 
 	# note the bash expression for test should look like [[ expression ]]

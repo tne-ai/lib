@@ -204,8 +204,8 @@ FILE ?= \
 .PHONY: install-repo
 ## install-repo: copy the skeleton files a new repo set PYTHON_INSTALL for python template
 install-repo:
-	FILE=( $(FILE) $(if $(PYTHON_INSTALL),$(PYTHON_FILE)) && \
-	TEMPLATE=( $(TEMPLATE) $(if $(PYTHON_INSTALL),$(PYTHON_TEMPLATE)) && \
+	FILE=( $(FILE) $(if $(PYTHON_INSTALL),$(PYTHON_FILE)) ) && \
+	TEMPLATE=( $(TEMPLATE) $(if $(PYTHON_INSTALL),$(PYTHON_TEMPLATE)) ) && \
 	LIB_DIR="$(WS_DIR)/git/src/lib" && \
 	DEST_DIR="$$PWD" && \
 	for (( i=0; i<$${#FILE[@]}; i++ )); do \

@@ -17,7 +17,7 @@ lib_name=${lib_name//-/_}
 #echo eval [[ -z \${$lib_name-} ]] returns
 #eval [[ -z \${$lib_name-} ]]
 #echo $?
-if eval "[[ ! -v $lib_name ]]"; then
+if eval "[[ -z \${$lib_name+x} ]]"; then
   # how to do an indirect reference
   eval "$lib_name=true"
 
@@ -67,32 +67,42 @@ if eval "[[ ! -v $lib_name ]]"; then
     fi
   }
 
-  # run github command and enable verbose and echo for dry run
+  # run git commands sequentially with optional prefix and dry run
   # this require lib-log.sh
-  # usage util_git_cmd [-s] [-n] "cmd and repos"
+  # usage util_git_cmd [-s] [-n] [-w] "cmd1" "cmd2" ...
+  # -s run each command inside git submodule foreach --recursive
   # -n dry_run command
+  # -w warn on failure instead of exit
   util_git_cmd() {
     local prefix_cmd=""
     local dry_run=""
+    local warn_flag=false
     log_verbose "util_git_cmd"
-    while [[ $1 =~ ^- ]]; do
+    while [[ ${1:-} =~ ^- ]]; do
       log_verbose "flag $1"
       if [[ $1 == "-s" ]]; then
         prefix_cmd="git submodule foreach --recursive"
       elif [[ $1 == "-n" ]]; then
         dry_run=" echo "
+      elif [[ $1 == "-w" ]]; then
+        warn_flag=true
       fi
       shift
     done
-    # convert arguments back to an array
-    # need to do the eval so to force variable parsing
-    # shellcheck disable=SC2086
-    log_verbose "run prefix_cmd=$prefix_cmd dry_run=$dry_run args=$*"
-    log_verbose "run eval $prefix_cmd $dry_run $*"
-    # shellcheck disable=SC2086
-    if ! eval "$prefix_cmd $dry_run $*"; then
-      log_error 20 "Failed with $?: $prefix_cmd $*"
-    fi
+    # iterate over each command argument and run it separately
+    # so multiple commands don't get mashed into a single eval string
+    for cmd in "$@"; do
+      # shellcheck disable=SC2086
+      log_verbose "run: $prefix_cmd $dry_run $cmd"
+      # shellcheck disable=SC2086
+      if ! eval "$prefix_cmd $dry_run $cmd"; then
+        if $warn_flag; then
+          log_warning "Command failed (continuing): $cmd"
+        else
+          log_error 20 "Failed with $?: $prefix_cmd $cmd"
+        fi
+      fi
+    done
   }
 
   # usage: util_sudo [-u user ] [files to be accessed]
@@ -424,9 +434,9 @@ if eval "[[ ! -v $lib_name ]]"; then
     # an error deprecated use the new -v to detect variables
     elif in_ssh; then
       return
-    elif [[ -v XDG_CURRENT_DESKTOP ]]; then
+    elif [[ -n "${XDG_CURRENT_DESKTOP+x}" ]]; then
       echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]'
-    elif [[ -v XDG_DATA_DIRS ]]; then
+    elif [[ -n "${XDG_DATA_DIRS+x}" ]]; then
       echo "$XDG_DATA_DIRS" | grep -Eo 'xfce|kde|gnome|unity'
     fi
   }
@@ -464,7 +474,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 
   # Usage: in_wsl returns true if running in Windows Subsystem for Linux
   in_wsl() {
-    if [[ ! -v WSL_DISTRO_NAME ]]; then
+    if [[ -z ${WSL_DISTRO_NAME+x} ]]; then
       return 1
     fi
   }
@@ -522,6 +532,56 @@ if eval "[[ ! -v $lib_name ]]"; then
       open "$@"
     elif in_os linux; then
       xdg-open "$@"
+    fi
+  }
+
+  # usage: copy_if_needed [-f] source dest [label]
+  # copies source to dest if dest is missing or source is newer
+  # -f forces overwrite regardless of timestamps
+  # uses FORCE and DRY_RUN globals if set
+  # requires lib-debug.sh for log_verbose and log_message
+  copy_if_needed() {
+    local force="${FORCE:-false}"
+    local dry_run="${DRY_RUN:-false}"
+    if [[ ${1:-} == -f ]]; then
+      force=true
+      shift
+    fi
+    if (($# < 2)); then
+      log_warning "copy_if_needed requires source and dest"
+      return 1
+    fi
+    local src="$1"
+    local dest="$2"
+    local label="${3:-$(basename "$dest")}"
+
+    if [[ -z $src || ! -f $src ]]; then
+      log_verbose "SKIP $label - source not found: $src"
+      return 0
+    fi
+
+    local needs_copy=false
+    if [[ ! -f $dest ]]; then
+      needs_copy=true
+      log_verbose "$label missing, will copy"
+    elif $force; then
+      needs_copy=true
+      log_verbose "$label force overwrite"
+    elif [[ $src -nt $dest ]]; then
+      needs_copy=true
+      log_verbose "$label source is newer, will update"
+    else
+      log_verbose "$label up to date, skipping"
+    fi
+
+    if $needs_copy; then
+      if $dry_run; then
+        log_message "DRY RUN would copy $src -> $dest"
+      else
+        mkdir -p "$(dirname "$dest")"
+        cp "$src" "$dest"
+        log_message "copied $label -> $dest"
+      fi
     fi
   }
 

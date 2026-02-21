@@ -16,7 +16,7 @@ lib_name=${lib_name//-/_}
 # it checks for the existence of the variable named in $lib_name
 # not how we use the escaped $ to get the reference
 # as of bash 4.2 we can test directly
-if eval "[[ ! -v $lib_name ]]"; then
+if eval "[[ -z \${$lib_name+x} ]]"; then
 	# how to do an indirect reference
 	eval "$lib_name=true"
 
@@ -24,7 +24,7 @@ if eval "[[ ! -v $lib_name ]]"; then
 	brew_profile_install() {
 		# pre-install may have added this or otherwise, so if
 		# we see this variable assume something else installed it
-		if [[ ! -v HOMEBREW_PROFILE ]]; then return; fi
+		if [[ -z ${HOMEBREW_PROFILE+x} ]]; then return; fi
 
 		# Assume that if brew is set we do not need to do this
 
