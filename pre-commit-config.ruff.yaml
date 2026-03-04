@@ -117,6 +117,14 @@ repos:
         language_version: 22.13.0
         exclude: (^TNE-CONTEXT/|^\.claude/)
 
+  # prettier for markdown formatting (like shfmt for shell)
+  # rbubley fork tracks stable releases (pre-commit/mirrors-prettier is archived)
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.8.1
+    hooks:
+      - id: prettier
+        types_or: [markdown]
+
   # https://jorisroovers.com/gitlint/#using-gitlint-through-pre-commit
   - repo: https://github.com/jorisroovers/gitlint
     rev: v0.19.1
