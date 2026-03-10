@@ -57,4 +57,4 @@ You should also pick the .gitignore file that you want. There is a base version
 and there is a version for python and so forth. Copy this into .gitignore
 
 If you are using Git LFS, which is highly recommended, you should copy
-gitattributes.* to .gitattributes
+gitattributes.\* to .gitattributes

@@ -2,7 +2,8 @@
 <!-- markdownlint-disable MD041 -->
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+**Table of Contents** _generated with [DocToc](https://github.com/thlorenz/doctoc)_
 
 - [Issue](#issue)
   - [Expected Behavior](#expected-behavior)
@@ -27,9 +28,9 @@ What actually happened
 
 ## Steps to Reproduce the Problem
 
-1. *install this*
-1. *run that*
-1. *see output*
+1. _install this_
+1. _run that_
+1. _see output_
 
 ## Specifications
 

@@ -2,7 +2,8 @@
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+**Table of Contents** _generated with [DocToc](https://github.com/thlorenz/doctoc)_
 
 - [Directory Layout](#directory-layout)
 - [Guide For Developers Looking to Start Contributing to This Project](#guide-for-developers-looking-to-start-contributing-to-this-project)
@@ -72,8 +73,9 @@ This repo will house all of the source code for this project.
 
 To greatly reduce the size of this repo, we've moved what previously was
 `src/extern/covid-projection/data` to its own repo, which can be found
-[here](https://github.com/restartus/data). Instructions for using this data can
-be found [here](https://github.com/restartus/data/blob/lucas-doc/README.md).
+[the data repo](https://github.com/restartus/data). Instructions for using
+this data can be found in the
+[data README](https://github.com/restartus/data/blob/lucas-doc/README.md).
 
 Currently, this repo's directory layout has these major areas:
 
@@ -81,7 +83,8 @@ Currently, this repo's directory layout has these major areas:
   important of these are [covid-projection](extern/covid-projection), which
   houses the source code for the Restart Partners model, and
   [data](extern/data), which houses all of the data that we use. More
-  information on how we use Git submodules can be found [here](#git-submodules)
+  information on how we use Git submodules can be found in the
+  [Git submodules section](#git-submodules)
 - [lib](lib) Developer tools, Makefiles, and scripts for environment control.
 - [bin](bin). Mostly bash scripts for common, repetitive tasks that can be automated.
 - [user](user). Contains various experimental code.
@@ -104,23 +107,23 @@ You'll only have to do these steps once :)
 
 1. Make sure you have Google chrome installed, a Github account set up, and an
    OpenSSH public/private rsa key pair (and make sure you know your
-   passphrase).  If you don't recall your passphrase, see
-   [here](https://docs.github.com/en/github/authenticating-to-github/recovering-your-ssh-key-passphrase).
-1. Install the Gitpod chrome browser extension located
-   [here](https://chrome.google.com/webstore/detail/gitpod-dev-environments-i/dodmmooeoklaejobgleioelladacbeki/related).
-1. Make a gitpod account through using your Github account [here](https://gitpod.io/login/).
-1. Navigate to [here](https://gitpod.io/settings/) and do the following:
-  a. Create an environment variable by clicking the add variable button.
-  b. Name this variable `SSH_PUBLIC_KEY` and copy and paste your rsa public key
-  in the value field.
-  c. Set Organization/Repository to be `restartus/*`.
-  d. Click the check box to confirm.
-  e. Repeat steps a to d for the name `SSH_PRIVATE_KEY` but copy and paste only
-  the portion of your rsa private key between the header and footer.  i.e. only
-  lines in: that are between the OPENSSH PRIVATE KEY lines. The
-  reason for doing this is that Gitpod's textbox removes newline characters.
-  Thus, in each start of a workspace, the key is parsed and reformatted to be
-  in the expected OpenSSH format.
+   passphrase). If you don't recall your passphrase, see the
+   [GitHub passphrase recovery guide](https://docs.github.com/en/github/authenticating-to-github/recovering-your-ssh-key-passphrase).
+1. Install the
+   [Gitpod chrome browser extension](https://chrome.google.com/webstore/detail/gitpod-dev-environments-i/dodmmooeoklaejobgleioelladacbeki/related).
+1. Make a gitpod account through [Gitpod login](https://gitpod.io/login/).
+1. Navigate to [Gitpod settings](https://gitpod.io/settings/) and do the following:
+   a. Create an environment variable by clicking the add variable button.
+   b. Name this variable `SSH_PUBLIC_KEY` and copy and paste your rsa public key
+   in the value field.
+   c. Set Organization/Repository to be `restartus/*`.
+   d. Click the check box to confirm.
+   e. Repeat steps a to d for the name `SSH_PRIVATE_KEY` but copy and paste only
+   the portion of your rsa private key between the header and footer. i.e. only
+   lines in: that are between the OPENSSH PRIVATE KEY lines. The
+   reason for doing this is that Gitpod's textbox removes newline characters.
+   Thus, in each start of a workspace, the key is parsed and reformatted to be
+   in the expected OpenSSH format.
 1. Navigate in your browser to [restart/src](https://github.com/restartus/src).
 1. Click on the green Gitpod button that appears in between the Code button and
    About section toward the top right (refresh page if it is not present).
@@ -141,7 +144,7 @@ As soon as our repository is public, everything will be free,
 but you will still be limited to 50 hours of uptime per month.
 Gitpod offers student discount subscriptions and offers to extend
 the hours per month if you are an professional open source developer.
-See [here](https://www.gitpod.io/pricing/) for more info.
+See [Gitpod pricing](https://www.gitpod.io/pricing/) for more info.
 
 One thing you might notice is that the directory structure
 is slightly different from the one described below.
@@ -190,11 +193,11 @@ different new dependencies.
 
 #### Git commands
 
-All git commands should work as if on a local machine.  See
-[here](#git-submodules),
-[here](#feature-development-rebasing-and-pull-requests), and
-[here](#overview-of-git-operations) for guides and best practices related to
-git.
+All git commands should work as if on a local machine. See
+[Git submodules](#git-submodules),
+[feature development](#feature-development-rebasing-and-pull-requests), and
+[Git operations overview](#overview-of-git-operations) for guides and best
+practices related to git.
 
 #### Accessing Submodules
 
@@ -225,7 +228,7 @@ git reset --hard origin/master
 
 on a submodule you update to get the most updated master.
 
-More on submodules [here](#git-submodules).
+More on [Git submodules](#git-submodules).
 
 #### Adding Dependencies and the .gitpod.Dockerfile
 
@@ -298,7 +301,7 @@ following packages are installed:
 
 ### Install Python
 
-``` bash
+```bash
 brew install python
 ```
 
@@ -321,9 +324,11 @@ Linux (WSL).
 
 ### Installing WSL
 
-Windows Subsystem for Linux can be installed by enabling the feature through Windows
-PowerShell. From there you can install a Linux distribution from the [Microsoft Store](https://aka.ms/wslstore).
-Detailed instructions can be found on [Microsoft's website](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
+Windows Subsystem for Linux can be installed by enabling the feature
+through Windows PowerShell. From there you can install a Linux distribution
+from the [Microsoft Store](https://aka.ms/wslstore). Detailed instructions
+can be found on
+[Microsoft's website](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
 
 ### Using WSL
 
@@ -538,8 +543,9 @@ git config --global status.submoduleSummary true
 
 We use Pipenv to ensure consistent software versions and packages.
 
-A brief tutorial on pipenv can be found
-[here](https://medium.com/@MattGosden/pipenv-for-easier-virtual-environments-69e1e520cde8).
+A brief
+[pipenv tutorial](https://medium.com/@MattGosden/pipenv-for-easier-virtual-environments-69e1e520cde8)
+is available.
 In general, we'll be using different environments in each directory during
 development (as opposed to a single environment for the whole project). [This
 file](lib/include.python.mk) is our, python-optimized
@@ -607,17 +613,17 @@ into the master branch upon testing and review. This is our workflow:
 
 First, make sure you have the latest master:
 
-  ```bash
-  git checkout master
-  git pull
-  ```
+```bash
+git checkout master
+git pull
+```
 
-  Now rebase your branch onto it:
+Now rebase your branch onto it:
 
-  ```bash
-  git checkout branchname
-  git rebase master
-  ```
+```bash
+git checkout branchname
+git rebase master
+```
 
 If there are conflicts (some of the changes in master are in the same files
 you're editing), you'll be prompted to manually resolve the conflicts. When
@@ -646,22 +652,22 @@ human-readable a commit history as is reasonably possible. Make sure your local
 master is updated with the remote repository, and then perform an interactive
 rebase to squash your commits:
 
-  ```bash
-  git checkout master
-  git pull
-  git checkout yourbranch
-  git rebase -i master # Interactive rebase
-  ```
+```bash
+git checkout master
+git pull
+git checkout yourbranch
+git rebase -i master # Interactive rebase
+```
 
 Upon running this last command, a text editor will open with something looking
 like this:
 
-  ```bash
-  pick  b001 message for commit #1
-  pick  b002 message for commit #2
-  pick  b003 message for commit #3
-  pick  b004 message for commit #4
-  ```
+```bash
+pick  b001 message for commit #1
+pick  b002 message for commit #2
+pick  b003 message for commit #3
+pick  b004 message for commit #4
+```
 
 Let's say I want to rewrite the messages for commits b002 and b003 into a
 single message that I'll reword, and disregard the message for commit b004.
@@ -669,12 +675,12 @@ In the editor, to consolidate commit messages change each affected commit's
 `pickup` to `squash`. To disregard the commit message, change `pick` to
 `fixup`.
 
-  ```bash
-  pick   b001 message for commit #1
-  squash b002 message for commit #2
-  squash b003 message for commit #3
-  fixup  b004 message for commit #4
-  ```
+```bash
+pick   b001 message for commit #1
+squash b002 message for commit #2
+squash b003 message for commit #3
+fixup  b004 message for commit #4
+```
 
 You'll then be prompted with an editor to write a new commit message combining
 b002 and b003. After this has been saved, we've successfully rebased, and our
@@ -687,43 +693,43 @@ self-contained issues.
 
 At this point, a `git status` will output something like:
 
-  ```bash
-  Your branch and 'origin/yourbranch' have diverged,
-  and have X and X different commit(s) each, respectively.
-  ```
+```bash
+Your branch and 'origin/yourbranch' have diverged,
+and have X and X different commit(s) each, respectively.
+```
 
 This is because rebases are rewriting history. First history looked like this
 (note that each letter represents a commit, which can be thought of a snapshot
 of the entire directory at a specific moment in time):
 
-  ```bash
-  ... o ----- o ----- A ----- B master, origin/master
-                       \
-                        C yourbranch, origin/yourbranch
-  ```
+```bash
+... o ----- o ----- A ----- B master, origin/master
+                     \
+                      C yourbranch, origin/yourbranch
+```
 
 But now we've made it look like this:
 
-  ```bash
-  ... o ----- o ----- A --------------------------------------- B master, origin/master
-                       \                                         \
-                        C origin/yourbranch                       C yourbranch
-  ```
+```bash
+... o ----- o ----- A --------------------------------------- B master, origin/master
+                     \                                         \
+                      C origin/yourbranch                       C yourbranch
+```
 
 To fix this problem, we need to overwrite origin/yourbranch with yourbranch.
 This involves a force push, and is a bit scary. Remember, we're rewriting
 history here, so only do this once you're sure you've correctly rebased and
 your changes are ready to be pushed:
 
-  `git push origin yourbranch --force`
+`git push origin yourbranch --force`
 
-  Now we all agree on a common history that looks like:
+Now we all agree on a common history that looks like:
 
-  ```bash
-  ... o ----- o ----- A ----- B master, origin/master
-                               \
-                                C yourbranch, origin/yourbranch
-  ```
+```bash
+... o ----- o ----- A ----- B master, origin/master
+                             \
+                              C yourbranch, origin/yourbranch
+```
 
 Make sure to always test your code after a rebase - especially if the changes
 to the master branch involved files you're currently working on (in which case
@@ -738,21 +744,21 @@ human-readable a commit history as is reasonably possible. Make sure your local
 master is updated with the remote repository, and then perform an interactive
 rebase to squash your commits:
 
-  ```bash
-  git checkout master
-  git pull
-  git checkout yourbranch
-  git rebase -i master
-  ```
+```bash
+git checkout master
+git pull
+git checkout yourbranch
+git rebase -i master
+```
 
 The `-i` flag will prompt a text editor to open with something looking like this:
 
-  ```bash
-  pick  b001 message for commit #1
-  pick  b002 message for commit #2
-  pick  b003 message for commit #3
-  pick  b004 message for commit #4
-  ```
+```bash
+pick  b001 message for commit #1
+pick  b002 message for commit #2
+pick  b003 message for commit #3
+pick  b004 message for commit #4
+```
 
 Let's say I want to rewrite the messages for commits b002 and b003 into a
 single message that I'll reword, and disregard the message for commit b004. In
@@ -760,12 +766,12 @@ the editor, to consolidate commit messages change each affected commit's
 `pickup` to `squash`. To disregard the commit message, change `pick` to
 `fixup`.
 
-  ```bash
-  pick   b001 message for commit #1
-  squash b002 message for commit #2
-  squash b003 message for commit #3
-  fixup  b004 message for commit #4
-  ```
+```bash
+pick   b001 message for commit #1
+squash b002 message for commit #2
+squash b003 message for commit #3
+fixup  b004 message for commit #4
+```
 
 You'll then be prompted with an editor to write a new commit message combining
 b002 and b003. After this has been saved, we've successfully rebased, and our
@@ -784,7 +790,7 @@ habit!
 
 Using the GitHub CLI, this can all be done from the command line:
 
-  `gh pr create`
+`gh pr create`
 
 This will prompt a screen in your terminal asking you to title the pull request,
 and open an editor for you to explain in more detail. In here, include a concise
@@ -839,22 +845,23 @@ avoid unneccessary merge commits and maintain a linear, easily readable commit
 history on master. This can be done through the command line using the GitHub
 CLI (which we installed earlier):
 
-  ```bash
-  git checkout master
-  git pull
-  gh pr merge yourbranch
-  ```
+```bash
+git checkout master
+git pull
+gh pr merge yourbranch
+```
 
 This will prompt you with three options:
-    (1) Create a merge commit
-    (2) Rebase and merge
-    (3) Squash and merge
+(1) Create a merge commit
+(2) Rebase and merge
+(3) Squash and merge
 
 Select rebase and merge. This way, the branch's commits - which should have been
 squashed and reviewed by this point - are simply added to the tip of master, and
 the commit history remains concise, substantive, and linear.
 
-Background on the Git operations at play during this process can be found [here](#overview-of-git-operations)
+Background on the Git operations at play during this process can be found
+in the [Git operations overview](#overview-of-git-operations).
 
 ## Overview of Git Operations
 
@@ -996,17 +1003,18 @@ running these commands for each file a hassle, see these:
 
 - To remove all files of type `.<type>`
 
-    ```bash
-    git rm -r --cached *.<type>
-    ```
+  ```bash
+  git rm -r --cached *.<type>
+  ```
 
 - To remove all files in `<dir>`:
 
-    ```bash
-    git rm -r --cached <dir>
-    ```
+  ```bash
+  git rm -r --cached <dir>
+  ```
 
-More on special pattern matching [here](https://git-scm.com/docs/gitignore).
+More on
+[gitignore pattern matching](https://git-scm.com/docs/gitignore).
 And don't forget to commit once you've removed your desired files.
 You can check if you've removed them by
 
@@ -1071,7 +1079,7 @@ elegant, and deal with all the pesky little bugs that have been annoying you.
 
 Every weekday at 9AM PT is when we'll have our development scrum. We'll briefly
 discuss open GitHub issues, work through any technical problems that depend on
-multiple people, and provide an overview of what we're all working on.  Before
+multiple people, and provide an overview of what we're all working on. Before
 these meetings, have a quick look at your GitHub issues and clean up anything
 that is outdated, duplicated, or out of place for whatever reason. The goal is
 for the scrums to be relatively short - approximately 15 minutes.
@@ -1139,7 +1147,8 @@ DIR_PATH = os.environ['DIR_PATH']
 Since we have several streams of data that need to be consistently updated, we
 use a tool called [Apache Airflow](https://airflow.apache.org/) to automate the
 process of pulling from these streams. A tutorial for how we use Airflow with
-this project can be found [here](user/lucas/airflow-study/README.md).
+this project can be found in the
+[Airflow study README](user/lucas/airflow-study/README.md).
 
 ## Project Planning
 
@@ -1172,5 +1181,5 @@ go with said solution and halt - you've solved your problem.
 Steps:
 
 1. Search for the problem directly on Google.
-1. Search github directly for the problem ([here](https://github.com/search)).
+1. Search [GitHub](https://github.com/search) directly for the problem.
 1. Search on main or community website of the source of your problem.

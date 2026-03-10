@@ -43,10 +43,7 @@ repos:
       # - id: check-yaml
       #  args: [--allow-multiple-documents]
       #  exclude: (^_vendor/|^node_modules/)
-      # https://github.com/pre-commit/pre-commit-hooks/blob/master/pre_commit_hooks/detect_aws_credentials.py
-      - id: detect-aws-credentials
-        args: [--allow-missing-credentials]
-      - id: detect-private-key
+      # detect-aws-credentials and detect-private-key replaced by gitleaks (150+ patterns)
       - id: end-of-file-fixer
       - id: forbid-new-submodules
       - id: mixed-line-ending
@@ -113,8 +110,6 @@ repos:
     rev: v0.21.0
     hooks:
       - id: markdownlint-cli2
-        # needs a pinned version
-        language_version: 22.13.0
         exclude: (^TNE-CONTEXT/|^\.claude/)
 
   # prettier for markdown formatting (like shfmt for shell)
@@ -131,6 +126,13 @@ repos:
     hooks:
       - id: gitlint
         stages: [commit-msg]
+
+  # https://github.com/gitleaks/gitleaks - secret scanning (150+ patterns)
+  # replaces detect-aws-credentials and detect-private-key with broader coverage
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
 
   # https://yamllint.readthedocs.io/en/stable/integration.html#integration-with-pre-commit
   - repo: https://github.com/adrienverge/yamllint.git

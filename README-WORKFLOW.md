@@ -1,3 +1,3 @@
 # Usage notes
 
-You cannot symlink into this you must copy from ../../lib/workflow*
+You cannot symlink into this you must copy from ../../lib/workflow\*

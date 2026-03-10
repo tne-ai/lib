@@ -23,7 +23,7 @@ PYTHON_FILES ?=
 FORCE ?= false
 
 # The base installation packages needed
-BASE_PREREQ ?= markdownlint-cli shellcheck shfmt hadolint git-lfs
+BASE_PREREQ ?= coreutils markdownlint-cli shellcheck shfmt hadolint git-lfs
 BASE_PREREQ_PIP ?= pynvim mkdocs mkdocs-material pymdown-extensions fontawesone-markdown
 
 .DEFAULT_GOAL := help
@@ -204,6 +204,8 @@ FILE ?= \
 .PHONY: install-repo
 ## install-repo: copy the skeleton files a new repo set PYTHON_INSTALL for python template
 install-repo:
+	# ensure GNU install -D works on macOS (should be set by install-gnu.sh)
+	export PATH="$$(brew --prefix)/opt/coreutils/libexec/gnubin:$$PATH" && \
 	FILE=( $(FILE) $(if $(PYTHON_INSTALL),$(PYTHON_FILE)) ) && \
 	TEMPLATE=( $(TEMPLATE) $(if $(PYTHON_INSTALL),$(PYTHON_TEMPLATE)) ) && \
 	LIB_DIR="$(WS_DIR)/git/src/lib" && \

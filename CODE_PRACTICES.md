@@ -2,7 +2,8 @@
 <!-- markdownlint-disable MD041 -->
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+**Table of Contents** _generated with [DocToc](https://github.com/thlorenz/doctoc)_
 
 - [General Coding Guidelines](#general-coding-guidelines)
   - [Reducing Max Branching Depth](#reducing-max-branching-depth)
@@ -118,4 +119,5 @@ do
 done
 ```
 
-All of the nested `if/else` statements have been eliminated using just this one trick.
+All of the nested `if/else` statements have been eliminated using just
+this one trick.
