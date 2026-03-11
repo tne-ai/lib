@@ -177,14 +177,15 @@ PYTHON_FILE ?= \
 			.python_version \
 			pyproject.toml
 
+# netlify disabled: uncomment TEMPLATE and FILE pairs to re-enable
+#			runtime.base.txt        -> runtime.txt
+#			netlify.base.toml       -> netlify.toml
+#			mkdocs.base.yml         -> mkdocs.yml
+#			requirements.netlify.txt -> requirements.txt
 TEMPLATE ?= \
 			gitignore.base \
 			pre-commit-config.full.yaml \
 			node-version.base \
-			runtime.base.txt \
-			netlify.base.toml \
-			mkdocs.base.yml \
-			requirements.netlify.txt \
 			docs.base \
 			workflow.base
 
@@ -192,10 +193,6 @@ FILE ?= \
 			.gitignore \
 			.pre-commit-config.yaml \
 			.node-version \
-			runtime.txt \
-			netlify.toml \
-			mkdocs.yml \
-			requirements.txt \
 			docs \
 			.github/workflows
 
