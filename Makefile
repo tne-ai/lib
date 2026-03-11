@@ -8,17 +8,17 @@ TAG=0.9
 # can insert your own include in the CWD if you want to override
 # https://runebook.dev/en/docs/gnu_make/include
 # this directive does not seem to work
-# if you do not have WS_DIR set use a relative path
-# https://www.gnu.org/software/make/manual/html_node/Special-Variables.html
-# note that INCLUDE_DIRS is a read-only list so we need our own variable
+# note that .INCLUDE_DIRS is a read-only list so we need our own variable
+# if you are in a ws controlled repo otherwise you  need a path
+# INCLUDE_DIRS ?= ../lib
+# INCLUDE_DIRS ?= $(HOME)/ws/git/src/lib
 INCLUDE_DIRS ?= $(WS_DIR)/git/src/lib
-# INCLUDE_DIRS ?= $(.INCLUDE_DIRS)
 # adjust for your org
 ORG ?= tne
 
 
-## Local directory Make commands
-## ----------
+## Local Make commands
+## ---
 ## test: test the library
 .PHONY: test
 test:
@@ -38,9 +38,12 @@ clean:
 # https://www.gnu.org/software/make/manual/html_node/Foreach-Function.html
 # Note that - means to ignore errors, but this is actually checks
 # LIB_PATH ?= ../lib
+# ifneq ($(wildcard include.mk),)
+# include "$(LIB_PATH)/include.mk"
+# endif
 -include $(INCLUDE_DIRS)/include.mk
-# the first dash means ignore errors
--include $(INCLUDE_DIRS)/include.ai.mk
+# -include $(INCLUDE_DIRS)/include.ai.mk
+# -include $(INCLUDE_DIRS)/include.airflow.mk
 # -include $(INCLUDE_DIRS)/include.docker.mk
 # -include $(INCLUDE_DIRS)/include.gcp.base.mk
 # -include $(INCLUDE_DIRS)/include.gcp.mk
@@ -49,7 +52,6 @@ clean:
 # -include $(INCLUDE_DIRS)/include.node.mk
 # -include $(INCLUDE_DIRS)/include.python.mk
 # -include $(INCLUDE_DIRS)/include.rhash.mk
-# -include $(INCLUDE_DIRS)/airflow.mk
 
 # normally your organization stuff appears last
--include $(INCLUDE_DIRS)/include.$(ORG).mk
+# -include $(INCLUDE_DIRS)/include.$(ORG).mk

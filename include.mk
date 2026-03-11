@@ -184,7 +184,6 @@ TEMPLATE ?= \
 			runtime.base.txt \
 			netlify.base.toml \
 			mkdocs.base.yml \
-			Makefile.base \
 			requirements.netlify.txt \
 			docs.base \
 			workflow.base
@@ -196,7 +195,6 @@ FILE ?= \
 			runtime.txt \
 			netlify.toml \
 			mkdocs.yml \
-			Makefile \
 			requirements.txt \
 			docs \
 			.github/workflows
@@ -204,25 +202,25 @@ FILE ?= \
 .PHONY: install-repo
 ## install-repo: copy the skeleton files a new repo set PYTHON_INSTALL for python template
 install-repo:
-	# ensure GNU install -D works on macOS (should be set by install-gnu.sh)
-	export PATH="$$(brew --prefix)/opt/coreutils/libexec/gnubin:$$PATH" && \
+	# Makefile: only copy if missing (--ignore-existing) to preserve custom targets
+	rsync -vL --chmod=F664 --ignore-existing \
+		"$(WS_DIR)/git/src/lib/Makefile.base" Makefile
+	# rsync -u skips files newer on the destination (use FORCE=true to override)
 	FILE=( $(FILE) $(if $(PYTHON_INSTALL),$(PYTHON_FILE)) ) && \
 	TEMPLATE=( $(TEMPLATE) $(if $(PYTHON_INSTALL),$(PYTHON_TEMPLATE)) ) && \
 	LIB_DIR="$(WS_DIR)/git/src/lib" && \
-	DEST_DIR="$$PWD" && \
+	RSYNC_OPTS="-vL --chmod=F664" && \
+	if ! $(FORCE); then RSYNC_OPTS="$$RSYNC_OPTS -u"; fi && \
 	for (( i=0; i<$${#FILE[@]}; i++ )); do \
 		DEST_FILE="$${FILE[i]}" && \
-	  SRC_FILE="$$LIB_DIR/$${TEMPLATE[i]}" && \
-		if [[ -e $$SRC_FILE ]] && \
-			 ($(FORCE) || [[ ! -e $$DEST_FILE ]]); then \
-		  if [[ -f $$SRC_FILE ]]; then \
-				install -vDm 664 "$$SRC_FILE" "$$DEST_FILE"; \
-			else \
-				(cd "$$SRC_FILE" && find . -type f \
-			   	 -exec install -vDm 664 "{}" "$$DEST_DIR/$$DEST_FILE/{}" \; ); \
-			fi; \
-	  else \
-			echo "skipped $$i $$SRC_FILE $$DEST_FILE"; \
+		SRC_FILE="$$LIB_DIR/$${TEMPLATE[i]}" && \
+		if [[ ! -e $$SRC_FILE ]]; then \
+			echo "skipped $$i $$SRC_FILE (not found)"; \
+		elif [[ -f $$SRC_FILE ]]; then \
+			mkdir -p "$$(dirname "$$DEST_FILE")" && \
+			rsync $$RSYNC_OPTS "$$SRC_FILE" "$$DEST_FILE"; \
+		else \
+			rsync -r $$RSYNC_OPTS "$$SRC_FILE/" "$$DEST_FILE/"; \
 		fi; \
 	done
 

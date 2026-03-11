@@ -5,6 +5,14 @@
 publish = "site"
 command = "mkdocs build"
 
+# https://docs.netlify.com/configure-builds/file-based-configuration/
+# https://docs.netlify.com/frameworks/hugo/
+# https://docs.netlify.com/configure-builds/environment-variables/
+[build.environment]
+# extended is assumed
+HUGO_VERSION = "0.135.0"
+GO_VERSION = "1.23.2"
+
 # https://dev.to/ajeetraina/how-to-deploy-a-static-site-using-mkdocs-and-netlify-43f8
 # this from ajeetraina does not work
 #command = """

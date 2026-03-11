@@ -15,7 +15,6 @@
 default_stages: [pre-commit, pre-push]
 default_language_version:
   python: python3.12
-  node: "22.22.0"
 # python regex https://www.programiz.com/python-programming/regex
 exclude: (^archive/|^user/|deprecated/)
 repos:
