@@ -1,4 +1,11 @@
 # gitignore base list
+
+# claude code — keep CLAUDE.md and settings.json, ignore the rest
+.claude/*
+!.claude/CLAUDE.md
+!.claude/settings.json
+settings.local.json
+
 .uv-lock
 .svelte-kit
 !.vscode/extensions.json

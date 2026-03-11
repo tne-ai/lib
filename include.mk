@@ -220,6 +220,7 @@ install-repo:
 			mkdir -p "$$(dirname "$$DEST_FILE")" && \
 			rsync $$RSYNC_OPTS "$$SRC_FILE" "$$DEST_FILE"; \
 		else \
+			mkdir -p "$$DEST_FILE" && \
 			rsync -r $$RSYNC_OPTS "$$SRC_FILE/" "$$DEST_FILE/"; \
 		fi; \
 	done
