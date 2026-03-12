@@ -185,16 +185,18 @@ PYTHON_FILE ?= \
 TEMPLATE ?= \
 			gitignore.base \
 			pre-commit-config.full.yaml \
-			node-version.base \
 			docs.base \
 			workflow.base
+# node-version disabled: use mise (.mise.toml) for node version management instead
+#			node-version.base \
 
 FILE ?= \
 			.gitignore \
 			.pre-commit-config.yaml \
-			.node-version \
 			docs \
 			.github/workflows
+# node-version disabled: use mise (.mise.toml) for node version management instead
+#			.node-version \
 
 .PHONY: install-repo
 ## install-repo: copy the skeleton files a new repo set PYTHON_INSTALL for python template
