@@ -23,6 +23,7 @@ git_default_branch() {
 
 ## git_repo tells you if you are in a git repo
 ## git_repo [ directory to check default to $PWD ]
+# shellcheck disable=SC2120
 git_repo() {
 	dir="$PWD"
 	if (($# >= 1)); then
@@ -102,6 +103,51 @@ git_set_config() {
 	if ! git config --get "$1"; then
 		git config --global "$1" "$2"
 	fi
+}
+
+## git_validate_repo_path: pushd into a path and verify it's a git repo.
+## Replaces the common pushd + git_repo boilerplate pattern.
+## usage: git_validate_repo_path <path>
+git_validate_repo_path() {
+	local path="${1:?usage: git_validate_repo_path <path>}"
+	if ! pushd "$path" >/dev/null; then log_error 1 "no $path"; fi
+	log_verbose "in $PWD"
+	# shellcheck disable=SC2119
+	if ! git_repo; then log_error 2 "$path is not a git repo"; fi
+}
+
+## git_ensure_on_branch: if HEAD is detached, switch to default branch.
+## Echoes the current branch name on success.
+## usage: git_ensure_on_branch [remote] [dry_run]
+git_ensure_on_branch() {
+	local remote="${1:-origin}" dry_run="${2:-}"
+	local current_branch
+	current_branch=$(git branch --show-current)
+	if [[ -z "$current_branch" ]]; then
+		local def_branch
+		def_branch=$(git_default_branch "$remote")
+		log_verbose "$(basename "$PWD"): detached HEAD, switching to $def_branch"
+		if ! $dry_run git switch "$def_branch"; then return 1; fi
+		current_branch="$def_branch"
+	fi
+	echo "$current_branch"
+}
+
+## git_foreach_submodule: iterate over all submodules recursively,
+## calling a callback function for each one.
+## The callback receives the submodule absolute path as $1.
+## usage: git_foreach_submodule <callback>
+git_foreach_submodule() {
+	local callback="${1:?usage: git_foreach_submodule <callback>}"
+	while IFS= read -r submod_path; do
+		[[ -z "$submod_path" ]] && continue
+		if ! pushd "$submod_path" >/dev/null; then
+			log_verbose "warning: cannot enter $submod_path, skipping"
+			continue
+		fi
+		"$callback" "$submod_path" || true
+		popd >/dev/null || true
+	done < <(git submodule foreach --recursive --quiet 'pwd' 2>/dev/null)
 }
 
 ## usage: git_install_or_update [-f] repo [user [ destination ]]
