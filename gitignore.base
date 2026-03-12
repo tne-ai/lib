@@ -5,6 +5,7 @@
 !.claude/CLAUDE.md
 !.claude/settings.json
 settings.local.json
+policy-limits.json
 
 .uv-lock
 .svelte-kit
@@ -70,6 +71,7 @@ settings.local.json
 .virtual_documents/
 .vscode/*
 .webassets-cache
+.worktrees/
 /scons.err
 /scons.log
 ENV/
