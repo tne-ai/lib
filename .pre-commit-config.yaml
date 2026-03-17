@@ -249,3 +249,15 @@ repos:
     hooks:
       - id: hadolint
         exclude: Dockerfile.dockerignore
+
+  # Claude plugin docs sync check
+  # Verifies README.md and AGENTS.md stay in sync with skills/ directory
+  # No-op for repos without scripts/check-docs-sync.sh
+  - repo: local
+    hooks:
+      - id: check-docs-sync
+        name: Check plugin docs sync with skills
+        entry: scripts/check-docs-sync.sh
+        language: script
+        files: '(skills/|README\.md|AGENTS\.md)'
+        pass_filenames: false
