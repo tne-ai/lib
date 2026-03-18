@@ -248,3 +248,35 @@ repos:
     hooks:
       - id: hadolint
         exclude: Dockerfile.dockerignore
+
+  # Repo-specific hooks that fail gracefully when scripts are not present.
+  # Repos that have these scripts get the checks; repos that don't skip silently.
+  - repo: local
+    hooks:
+      - id: validate-skill-frontmatter
+        name: Validate SKILL.md frontmatter
+        language: system
+        entry: bash -c 'if [[ -x scripts/validate-skills.sh ]]; then scripts/validate-skills.sh "$@"; else exit 0; fi' --
+        files: SKILL\.md$
+        exclude: plugins/tne-ja/
+
+      - id: validate-claude-hook-json
+        name: Validate Claude Code hook JSON output
+        language: system
+        entry: bash -c 'if [[ -x scripts/validate-hooks.sh ]]; then scripts/validate-hooks.sh "$@"; else exit 0; fi' --
+        files: (^|/)hooks/[^/]+\.sh$
+        exclude: plugins/tne-ja/
+
+      - id: generate-readme
+        name: Auto-generate README.md from skills inventory
+        language: system
+        entry: bash -c 'if [[ -f scripts/generate-inventory.py ]]; then python3 scripts/generate-inventory.py --readme --quiet && git add plugins/tne/README.md; else exit 0; fi'
+        files: plugins/tne/skills/.*/SKILL\.md$
+        pass_filenames: false
+
+      - id: check-relative-claude-paths
+        name: Detect relative .claude/ paths in scripts (use $HOME)
+        language: system
+        entry: bash -c 'ISSUES=$(grep -n "\"\.claude/" "$@" | grep -v "\$HOME" | grep -v "^#" || true); if [[ -n "$ISSUES" ]]; then echo "Found relative .claude/ paths (should use \$HOME/.claude/):"; echo "$ISSUES"; exit 1; fi' --
+        files: plugins/.*\.sh$
+        exclude: plugins/tne-ja/

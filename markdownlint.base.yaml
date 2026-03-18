@@ -1,0 +1,19 @@
+# Global markdownlint configuration
+# Installed to $HOME/.markdownlint.yaml by install-markdown.sh
+# Any repo can override by placing its own .markdownlint.yaml at repo root.
+
+# MD013: Line length
+# Tables, headings, and code blocks can't be wrapped without breaking them.
+# Raised prose limit to 120 to match common prettier/editor defaults.
+MD013:
+  line_length: 120
+  tables: false
+  headings: false
+  code_blocks: false
+
+# MD034: Bare URLs — allow email addresses (common in author/contact fields)
+MD034: false
+
+# MD060: Table column style — disabled because prettier controls table formatting
+# and auto-generated tables don't align to header widths
+MD060: false
