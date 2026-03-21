@@ -5,11 +5,8 @@ name: Python and Pre-commit
 # yamllint disable-line rule:truthy
 on:
   push:
-    # if you have lots of requests you can limit the branches
     branches:
-      - main
-      - master
-      - rich-*
+      - "**"
   pull_request:
   workflow_dispatch:
 

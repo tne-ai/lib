@@ -2,7 +2,8 @@ name: Validate Plugins
 
 on:
   push:
-    branches: [main]
+    branches:
+      - "**"
     paths-ignore:
       - "plugins/tne-ja/**"
   pull_request:
