@@ -10,16 +10,16 @@ on:
       - main
       - master
       - rich-*
-    paths-ignore:
-      - "plugins/tne-ja/**"
   pull_request:
-    paths-ignore:
-      - "plugins/tne-ja/**"
   workflow_dispatch:
 
 jobs:
+  # Runner selection: public repos get free GitHub runners (ubuntu-latest).
+  # Private repos default to ubuntu-latest but can override with the
+  # RUNNER_LABEL repo/org variable (e.g. blacksmith-4vcpu-ubuntu-2404).
+  # Blacksmith requires a login at useblacksmith.com and gives 3000 free min/mo.
   python:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ github.event.repository.visibility == 'public' && 'ubuntu-latest' || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     # Note with this version testing you do not need tox in the cloud
     strategy:
       matrix:
@@ -72,7 +72,7 @@ jobs:
           if [ -f python/requirements.txt ]; then pip install -r python/requirements.txt; fi
 
   pre-commit:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ github.event.repository.visibility == 'public' && 'ubuntu-latest' || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     steps:
       - name: Checkout action
         uses: actions/checkout@v5
