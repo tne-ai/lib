@@ -109,15 +109,9 @@ jobs:
           node-version: "24"
       - name: Install markdownlint-cli
         run: npm install -g markdownlint-cli
-      # brew not found in act so used dockerize version in pre-commit
-      # This actually runs homebrew commands does not install it
-      #- name: Install homebrew
-      #  uses: artemnovichkov/action-homebrew@0.1.0
-      # - name: Enable Homebrew (since removed Sept 22)
-
-      #  uses: Homebrew/actions/setup-homebrew@master
-      #  uses: raviqqe/enable-homebrew@v1.0.0
-      - name: homebrew install
+      - name: Enable Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+      - name: Install hadolint and shellcheck
         uses: tecolicom/actions-use-homebrew-tools@v1
         with:
           tools: hadolint shellcheck
