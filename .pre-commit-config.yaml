@@ -261,3 +261,16 @@ repos:
         language: script
         files: '(skills/|README\.md|AGENTS\.md)'
         pass_filenames: false
+
+  # Skill integrity: sign if unsigned, re-sign if tampered, verify if signed
+  # Requires SKILL_SIGNER_KEY_ID env var for signing, or use --op for 1Password
+  # Without a key, verifies only (no signing) — graceful skip
+  # No-op for repos without scripts/ciso10-integrity.py
+  - repo: local
+    hooks:
+      - id: skill-integrity
+        name: Ensure skill signatures
+        entry: scripts/ciso10-integrity.py
+        language: script
+        files: "skills/.*/.*"
+        pass_filenames: false

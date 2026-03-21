@@ -1,0 +1,32 @@
+name: Validate Plugins
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "plugins/tne-ja/**"
+  pull_request:
+    paths-ignore:
+      - "plugins/tne-ja/**"
+  workflow_dispatch:
+
+jobs:
+  detect-path-bugs:
+    name: Detect Relative Path Issues
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for relative .claude/ paths in scripts
+        run: |
+          # Flag scripts that write to .claude/ without $HOME prefix
+          ISSUES=$(grep -rn '"\.\(claude\|config\)/' plugins --include="*.sh" \
+            --exclude-dir=tne-ja \
+            | grep -v '\$HOME' \
+            | grep -v '#' \
+            || true)
+          if [ -n "$ISSUES" ]; then
+            echo "::warning::Found relative .claude/ paths in scripts (should use \$HOME/.claude/):"
+            echo "$ISSUES"
+          fi
+          echo "Path check complete"

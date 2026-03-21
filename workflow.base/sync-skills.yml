@@ -1,0 +1,66 @@
+name: Sync Skills to Compass
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "plugins/*/skills/**"
+
+jobs:
+  sync:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect and sync skills
+        run: |
+          echo "Collecting skills from plugins..."
+
+          # Build skills array using jq with file-based input to avoid arg length limits
+          echo '[]' > /tmp/skills.json
+
+          for skill_file in plugins/*/skills/*/SKILL.md; do
+            [ -f "$skill_file" ] || continue
+            SKILL_NAME=$(basename "$(dirname "$skill_file")")
+            jq --arg name "$SKILL_NAME" --rawfile content "$skill_file" \
+              '. += [{ name: $name, content: $content }]' /tmp/skills.json > /tmp/skills_tmp.json
+            mv /tmp/skills_tmp.json /tmp/skills.json
+          done
+
+          SKILL_COUNT=$(jq 'length' /tmp/skills.json)
+          echo "Found $SKILL_COUNT skills"
+
+          if [ "$SKILL_COUNT" -eq 0 ]; then
+            echo "No skills found, skipping sync"
+            exit 0
+          fi
+
+          # Build final payload
+          jq -n \
+            --arg version "${{ github.sha }}" \
+            --arg commit_sha "${{ github.sha }}" \
+            --slurpfile skills /tmp/skills.json \
+            '{ version: $version, commit_sha: $commit_sha, skills: $skills[0] }' > /tmp/payload.json
+
+          echo "Payload size: $(wc -c < /tmp/payload.json) bytes"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.COMPASS_WEBHOOK_URL }}/api/webhooks/sync-skills" \
+            -H "Content-Type: application/json" \
+            -H "x-webhook-secret: ${{ secrets.COMPASS_WEBHOOK_SECRET }}" \
+            -d @/tmp/payload.json)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n-1)
+
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $BODY"
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Skills sync successful!"
+            echo "$BODY" | jq . 2>/dev/null || echo "$BODY"
+          else
+            echo "Skills sync failed with HTTP $HTTP_CODE"
+            exit 1
+          fi

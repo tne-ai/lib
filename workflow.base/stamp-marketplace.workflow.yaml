@@ -1,0 +1,38 @@
+---
+# Stamps .claude-plugin/marketplace.json description with the git commit date
+# and short hash after every push to main/master.
+name: Stamp Marketplace
+
+# yamllint disable-line rule:truthy
+on:
+  push:
+    branches:
+      - main
+      - master
+      - rich-*
+
+jobs:
+  stamp:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: write
+    # Skip commits made by this workflow to avoid infinite loops
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stamp marketplace.json
+        run: bash scripts/stamp-marketplace.sh
+
+      - name: Commit if changed
+        run: |
+          git diff --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          HASH="$(git rev-parse --short HEAD)"
+          DATETIME="$(git log -1 --format='%cd' --date=format:'%Y-%m-%d %H:%M')"
+          git commit -m "chore(marketplace): stamp ${HASH} · ${DATETIME} [skip ci]"
+          git push
