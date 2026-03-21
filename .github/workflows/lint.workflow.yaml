@@ -10,13 +10,16 @@ on:
       - main
       - master
       - rich-*
+    paths-ignore:
+      - "plugins/tne-ja/**"
   pull_request:
+    paths-ignore:
+      - "plugins/tne-ja/**"
   workflow_dispatch:
 
 jobs:
   python:
-    # runs-on: ubuntu-latest
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     # Note with this version testing you do not need tox in the cloud
     strategy:
       matrix:
@@ -24,7 +27,7 @@ jobs:
         # we do not need matrix that is in python version
         # https://github.com/actions/setup-python/issues/249
         # Need to quote "3.10" as this gets converted otherwise to 3.1
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.12", "3.13"]
     # checkout repo under $GITHUB_WORKSPACE
     steps:
       - name: Checkout action
@@ -69,7 +72,7 @@ jobs:
           if [ -f python/requirements.txt ]; then pip install -r python/requirements.txt; fi
 
   pre-commit:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout action
         uses: actions/checkout@v5
@@ -81,7 +84,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.12
+          python-version: 3.13
       # # https://snapcraft.io/install/shfmt/ubuntu
       # Using snapd fails on act so instead use pre-commit
       # that does its own installation rather than needing shfmt
@@ -103,26 +106,39 @@ jobs:
       - name: Install node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
       - name: Install markdownlint-cli
         run: npm install -g markdownlint-cli
       # brew not found in act so used dockerize version in pre-commit
       # This actually runs homebrew commands does not install it
       #- name: Install homebrew
       #  uses: artemnovichkov/action-homebrew@0.1.0
-      - name: Enable Homebrew (since removed Sept 22)
-        uses: Homebrew/actions/setup-homebrew@master
+      # - name: Enable Homebrew (since removed Sept 22)
+
+      #  uses: Homebrew/actions/setup-homebrew@master
       #  uses: raviqqe/enable-homebrew@v1.0.0
-      - name: Install hadolint
-        run: brew install hadolint
-      - name: Install shellcheck
-        run: shellcheck --version && brew install shellcheck && shellcheck --version
+      - name: homebrew install
+        uses: tecolicom/actions-use-homebrew-tools@v1
+        with:
+          tools: hadolint shellcheck
+      #- name: Install hadolint
+      #  run: brew install hadolint
+      # - name: Install shellcheck
+      #   run: shellcheck --version && brew install shellcheck && shellcheck --version
 
       # https://github.com/pre-commit/action
       # if you are using public repo then you can use pre-commit.ci
       # as a marketplace applications
-      - name: Run Pre-commit
+      - name: Get changed files
+        id: changed
+        uses: tj-actions/changed-files@v45
+        with:
+          separator: " "
+      - name: Run Pre-commit on changed files
+        if: steps.changed.outputs.all_changed_files != ''
         uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --files ${{ steps.changed.outputs.all_changed_files }}
       # https://github.com/pre-commit-ci/lite-action
       # if you are using public repo then you can use pre-commit.ci
       # make sure the name  uses the default
