@@ -111,6 +111,7 @@ repos:
     rev: v0.21.0
     hooks:
       - id: markdownlint-cli2
+        args: [--fix]
         exclude: (^TNE-CONTEXT/|^\.claude/)
 
   # prettier for markdown formatting (like shfmt for shell)
