@@ -15,6 +15,9 @@ config:
     headings: false
     code_blocks: false
 
+  # MD033: Inline HTML — needed for Hugo shortcodes, HTML tables, styling
+  MD033: false
+
   # MD034: Bare URLs — allow email addresses
   MD034: false
 
