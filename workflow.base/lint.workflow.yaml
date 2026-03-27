@@ -130,11 +130,6 @@ jobs:
         uses: pre-commit/action@v3.0.1
         with:
           extra_args: --files ${{ steps.changed.outputs.all_changed_files }}
-      # https://github.com/pre-commit-ci/lite-action
-      # if you are using public repo then you can use pre-commit.ci
-      # make sure the name  uses the default
-      - uses: pre-commit-ci/lite-action@v1.1.0
-        if: always()
 
         # No longer needed in pre-commit so edit .pre-commit-config.yaml
         # and you do not need to duplicate all these actions
