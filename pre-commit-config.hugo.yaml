@@ -1,0 +1,73 @@
+# .pre-commit-config.yaml — tne-ai-web-hugo
+#
+# Hugo website — no Python/Jupyter/Docker hooks.
+# Excludes _vendor/ (Hugo theme), node_modules/, public/ (build output).
+#
+# Versions sourced from ~/ws/git/src/lib/pre-commit-config.full.yaml
+#
+default_stages: [pre-commit, pre-push]
+default_language_version:
+  python: python3.12
+exclude: (^_vendor/|^node_modules/|^public/|^resources/)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=2048"]
+      - id: check-merge-conflict
+      - id: check-executables-have-shebangs
+      - id: check-toml
+      - id: check-json
+      - id: pretty-format-json
+        args: [--autofix]
+      - id: check-xml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+      - id: check-case-conflict
+      - id: destroyed-symlinks
+
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 3.0.0
+    hooks:
+      - id: shellcheck
+        args: [-x]
+        exclude: (.*\.zsh$|\.zshrc$|\.zprofile$|\.fzf\.bash$|\.bashrc$|\.bash_profile$)
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.12.0-2
+    hooks:
+      - id: shfmt
+        exclude: (.*\.zsh$|\.zprofile|\.zshrc)
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.21.0
+    hooks:
+      - id: markdownlint-cli2
+        args: [--fix]
+        exclude: (^TNE-CONTEXT/|^\.claude/|^_vendor/)
+
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.8.1
+    hooks:
+      - id: prettier
+        types_or: [markdown, yaml]
+
+  - repo: https://github.com/jorisroovers/gitlint
+    rev: v0.19.1
+    hooks:
+      - id: gitlint
+        stages: [commit-msg]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        args: [-d relaxed]

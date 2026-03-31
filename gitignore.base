@@ -6,6 +6,57 @@
 !.claude/settings.json
 settings.local.json
 policy-limits.json
+security_warnings_state_*.json
+*.local.md
+*.local.json
+*.local.yaml
+
+# claude code session/local data (DO NOT COMMIT session artifacts)
+backups/
+/cache/
+debug/
+file-history/
+history.jsonl
+ide/
+paste-cache/
+plans/
+projects/
+session-env/
+.search-index/
+shell-snapshots/
+stats-cache.json
+statsig/
+tasks/
+telemetry/
+todos/
+sessions/
+
+# claude code plugin state (manifest.json is the project config, keep it)
+plugins/marketplaces/
+# installedAt/lastUpdated timestamps make this volatile
+plugins/installed_plugins.json
+plugins/install-counts-cache.json
+plugins/blocklist.json
+plugins/config.json
+plugins/cache
+mcp-needs-auth-cache.json
+plugins/repos/
+
+# plugin cache: ignore all downloaded source
+# EXCEPTION: LSP plugin.json files are committed because upstream anthropics/claude-plugins-official
+# ships these plugins without .claude-plugin/plugin.json, so Claude Code can't load them.
+# See "LSP Plugin Workaround" in README.md for details.
+plugins/cache/**
+!plugins/cache/**/
+!plugins/cache/claude-plugins-official/*-lsp/**/.claude-plugin/plugin.json
+plugins/cache/temp_git_*/
+# plugin repos installed into cache (re-exposed by !plugins/cache/**/ exception)
+plugins/cache/claude-plugins-official/figma/
+plugins/cache/claude-plugins-official/pinecone/
+plugins/cache/claude-plugins-official/superpowers/
+plugins/cache/piercelamb-plugins/
+# lastUpdated timestamps make this volatile; setup-plugins.sh regenerates it from manifest.json
+plugins/known_marketplaces.json
 
 .uv-lock
 .svelte-kit
@@ -34,11 +85,11 @@ policy-limits.json
 *.sublime-project
 *.suo
 *.sw?
-*.sw?
 *.zip
 *cscope*
 *~
 .DS_Store
+.DS_store
 .Python
 .cache/
 .coverage
@@ -126,44 +177,3 @@ venv/
 wheels/
 yarn-debug.log*
 yarn-error.log*
-.DS_store
-.sconsign.dblite
-*.cache
-*.bak
-*~
-*.swp
-
-# no big files
-*.zip
-*.exe
-
-# sublime excludes
-*.sublime-project
-sublime-workspace
-
-# scons excludes
-*cscope*
-/scons.err
-/scons.log
-
-# python related
-*.pyc
-__pycache__
-.ipynb_checkpoints/
-.local/
-.cache/
-.ipython/
-.jupyter/
-.virtual_documents/
-
-# for python virtual environments
-venv/
-
-# Local Netlify folder
-.netlify
-
-# Mkdocs site output
-site/
-
-# Nodes folders
-node_modules
