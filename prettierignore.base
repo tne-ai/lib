@@ -1,0 +1,12 @@
+# Prettier ignore file
+# Installed to .prettierignore by make install-repo
+#
+# Pre-commit passes explicit file paths to prettier, bypassing .prettierignore
+# in normal operation. The exclude: pattern in .pre-commit-config.yaml is the
+# authoritative way to exclude files from the prettier pre-commit hook.
+# This file handles direct prettier invocations (e.g. editor integrations).
+
+# Claude Code plugin skill and constitution files — contain template syntax
+# that prettier rewrites and destroys (e.g. {{VARIABLE}}, fenced YAML blocks)
+SKILL.md
+CONSTITUTION.md

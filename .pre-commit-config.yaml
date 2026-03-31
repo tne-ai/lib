@@ -121,6 +121,8 @@ repos:
     hooks:
       - id: prettier
         types_or: [markdown]
+        # Exclude skill/constitution files — contain template syntax prettier destroys
+        exclude: (SKILL\.md$|CONSTITUTION\.md$)
 
   # https://jorisroovers.com/gitlint/#using-gitlint-through-pre-commit
   - repo: https://github.com/jorisroovers/gitlint

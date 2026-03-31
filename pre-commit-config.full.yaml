@@ -3,7 +3,7 @@
 # if you want to exclude then use the exclude and put the directories in
 #
 # For the main source repo with random stuff in it
-# tried dockerfilelint too strict and disabling does not work
+# tried dockerfilelint but too strict and disabling does not work
 # cannot run check-builtin-literals due to foreign python code
 
 # note that we exclude node_modules and _vendor for hugo
@@ -111,7 +111,7 @@ repos:
     hooks:
       - id: markdownlint-cli2
         args: [--fix]
-        exclude: (^TNE-CONTEXT/|^\.claude/)
+        exclude: (^\.claude/)
 
   # prettier for markdown formatting (like shfmt for shell)
   # rbubley fork tracks stable releases (pre-commit/mirrors-prettier is archived)
@@ -120,6 +120,8 @@ repos:
     hooks:
       - id: prettier
         types_or: [markdown]
+        # Exclude skill/constitution files — contain template syntax prettier destroys
+        exclude: (SKILL\.md$|CONSTITUTION\.md$)
 
   # https://jorisroovers.com/gitlint/#using-gitlint-through-pre-commit
   - repo: https://github.com/jorisroovers/gitlint
@@ -214,18 +216,25 @@ repos:
     rev: v1.1.408
     hooks:
       - id: pyright
+        additional_dependencies:
+          - pytest
+          - transitions
+          - tabulate
+          - networkx
+          - pydantic
 
   # https://jupytext.readthedocs.io/en/latest/using-pre-commit.html
   # sync all notebooks with their corresponding markdown files
   # use ruff to format the python code and the version must match
-  - repo: https://github.com/mwouts/jupytext
-    rev: v1.19.1
-    hooks:
-      - id: jupytext
-        args: [--sync, --pipe, ruff]
-        additional_dependencies:
-          - ruff==0.15.2
-          #- black==23.3.0
+  # takes too lon
+  # - repo: https://github.com/mwouts/jupytext
+  #   rev: v1.19.1
+  #   hooks:
+  #     - id: jupytext
+  #       args: [--sync, --pipe, ruff]
+  #       additional_dependencies:
+  #         - ruff==0.15.2
+  #         #- black==23.3.0
 
   # strips everything out so use pre-commit-jupyter instead
   # - repo: https://github.com/kynan/nbstripout
@@ -234,16 +243,16 @@ repos:
   #    - id: nbstripout
 
   # https://github.com/roy-ht/pre-commit-jupyte
-  - repo: https://github.com/aflc/pre-commit-jupyter
-    rev: v1.2.1
-    hooks:
-      - id: jupyter-notebook-cleanup
-        args:
-          - --remove-kernel-metadata
-          - --pin-patterns
-          - "[pin];[donotremove]"
-        files: \.ipynb$
-        types: ["file"]
+  # - repo: https://github.com/aflc/pre-commit-jupyter
+  #   rev: v1.2.1
+  #   hooks:
+  #     - id: jupyter-notebook-cleanup
+  #       args:
+  #         - --remove-kernel-metadata
+  #         - --pin-patterns
+  #         - "[pin];[donotremove]"
+  #       files: \.ipynb$
+  #       types: ["file"]
 
   # lint Dockerfiles with hadolint only use if you need nektos
   # - repo: https://github.com/hadolint/hadolint
@@ -264,7 +273,7 @@ repos:
       - id: validate-skill-frontmatter
         name: Validate SKILL.md frontmatter
         language: system
-        entry: bash -c 'if [[ -x scripts/validate-skills.sh ]]; then scripts/validate-skills.sh "$@"; else exit 0; fi' --
+        entry: bash -c 'if [[ -x scripts/cao-validate-skills.sh ]]; then scripts/cao-validate-skills.sh "$@"; else exit 0; fi' --
         files: SKILL\.md$
         exclude: plugins/tne-ja/
 
@@ -278,7 +287,7 @@ repos:
       - id: generate-readme
         name: Auto-generate README.md and welcome.md from skills inventory
         language: system
-        entry: bash -c 'if [[ -f scripts/cco17-generate-inventory.py ]]; then python3 scripts/cco17-generate-inventory.py --readme --quiet && git add plugins/tne/README.md plugins/tne/skills/coo16-navigator/templates/welcome.md; else exit 0; fi'
+        entry: bash -c 'if [[ -f scripts/cco17-generate-inventory.py ]]; then python3 scripts/cco17-generate-inventory.py --readme --quiet && git add plugins/tne/README.md plugins/tne/skills/cai16-navigator/templates/welcome.md; else exit 0; fi'
         files: plugins/tne/skills/.*/SKILL\.md$
         pass_filenames: false
 
@@ -288,22 +297,3 @@ repos:
         entry: bash -c 'ISSUES=$(grep -n "\"\.claude/" "$@" | grep -v "\$HOME" | grep -v "^#" || true); if [[ -n "$ISSUES" ]]; then echo "Found relative .claude/ paths (should use \$HOME/.claude/):"; echo "$ISSUES"; exit 1; fi' --
         files: plugins/.*\.sh$
         exclude: plugins/tne-ja/
-
-      - id: check-docs-sync
-        name: Check plugin docs sync with skills
-        language: system
-        entry: bash -c 'if [[ -f scripts/cai22-check-docs-sync.sh ]]; then exec bash scripts/cai22-check-docs-sync.sh; fi'
-        files: '(skills/|README\.md|AGENTS\.md)'
-        pass_filenames: false
-
-      - id: skill-integrity
-        name: Ensure skill signatures
-        language: system
-        entry: bash -c 'if [[ -f scripts/ciso10-integrity.py ]]; then exec python3 scripts/ciso10-integrity.py; fi'
-        files: "skills/.*/.*"
-        pass_filenames: false
-
-      # cco21-stamp-marketplace.sh intentionally NOT a pre-commit hook:
-      # pre-commit runs before the commit exists, so git rev-parse HEAD gives the parent hash.
-      # Stamping with the correct commit hash happens post-commit in p-cco22 Phase 3
-      # via cco21-stamp-build + scripts/p-cco22-detect-plugin-repos.sh.

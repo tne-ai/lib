@@ -7,16 +7,62 @@
 #
 # References the markdownlint rules from .markdownlint.yaml
 
+ignores:
+  # Auto-generated inventory files — prettier and markdownlint conflict on table cell padding
+  - "plugins/tne-ja/generated/**"
+  - "plugins/tne-ja/docs/inventory.md"
+
 config:
+  # MD001: Heading increment — skills use non-sequential heading levels
+  MD001: false
+
+  # MD003: Heading style — mixed ATX/setext across generated files
+  MD003: false
+
   # MD013: Line length — tables, headings, and code blocks can't be wrapped
-  MD013:
-    line_length: 120
-    tables: false
-    headings: false
-    code_blocks: false
+  MD013: false
+
+  # MD024: Duplicate headings — skills reuse section names like "Your Task"
+  MD024: false
+
+  # MD025: Single title — skill files have frontmatter before the title
+  MD025: false
+
+  # MD028: Blank line inside blockquote — used for spacing in quotes
+  MD028: false
+
+  # MD033: Inline HTML — used in skill templates and examples
+  MD033: false
 
   # MD034: Bare URLs — allow email addresses
   MD034: false
+
+  # MD036: Emphasis as heading — bold text used as pseudo-headings in skills
+  MD036: false
+
+  # MD040: Fenced code language — many blocks are pseudocode/config
+  MD040: false
+
+  # MD041: First line heading — files start with frontmatter not headings
+  MD041: false
+
+  # MD046: Code block style — mixed styles across generated files
+  MD046: false
+
+  # MD048: Code fence style — mixed styles across generated files
+  MD048: false
+
+  # MD051: Link fragments — generated links may reference dynamic anchors
+  MD051: false
+
+  # MD052: Reference links/images — generated content may have unresolved refs
+  MD052: false
+
+  # MD055: Table pipe style — prettier controls formatting
+  MD055: false
+
+  # MD056: Table column count — generated tables may vary
+  MD056: false
 
   # MD060: Table column style — prettier controls formatting
   MD060: false

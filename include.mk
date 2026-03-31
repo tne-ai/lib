@@ -185,6 +185,8 @@ PYTHON_FILE ?= \
 TEMPLATE ?= \
 			gitignore.base \
 			pre-commit-config.full.yaml \
+			prettierignore.base \
+			markdownlint-cli2.base.yaml \
 			docs.base \
 			workflow.base
 # node-version disabled: use mise (.mise.toml) for node version management instead
@@ -193,6 +195,8 @@ TEMPLATE ?= \
 FILE ?= \
 			.gitignore \
 			.pre-commit-config.yaml \
+			.prettierignore \
+			.markdownlint-cli2.yaml \
 			docs \
 			.github/workflows
 # node-version disabled: use mise (.mise.toml) for node version management instead
