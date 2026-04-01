@@ -420,6 +420,22 @@ config_mark() {
 	local marker="${4:-"Added by $SCRIPTNAME"}"
 
 	config_touch "$file"
+	# JSON/JSONC files cannot have comments — use a _managed_by array key as the marker instead
+	if [[ $file == *.json || $file == *.jsonc ]]; then
+		if [[ ! -s $file ]]; then echo '{}' >"$file"; fi
+		if ${force:-false} || ! jq -e --arg m "$marker" '._managed_by | index($m)' "$file" >/dev/null 2>&1; then
+			local jtmp
+			jtmp="$(mktemp "${file}.XXXX")"
+			if jq --arg m "$marker" 'if ._managed_by then ._managed_by += [$m] else ._managed_by = [$m] end' "$file" >"$jtmp"; then
+				mv "$jtmp" "$file"
+			else
+				rm -f "$jtmp"
+				return 1
+			fi
+			return 1
+		fi
+		return 0
+	fi
 	# need the -- incase the comment_prefix has a leading -
 	if ${force:-false} || ! grep -q -- "$comment_prefix $marker" "$file"; then
 		# do not quote config_sudo because it can return null
@@ -450,6 +466,30 @@ config_add() {
 	# if output is null then do not put a parameter
 	# need_sudo should also  be empty
 	$need_sudo tee -a "$file" >/dev/null
+}
+
+# JSON equivalent of config_add. Idempotently appends a value to a JSON array.
+# Use after config_mark to mirror the config_mark / config_add pattern for .json files.
+# Creates the file with an empty object if it does not exist.
+# If the jq path does not yet exist in the file it is initialised to [].
+# usage: config_add_json file json_path value
+# example: config_add_json "$HOME/.config/nvim/lazyvim.json" .extras "lazyvim.plugins.extras.ai.copilot"
+# returns: 0 always
+config_add_json() {
+	if (($# < 3)); then return 1; fi
+	local file="$1"
+	local path="$2"
+	local value="$3"
+	config_touch "$file"
+	if [[ ! -s $file ]]; then echo '{}' >"$file"; fi
+	local jtmp
+	jtmp="$(mktemp "${file}.XXXX")"
+	if jq --arg v "$value" "($path //= []) | if ($path | index(\$v)) then . else $path += [\$v] end" "$file" >"$jtmp"; then
+		mv "$jtmp" "$file"
+	else
+		rm -f "$jtmp"
+		return 1
+	fi
 }
 
 #
