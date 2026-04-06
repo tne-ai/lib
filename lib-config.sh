@@ -468,13 +468,56 @@ config_add() {
 	$need_sudo tee -a "$file" >/dev/null
 }
 
-# JSON equivalent of config_add. Idempotently appends a value to a JSON array.
-# Use after config_mark to mirror the config_mark / config_add pattern for .json files.
-# Creates the file with an empty object if it does not exist.
-# If the jq path does not yet exist in the file it is initialised to [].
-# usage: config_add_json file json_path value
-# example: config_add_json "$HOME/.config/nvim/lazyvim.json" .extras "lazyvim.plugins.extras.ai.copilot"
-# returns: 0 always
+# ─────────────────────────────────────────────────────────────────────────────
+# JSON config helpers  (config_add_json / config_edit_json / config_upsert_json)
+#
+# WHY THREE FUNCTIONS?
+#
+#   Shell scripts often need to add settings to JSON config files idempotently
+#   (safe to re-run without creating duplicates or losing user edits).
+#   Plain heredocs overwrite the whole file. These helpers use jq to surgically
+#   edit only what they touch, preserving everything else.
+#
+# PATTERN — choose by what you're adding:
+#
+#   A plain string into an array     →  config_add_json
+#   A JSON object into an array      →  config_upsert_json
+#   Anything else (scalar, merge…)   →  config_edit_json  (raw jq)
+#
+# HOW THEY ALL WORK UNDER THE HOOD (ELI5):
+#
+#   1. Create a temp file next to the target (mktemp).
+#   2. Run jq, reading the original file and writing the result to the temp file.
+#      jq never touches the original while it's running.
+#   3. If jq succeeded, atomically replace the original with mv.
+#      If jq failed, delete the temp and return 1 — original is untouched.
+#
+#   This "write to tmp, then mv" pattern is called an atomic replace.
+#   It means a crash or power cut mid-write can never leave a half-written file.
+#
+# JQ CHEAT SHEET for readers unfamiliar with jq:
+#
+#   .foo            — read field "foo" from the current object
+#   .foo //= []     — if .foo is null or missing, set it to []; otherwise leave it
+#   .foo += [$x]    — append $x to the array at .foo
+#   map(.name)      — transform every element, keeping only the .name field
+#   index($v)       — position of $v in an array, or null if not found
+#   --arg  k v      — bind shell string v to jq variable $k (always a string)
+#   --argjson k v   — parse shell string v as JSON and bind to $k (preserves type)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Idempotently append a plain string value to a JSON array.
+# Mirrors the config_mark / config_add pattern for .json files.
+# Creates the file with {} if it does not exist.
+# If the jq path does not yet exist it is initialised to [].
+#
+# ELI5: "Open the JSON file, find the list at json_path, add value to the end
+#        of that list — but only if it isn't already there."
+#
+# usage:   config_add_json file json_path value
+# example: config_add_json "$HOME/.config/nvim/lazyvim.json" .extras \
+#              "lazyvim.plugins.extras.ai.copilot"
+# returns: 0 on success, 1 on bad args or jq error
 config_add_json() {
 	if (($# < 3)); then return 1; fi
 	local file="$1"
@@ -484,12 +527,78 @@ config_add_json() {
 	if [[ ! -s $file ]]; then echo '{}' >"$file"; fi
 	local jtmp
 	jtmp="$(mktemp "${file}.XXXX")"
+	# jq filter breakdown:
+	#   ($path //= [])          — ensure the array exists
+	#   if ($path | index($v))  — is $value already in the array?
+	#   then .                  — yes: return unchanged
+	#   else $path += [$v] end  — no: append it
 	if jq --arg v "$value" "($path //= []) | if ($path | index(\$v)) then . else $path += [\$v] end" "$file" >"$jtmp"; then
 		mv "$jtmp" "$file"
 	else
 		rm -f "$jtmp"
 		return 1
 	fi
+}
+
+# Atomically apply any jq filter to a JSON file in-place.
+# Creates the file with {} if it does not exist.
+# All arguments after the file are forwarded verbatim to jq.
+#
+# ELI5: "Run whatever jq command you give me against the file, and save the
+#        result back — safely, so a crash can't corrupt the file."
+#
+# usage:   config_edit_json file [jq_flags...] jq_filter
+# example: config_edit_json "$HOME/.config/app.json" '.LOG //= true'
+# example: config_edit_json "$HOME/.config/app.json" \
+#              --argjson defaults '{"timeout":30}' \
+#              '.settings = ($defaults + (.settings // {}))'
+# returns: 0 on success, 1 on jq error
+config_edit_json() {
+	if (($# < 2)); then return 1; fi
+	local file="$1"
+	shift
+	config_touch "$file"
+	if [[ ! -s $file ]]; then echo '{}' >"$file"; fi
+	local jtmp
+	jtmp="$(mktemp "${file}.XXXX")"
+	if jq "$@" "$file" >"$jtmp"; then
+		mv "$jtmp" "$file"
+	else
+		rm -f "$jtmp"
+		return 1
+	fi
+}
+
+# Upsert a JSON object into a JSON array, matched by a key field.
+# Appends the object if no entry with the same key value exists; no-op if present.
+# Creates the file with {} if it does not exist.
+#
+# ELI5: "Open the JSON file, find the list at array_path, look through every
+#        item's key_field — if none of them match our new object's key_field,
+#        add the new object to the end of the list."
+#
+# usage:   config_upsert_json file array_path key_field json_object
+# example: config_upsert_json "$HOME/.config/app.json" .providers name \
+#              '{"name":"openai","url":"https://api.openai.com"}'
+# returns: 0 on success, 1 on error
+config_upsert_json() {
+	if (($# < 4)); then return 1; fi
+	local file="$1"
+	local array_path="$2"
+	local key_field="$3"
+	local obj="$4"
+	# jq filter breakdown:
+	#   ($array_path //= [])                      — ensure the array exists
+	#   $array_path | map(.[$k])                  — collect all existing key values
+	#   | index($obj[$k])                         — is our key already in that list?
+	#   if ... != null then .                     — yes: return unchanged
+	#   else $array_path += [$obj] end            — no: append the new object
+	config_edit_json "$file" --arg k "$key_field" --argjson obj "$obj" \
+		"($array_path //= []) |
+		 if ($array_path | map(.[\$k]) | index(\$obj[\$k])) != null
+		 then .
+		 else $array_path += [\$obj]
+		 end"
 }
 
 #
