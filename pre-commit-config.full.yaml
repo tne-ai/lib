@@ -266,34 +266,31 @@ repos:
       - id: hadolint
         exclude: Dockerfile.dockerignore
 
-  # Repo-specific hooks that fail gracefully when scripts are not present.
-  # Repos that have these scripts get the checks; repos that don't skip silently.
+  # ── Plugin fleet checks ───────────────────────────────────────────────────────
+  # Single dispatcher for all plugin content checks (r-cco5 § Law IV).
+  # Covers any plugin namespace (plugins/[^/]+/) — not just tne/.
+  # Fails gracefully when scripts/ are absent (safe to include in non-plugin repos).
+  # generate-readme is a side-effect generator, not a check — kept separate below.
   - repo: local
     hooks:
-      - id: validate-skill-frontmatter
-        name: Validate SKILL.md frontmatter
+      - id: plugin-checks
+        name: Plugin fleet checks (frontmatter · hooks · paths · constitution · tests)
         language: system
-        entry: bash -c 'if [[ -x scripts/cao-validate-skills.sh ]]; then scripts/cao-validate-skills.sh "$@"; else exit 0; fi' --
-        files: SKILL\.md$
+        entry: bash -c 'if [[ -x scripts/pre-commit-plugin-checks.sh ]]; then scripts/pre-commit-plugin-checks.sh "$@"; else exit 0; fi' --
+        files: plugins/[^/]+/
         exclude: plugins/tne-ja/
-
-      - id: validate-claude-hook-json
-        name: Validate Claude Code hook JSON output
-        language: system
-        entry: bash -c 'if [[ -x scripts/validate-hooks.sh ]]; then scripts/validate-hooks.sh "$@"; else exit 0; fi' --
-        files: (^|/)hooks/[^/]+\.sh$
-        exclude: plugins/tne-ja/
+        pass_filenames: true
+        stages: [pre-commit]
 
       - id: generate-readme
         name: Auto-generate README.md and welcome.md from skills inventory
         language: system
-        entry: bash -c 'if [[ -f scripts/cco17-generate-inventory.py ]]; then python3 scripts/cco17-generate-inventory.py --readme --quiet && git add plugins/tne/README.md plugins/tne/skills/cai16-navigator/templates/welcome.md; else exit 0; fi'
-        files: plugins/tne/skills/.*/SKILL\.md$
+        # prettier runs AFTER this hook in the chain, which causes a convergence
+        # loop: generate-readme produces unformatted output, prettier reformats it,
+        # next commit generate-readme re-runs and overwrites the formatted version,
+        # prettier runs again, etc. Fix: run prettier inline here so generated
+        # output is already formatted when the prettier hook sees it.
+        entry: bash -c 'if [[ -f scripts/cco17-generate-inventory.py ]]; then python3 scripts/cco17-generate-inventory.py --readme --quiet && npx prettier --write plugins/tne/README.md README.md 2>/dev/null; git add plugins/tne/README.md plugins/tne/skills/cai16-navigator/templates/welcome.md README.md; else exit 0; fi'
+        files: (plugins/[^/]+/skills/.*/SKILL\.md$|plugins/.*plugin\.json$|marketplace\.json$)
         pass_filenames: false
-
-      - id: check-relative-claude-paths
-        name: Detect relative .claude/ paths in scripts (use $HOME)
-        language: system
-        entry: bash -c 'ISSUES=$(grep -n "\"\.claude/" "$@" | grep -v "\$HOME" | grep -v "^#" || true); if [[ -n "$ISSUES" ]]; then echo "Found relative .claude/ paths (should use \$HOME/.claude/):"; echo "$ISSUES"; exit 1; fi' --
-        files: plugins/.*\.sh$
-        exclude: plugins/tne-ja/
+        stages: [pre-commit]
