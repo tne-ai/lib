@@ -47,7 +47,7 @@ clean:
 # -include $(INCLUDE_DIRS)/include.docker.mk
 # -include $(INCLUDE_DIRS)/include.gcp.base.mk
 # -include $(INCLUDE_DIRS)/include.gcp.mk
-# -include $(INCLUDE_DIRS)/include.hugo.mk
+# -include $(INCLUDE_DIRS)/include.web.mk
 # -include $(INCLUDE_DIRS)/include.jupyter.mk
 # -include $(INCLUDE_DIRS)/include.node.mk
 # -include $(INCLUDE_DIRS)/include.python.mk
