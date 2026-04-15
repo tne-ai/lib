@@ -13,6 +13,15 @@ If you are creating a new directory, then you can just:
    .envrc mask the upper ones. You just want one place to put all your
    configuration. Particularly if you have keys that are read from 1Password
 
+## CI / GitHub Actions
+
+Private repo workflows use [Blacksmith](https://www.blacksmith.sh) runners
+(2× faster, 3,000 free min/month). Public repos automatically use free
+GitHub-hosted runners. Activated via the `RUNNER_LABEL` repo variable —
+set with `make runner-label` or see
+[tne-ai/bin](https://github.com/tne-ai/bin#github-actions-blacksmith-runners)
+for full setup docs.
+
 ## Getting to the full documentation
 
 This has moved to a Mkdocs formatted website at
