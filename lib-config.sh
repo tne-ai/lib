@@ -4,96 +4,81 @@
 ## inspired by raspiconfig
 ##
 
-# The setup strategy below is implmented by pre-install.sh to get the correct chainging of profiles
+# Shell profile chain — strategy implemented by pre-install.sh
+# References:
+#   Ubuntu: https://superuser.com/questions/789448/choosing-between-bashrc-profile-bash-profile-etc/789705#789705
+#   macOS:  https://apple.stackexchange.com/questions/51036/what-is-the-difference-between-bash-profile-and-bashrc
+#   Login detection: https://unix.stackexchange.com/questions/26676/how-to-check-if-a-shell-is-login-interactive-batch
 #
-# Ubuntu https://superuser.com/questions/789448/choosing-between-bashrc-profile-bash-profile-etc/789705#789705
-# On startup:
-#	  GDM reads .profile as /bin/sh before.
-#	  .profile cannot be interactive and you will not see it display
-#     display text
-# Terminal:
-#	  results of .profile and then sources .bashrc
-# Terminal subshell:
-#	  results of .profile and .sources bashrc is run because it is
-#     interactive non-login
+# ─── LINUX ────────────────────────────────────────────────────────────────────
+# Login shell (ssh, CTRL-ALT-F3 console):
+#   /etc/profile → ~/.bash_profile (or ~/.profile if no .bash_profile)
+# Terminal emulator (GNOME Terminal etc.): starts a LOGIN shell on Ubuntu
+#   ~/.bash_profile → ~/.profile → ~/.bashrc
+# Subshell / non-login interactive:
+#   ~/.bashrc only  ← PATH from .profile is NOT available here without the guard
+#
+# ─── MACOS ────────────────────────────────────────────────────────────────────
+# IMPORTANT: macOS bash login shells read ~/.bash_profile, ~/.bash_login, or
+# ~/.profile — in that order, stopping at the FIRST found. Since ~/.bash_profile
+# exists, ~/.profile is NEVER read directly by the shell. It is only sourced
+# because ~/.bash_profile explicitly sources it.
+#
+# Terminal.app / iTerm2: starts a LOGIN shell (unlike most Linux terminals)
+#   ~/.bash_profile → ~/.profile → ~/.bashrc
+# Subshell / non-login interactive (pipenv, Claude Code, subshells):
+#   ~/.bashrc only  ← PATH from .profile is NOT available here without the guard
 # ssh:
-#	  no .profile exports are available. Runs
-#    .bash_profile only because it is an interactive login shell
-#     start non-GUI console with CTRL-ALT-F3 of F5:
-#	  .bash_profile because it is an interactive login shell
-#      pipenv shell
+#   ~/.bash_profile → ~/.profile → ~/.bashrc
 #
-# The Linux strategy:
-# .profile: Is sourced directly by /bin/sh so should only run sh commands and
-# 			and do not ask for interactive input from the user
-#           This should be used to set the PATH and other environment variables
-#           like EDITOR or VISUAL. It can check $BASH to see if it run from
-#           bash and if so then source .bashrc
-# .bashrc:  Should be used for non-exportables like history, aliases and
-#           functions. It should check if in [[ $- =~ i ]] before interactive
-#           displays in case it is run with ssh -c. Command completions which are bash specific go here as
-#           these do not get exported to subshells.
-# .bash_profile: should just source .profile (which in turn sources .bashrc) as it is only run on ssh
+# ─── ZSH (macOS default since Catalina) ──────────────────────────────────────
+# Login shell:   ~/.zprofile → ~/.zshrc
+# Non-login:     ~/.zshrc only (zshrc is always sourced, so no gap)
+# Put PATH in ~/.zshrc — no special chaining needed for zsh.
 #
-# config_profile : set to .profile and guard $BASH checks no echo's or input allowed
-# config_profile_interactive: for interactive input use adds a guard to test if interactive
-# config_profile_nonexportable: set to .bashrc for alias and things that
+# ─── THE CRITICAL GAP ─────────────────────────────────────────────────────────
+# Both macOS and Linux have the same problem: non-login bash shells (subshells,
+# pipenv, Claude Code, any `bash -i`) only read ~/.bashrc. PATH setup in
+# ~/.profile never runs, so tools installed to ~/.local/bin (e.g. pipx packages
+# like argcomplete) are not found.
 #
-# In MacOS, https://apple.stackexchange.com/questions/51036/what-is-the-difference-between-bash-profile-and-bashrc
-# is what happens is that:
-# On startup:
-#   Reads .profile
-# iterm2 or Terminal:
-#   Results of .profile and then sources .bash_profile. All news windows treated
-#   the same way
-# .bashrc is run for non-login shells
+# THE FIX — _PROFILE_SOURCED guard (implemented by pre-install.sh):
 #
-# If zsh is set then it sources .zprofile
-# .zshrc for login shells and
-# .zshrc is for non-login shells.
+#   ~/.profile (top):
+#     export _PROFILE_SOURCED=1      ← mark that .profile has run
+#     ... PATH setup ...
+#     if bash: source ~/.bashrc      ← chain to .bashrc
 #
-# So in a typical configuration where bash is
-# the login shell you should put all the path and other changes just in .zshrc
-# on startup: Nothing is run before the GUI starts
+#   ~/.bashrc (top):
+#     if [ -z "$_PROFILE_SOURCED" ] && [ -f "$HOME/.profile" ]; then
+#       . "$HOME/.profile"           ← non-login shell: pull in PATH
+#     fi                             ← guard prevents infinite loop
 #
-# New terminal window: .bash_profile or .zprofile and then .zshrc (and not .bashrc like in Ubuntu)
-# Subshell: results of .bash_profile exports plus source of .bashrc
-#           results of .zprofile and .zshrc and then .zshrc is sourced
-# ssh in: .bash_profile run or .zprofile and then .zshrc is sourced
-# pipenv shell: this works like Linux so it only runs .bashrc and skips .bash_profile
+#   Login shell flow:
+#     .bash_profile → .profile (sets _PROFILE_SOURCED=1, PATH) → .bashrc
+#     .bashrc sees _PROFILE_SOURCED set → skips re-sourcing .profile ✓
 #
-# The MacOS strategy: be as similar to Linus as possible. The profile strategy is:
-# .profile: Put the PATH and other variables you want to be set in .profile use
-#		    /bin/sh syntax and detect ZSH_VERSION and run emulate sh to make this work.
-#		    It should source .bashrc if bash is being run. This should be have
-#		    interactive commands (that is do not ask for input and be for any
-#		    shell)
-# .bash_profile: Sources .profile like Ubuntu and because of pipenv bug do not
-# 			put things here
-# .bashrc: Same strategy, it should only do non-exportables like history, aliases and functions
-#           and check if in [[ $- =~ i ]] before interactive displays so it
-#           doesn't run with ssh -c. If  you are using pipenv, It gets
-#           completions because of the pipenv problem since .bash_profile is
-#           not run with pipenv as a subshell, not true with  uv or poetry which
-#           source venv so do not spawn subshells.
-# .zprofile: source .profile manually with no need to source .zshrc as this is alway done
-# .zshrc: handles non-exportables and check to see if it is interactive or not.
+#   Non-login shell flow:
+#     .bashrc → _PROFILE_SOURCED unset → sources .profile
+#     .profile sets _PROFILE_SOURCED=1, PATH → sources .bashrc
+#     .bashrc sees _PROFILE_SOURCED set → skips re-sourcing .profile ✓
 #
-# Note: checking if you are login shell or not https://unix.stackexchange.com/questions/26676/how-to-check-if-a-shell-is-login-interactive-batch
-# can be done by checking for -l in $- in zsh or shopt -q login_shell for bash
+# ─── FILE ROLES ───────────────────────────────────────────────────────────────
+# .profile:      PATH and exported env vars. POSIX sh syntax only (no bash-isms).
+#                Sets _PROFILE_SOURCED=1. Sources .bashrc when running under bash.
+# .bash_profile: Sources .profile. Exists only to satisfy macOS login shell lookup.
+#                Keep nearly empty — pipenv subshells skip it entirely.
+# .bashrc:       Non-exportable bash settings: aliases, functions, completions,
+#                history. Sources .profile via guard if not already sourced.
+#                Guard interactives with [[ $- == *i* ]].
+# .zprofile:     Sources .profile for zsh login shells.
+# .zshrc:        All zsh config (both login and non-login — zsh always reads it).
 #
-# pre-install.sh: In .bash_profile sources .profile
-#               In .zprofile source .profile (.zshrc is sourced automatically)
-#				In .profile source .bashrc
-# config_profile = .profile: (.zprofile if ZSH_VERSION) for non-interactive exports like shell variables
-# and which are non shell specific.
-# config_profile_interactive = .bashrc: set to .bashrc (or .zshrc) and you should do an interactive check
-# config_profile_nonexportable = .bashrc: set to .bashrc (or .zshrc) for alias
-# that do not survive a subshell invocation
-#
-# config_profile_shell: set to .bash_profile (or .zprofile if using zsh but
-# beware that this is not run with pipenv so  for now this is also set to
-# .bashrc
+# ─── config_profile FUNCTION MAPPING ─────────────────────────────────────────
+# config_profile             → .profile (or .zprofile): non-interactive PATH/env
+# config_profile_interactive → .bashrc (or .zshrc): interactive/completions
+# config_profile_nonexportable → .bashrc (or .zshrc): aliases, unexported settings
+# config_profile_shell       → .bashrc (not .bash_profile: pipenv skips .bash_profile)
 
 ## config_profile: returns the name of the profile to use for non-interactive command
 # this should only be for thing that do not display or require input
