@@ -298,6 +298,16 @@ pre-commit-update:
 act:
 	act --reuse --container-architecture linux/amd64
 
+## runner-label: Set Blacksmith RUNNER_LABEL org variable for faster CI
+# https://www.blacksmith.sh — 2x faster, 3000 free min/mo for private repos
+# Workflows using ${{ vars.RUNNER_LABEL }} pick this up automatically.
+# Requires org admin rights on GitHub.
+BLACKSMITH_RUNNER ?= blacksmith-4vcpu-ubuntu-2404
+.PHONY: runner-label
+runner-label:
+	gh variable set RUNNER_LABEL --org $(ORG) --body "$(BLACKSMITH_RUNNER)"
+	@echo "RUNNER_LABEL=$(BLACKSMITH_RUNNER) set for org $(ORG)"
+
 ## install-submodule: installs a new submodule $(GIT_ORG)/$(NEW_REPO)
 .PHONY: install-submodule
 install-submodule:
