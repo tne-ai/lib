@@ -10,3 +10,8 @@
 - **Pre-commit**: 2 iterations (gitlint title length fix)
 - **Push**: Direct to main, no PR needed
 - **CI**: Python and Pre-commit workflow green (run 23381900136)
+
+<!-- session @ 2026-04-15 shell-profile-fixes -->
+
+- _(change | 2026-04-15)_ **lib-config.sh documentation rewrite (commit 7d63f72)**
+  Rewrote header to correct macOS shell chain documentation; added `_PROFILE_SOURCED` guard explanation with flow diagrams; clarified that `.profile` is only reached via explicit source in `.bash_profile` on macOS
