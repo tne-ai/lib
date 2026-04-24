@@ -42,7 +42,7 @@ clean:
 # include "$(LIB_PATH)/include.mk"
 # endif
 -include $(INCLUDE_DIRS)/include.mk
-# -include $(INCLUDE_DIRS)/include.knowledge-fabric.mk
+# -include $(INCLUDE_DIRS)/include.knowledge-tapestry.mk
 # -include $(INCLUDE_DIRS)/include.ai.mk
 # -include $(INCLUDE_DIRS)/include.airflow.mk
 # -include $(INCLUDE_DIRS)/include.docker.mk
