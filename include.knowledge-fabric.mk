@@ -1,7 +1,7 @@
 ##
 ## Knowledge Fabric Commands
 ## ---
-## Targets for projects using the Knowledge Fabric graph viewer/editor
+## Targets for projects using the Knowledge Fabric graph app
 ## (demo-do178c pattern). Requires cli.py in the project root.
 ##
 ## Include this file from your project Makefile:
@@ -22,21 +22,22 @@ _kf-guard:
 		  echo "Run make from the project root that contains $(CLI)."; \
 		  exit 1; }
 
-## app: open the Knowledge Fabric graph app (viewer + inline editor)
-.PHONY: app
-app: _kf-guard
+## kfab: open the Knowledge Fabric app (3D graph viewer + inline editor)
+.PHONY: kfab
+kfab: _kf-guard
 	python $(CLI) viz
 
-## ingest: ingest documents into the graph database
-.PHONY: ingest
-ingest: _kf-guard
+## kfab-ingest: ingest documents into the Knowledge Fabric graph database
+.PHONY: kfab-ingest
+kfab-ingest: _kf-guard
 	python $(CLI) ingest
 
-## export: export static files for GitHub Pages / CDN (no server needed)
-##         output: .viz/graph_data.json + .viz/index.html
-export: _kf-guard
+## kfab-export: export static Knowledge Fabric files for GitHub Pages / CDN
+##              output: .viz/graph_data.json + .viz/index.html (no server needed)
+.PHONY: kfab-export
+kfab-export: _kf-guard
 	python $(CLI) viz --export-only
 
-## dev: ingest documents then open the app
-.PHONY: dev
-dev: ingest app
+## kfab-dev: ingest documents then open the Knowledge Fabric app
+.PHONY: kfab-dev
+kfab-dev: kfab-ingest kfab
