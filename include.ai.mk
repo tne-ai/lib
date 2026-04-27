@@ -23,6 +23,7 @@ MLFLOW_PORT ?= 5002
 LITELLM_PORT ?= 4000
 TEMPORAL_PORT ?= 7233
 KTAP_PORT ?= 8765
+CCR_PORT ?= 3456
 KTAP_DIR ?= $(WS_DIR)/git/src/demo/demo-do178c
 LITELLM_CFG ?= $(WS_DIR)/git/src/litellm_config.yaml
 TEMPORAL_DB ?= $(WS_DIR)/data/temporal/temporal.db
@@ -166,10 +167,21 @@ ktap:
 	$(call start_server,$(KTAP_PORT),python3 ktap.py viz --port $(KTAP_PORT))
 	$(call check_port,$(KTAP_PORT))
 
-## ai: start TNE Compass stack — mlflow (:$(MLFLOW_PORT)) litellm (:$(LITELLM_PORT)) temporal (:$(TEMPORAL_PORT)) ktap (:$(KTAP_PORT))
+## ccr: start Claude Code Router at http://localhost:$(CCR_PORT)
+.PHONY: ccr
+ccr:
+	$(call start_server,$(CCR_PORT),ccr start)
+	$(call check_port,$(CCR_PORT))
+
+## ccr-ui: open Claude Code Router web UI
+.PHONY: ccr-ui
+ccr-ui:
+	ccr ui
+
+## ai: start TNE Compass stack — mlflow (:$(MLFLOW_PORT)) litellm (:$(LITELLM_PORT)) temporal (:$(TEMPORAL_PORT)) ktap (:$(KTAP_PORT)) ccr (:$(CCR_PORT))
 ## Use 'make ai-local' to additionally start LM Studio for local LLM inference.
 .PHONY: ai
-ai: mlflow litellm temporal ktap
+ai: mlflow litellm temporal ktap ccr
 
 ## ai-local: start TNE Compass + LM Studio for local LLM inference
 .PHONY: ai-local
@@ -204,16 +216,17 @@ set-gpu-max-memory:
 	fi &&  \
 	sudo sysctl iogpu.wired_limit_mb=$$(bc -l <<<"($$MEMORY - $$MEMORY_GPU)*1024")
 
-## ai-open: open ai ports ports ollama:11434, open-webui:8080
+## ai-open: open TNE Compass UIs (CCR web UI + LM Studio)
 	# $(call open_server,$(OLLAMA_SERVER_PORT),/api/tags)
 	# $(call open_server,$(OPEN_WEBUI_PORT))
 .PHONY: ai-open
 ai-open:
+	ccr ui
 	open -a "LM Studio"
 
 ## ai-ps: process status of TNE Compass stack
 .PHONY: ai-ps
-ai-ps: mlflow.ps litellm.ps temporal.ps ktap.ps
+ai-ps: mlflow.ps litellm.ps temporal.ps ktap.ps ccr.ps
 
 ## ai-local-ps: process status of Compass + local LLM stack
 .PHONY: ai-local-ps
@@ -222,12 +235,13 @@ ai-local-ps: ai-ps
 
 # open-webui exists in pip packages, open_webui in builds from source
 # reset the gpu memory limit to the default
-## ai-kill: kill TNE Compass stack (mlflow, litellm, temporal, ktap)
+## ai-kill: kill TNE Compass stack (mlflow, litellm, temporal, ktap, ccr)
 .PHONY: ai-kill
 ai-kill: $(MLFLOW_PORT).kill \
 	$(LITELLM_PORT).kill \
 	$(TEMPORAL_PORT).kill \
-	$(KTAP_PORT).kill
+	$(KTAP_PORT).kill \
+	$(CCR_PORT).kill
 
 ## ai-local-kill: kill Compass stack + LM Studio
 .PHONY: ai-local-kill
