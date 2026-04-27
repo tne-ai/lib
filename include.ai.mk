@@ -19,6 +19,13 @@ MLX_PORT ?= 9000
 COMFY_PORT ?= 8000
 MCPO_PORT ?= 8001
 DOCLING_PORT ?= 5001
+MLFLOW_PORT ?= 5002
+LITELLM_PORT ?= 4000
+TEMPORAL_PORT ?= 7233
+KTAP_PORT ?= 8765
+KTAP_DIR ?= $(WS_DIR)/git/src/demo/demo-do178c
+LITELLM_CFG ?= $(WS_DIR)/git/src/litellm_config.yaml
+TEMPORAL_DB ?= $(WS_DIR)/data/temporal/temporal.db
 
 
 # different location depending on linux or Mac (Darwin)
@@ -133,13 +140,44 @@ old.%.kill:
 	done &
 
 
-## ai: start minimal ai ollama and qdrant
-.PHONY: ai
-ai: qdrant ollama
+## mlflow: start MLflow tracking server at http://localhost:$(MLFLOW_PORT)
+.PHONY: mlflow
+mlflow:
+	$(call start_server,$(MLFLOW_PORT),mlflow server --host 127.0.0.1 --port $(MLFLOW_PORT))
+	$(call check_port,$(MLFLOW_PORT))
 
-## ai-max: allocate maximum RAM to the GPU, reduces all other app memory
+## litellm: start LiteLLM proxy at http://localhost:$(LITELLM_PORT)
+.PHONY: litellm
+litellm:
+	$(call start_server,$(LITELLM_PORT),litellm --config $(LITELLM_CFG) --port $(LITELLM_PORT))
+	$(call check_port,$(LITELLM_PORT))
+
+## temporal: start Temporal workflow server at http://localhost:$(TEMPORAL_PORT)
+.PHONY: temporal
+temporal:
+	mkdir -p "$(dir $(TEMPORAL_DB))" && \
+	$(call start_server,$(TEMPORAL_PORT),temporal server start-dev --db-filename $(TEMPORAL_DB) --ui-port 8080)
+	$(call check_port,$(TEMPORAL_PORT))
+
+## ktap: start KTAP knowledge graph viewer at http://localhost:$(KTAP_PORT)
+.PHONY: ktap
+ktap:
+	cd "$(KTAP_DIR)" && \
+	$(call start_server,$(KTAP_PORT),python3 ktap.py viz --port $(KTAP_PORT))
+	$(call check_port,$(KTAP_PORT))
+
+## ai: start TNE Compass stack — mlflow (:$(MLFLOW_PORT)) litellm (:$(LITELLM_PORT)) temporal (:$(TEMPORAL_PORT)) ktap (:$(KTAP_PORT))
+## Use 'make ai-local' to additionally start LM Studio for local LLM inference.
+.PHONY: ai
+ai: mlflow litellm temporal ktap
+
+## ai-local: start TNE Compass + LM Studio for local LLM inference
+.PHONY: ai-local
+ai-local: ai lms-server
+
+## ai-max: allocate maximum RAM to the GPU then start local LLM stack
 .PHONY: ai-max
-ai-max: set-gpu-max-memory ai
+ai-max: set-gpu-max-memory ai-local
 
 ## set-gpu-max-memory: Set GPU limits
 .PHONY: set-gpu-max-memory
@@ -173,20 +211,29 @@ set-gpu-max-memory:
 ai-open:
 	open -a "LM Studio"
 
-## ai-ps: process status of all ai processe
-	# -ollama ps
+## ai-ps: process status of TNE Compass stack
 .PHONY: ai-ps
-ai-ps: qdrant.ps ollama.ps
+ai-ps: mlflow.ps litellm.ps temporal.ps ktap.ps
+
+## ai-local-ps: process status of Compass + local LLM stack
+.PHONY: ai-local-ps
+ai-local-ps: ai-ps
 	lms server status
 
 # open-webui exists in pip packages, open_webui in builds from source
 # reset the gpu memory limit to the default
-## ai-kill: kill all ai all ai servers
+## ai-kill: kill TNE Compass stack (mlflow, litellm, temporal, ktap)
 .PHONY: ai-kill
-ai-kill: $(OLLAMA_SERVER_PORT).kill \
-	qdrant.kill
-	sudo sysctl iogpu.wired_limit_mb=0
+ai-kill: $(MLFLOW_PORT).kill \
+	$(LITELLM_PORT).kill \
+	$(TEMPORAL_PORT).kill \
+	$(KTAP_PORT).kill
+
+## ai-local-kill: kill Compass stack + LM Studio
+.PHONY: ai-local-kill
+ai-local-kill: ai-kill
 	lms server stop
+	sudo sysctl iogpu.wired_limit_mb=0
 
 ## lms-server: LM Studio server
 .PHONY: lms-server
@@ -291,13 +338,12 @@ tika:
 	$(call start_server,9998,java -jar "$$HOME/jar/$(TIKA_JAR)")
 	$(call check_port,9998)
 
-## docling: Alternative to tika for pdf, md, html, csv and images
-# https://docling-project.github.io/docling/usage/supported_formats/#supported-input-formats
-.PHONY: docling
-docling:
-	$(call start_server,$(DOCLING_PORT),docling-serve run --enable-ui --port $(DOCLING_PORT))
-	$(call check_port,$(DOCLING_PORT))
-	@echo "docling at http://locahost:$(DOCLING_PORT)/ui"
+## docling: REMOVED — no longer used
+# .PHONY: docling
+# docling:
+# 	$(call start_server,$(DOCLING_PORT),docling-serve run --enable-ui --port $(DOCLING_PORT))
+# 	$(call check_port,$(DOCLING_PORT))
+# 	@echo "docling at http://locahost:$(DOCLING_PORT)/ui"
 
 
 
