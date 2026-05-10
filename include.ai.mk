@@ -3,8 +3,10 @@
 PYTHON ?= 3.12
 FLAGS ?=
 SHELL := /usr/bin/env bash
-WS_DIR ?= $(HOME)/wsn
+WS_DIR ?= $(HOME)/ws
 BIN_DIR ?= $(WS_DIR)/git/src/bin
+TNE_DB_DIR  ?= $(WS_DIR)/db
+TNE_LOG_DIR ?= $(WS_DIR)/log
 
 AI_USER ?= $(USER)
 AI_ORG ?= tne.ai
@@ -28,9 +30,9 @@ MLFLOW_LOG_SCRIPT ?= $(WS_DIR)/git/src/sys/tne-plugins/plugins/tne/skills/cai-op
 # Default: ~/.config/litellm/config.yaml (XDG standard).
 # install-ai.sh copies tne-plugins/litellm_config.yaml here on setup.
 LITELLM_CFG  ?= $(HOME)/.config/litellm/config.yaml
-MLFLOW_DIR   ?= $(HOME)/.local/share/mlflow
+MLFLOW_DIR   ?= $(TNE_DB_DIR)
 KTAP_DIR     ?= $(WS_DIR)/git/src/demo/demo-do178c
-TEMPORAL_DB  ?= $(WS_DIR)/data/temporal/temporal.db
+TEMPORAL_DB  ?= $(TNE_DB_DIR)/temporal/temporal.db
 LITELLM_DB   ?= litellm
 LITELLM_DB_URL ?= postgresql://$(USER)@localhost/$(LITELLM_DB)
 # Monthly budget cap in USD — LiteLLM hard-stops when exceeded
@@ -58,11 +60,11 @@ debug:
 SETSID ?= $(or $(shell which setsid 2>/dev/null),/opt/homebrew/opt/util-linux/bin/setsid)
 start_server = if ! $(call port_ready,$(1)); then \
     nohup bash -c "$(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) \
-                   </dev/null >>/tmp/sidecar-$(1).log 2>&1 &" &>/dev/null; fi
+                   </dev/null >>$(TNE_LOG_DIR)/sidecar-$(1).log 2>&1 &" &>/dev/null; fi
 # Uvicorn/Gunicorn detect terminal group membership — double-fork required; nohup is not enough.
 start_server_double_fork = if ! $(call port_ready,$(1)); then \
     ($(SETSID) bash -c "$(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) \
-                        </dev/null >>/tmp/sidecar-$(1).log 2>&1 &"); fi
+                        </dev/null >>$(TNE_LOG_DIR)/sidecar-$(1).log 2>&1 &"); fi
 start_server_brew = brew services start $(2) 2>/dev/null || true
 start_server_self = $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) || true
 
