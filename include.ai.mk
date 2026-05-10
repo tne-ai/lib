@@ -10,53 +10,44 @@ AI_USER ?= $(USER)
 AI_ORG ?= tne.ai
 
 # variables must be definte before their use so put high
-OLLAMA_SERVER_PORT ?=11434
-OPEN_WEBUI_PORT ?= 8080
-VITE_PORT ?= 5173
-TIKA_PORT ?= 9998
-LLAMA_SERVER_PORT ?= 8082
-MLX_PORT ?= 9000
-COMFY_PORT ?= 8000
-MCPO_PORT ?= 8001
-DOCLING_PORT ?= 5001
-MLFLOW_PORT ?= 5002
-LITELLM_PORT ?= 4000
-TEMPORAL_PORT ?= 7233
-KTAP_PORT ?= 8765
-CCR_PORT ?= 3456
-KTAP_DIR ?= $(WS_DIR)/git/src/demo/demo-do178c
-LITELLM_CFG ?= $(WS_DIR)/git/src/litellm_config.yaml
-TEMPORAL_DB ?= $(WS_DIR)/data/temporal/temporal.db
+MLFLOW_PORT    ?= 5001
+LITELLM_PORT   ?= 4000
+TEMPORAL_PORT  ?= 7233
+KTAP_PORT      ?= 8765
+CCR_PORT       ?= 3456
+REDIS_PORT     ?= 6379
+POSTGRES_PORT  ?= 5432
+CLAUDE_MEM_PORT ?= 37777
+# OLLAMA_SERVER_PORT ?= 11434
+# OPEN_WEBUI_PORT    ?= 8080
+# ALLOY_PORT         ?= 12345
 
-
-# different location depending on linux or Mac (Darwin)
-# note: OSTYPE is set
-ifneq (,$(findstring Darwin,$(shell uname -msr)))
-	OPEN_WEBUI_DATA_DIR ?= $(HOME)/Library/CloudStorage/GoogleDrive-$(AI_USER)@$(AI_ORG)/Shared drives/app/open-webui-data/$(AI_USER)
-else
-	OPEN_WEBUI_DATA_DIR ?= $(WS_DIR)/cache/open-webui-data/$(AI_USER)
-endif
+# Script to push session logs to MLflow — override per-repo if needed
+MLFLOW_LOG_SCRIPT ?= $(WS_DIR)/git/src/sys/tne-plugins/plugins/tne/skills/cai-opt5-install-ai-stack/scripts/push-logs-to-mlflow.py
+# Default: ~/.config/litellm/config.yaml (XDG standard).
+# install-ai.sh copies tne-plugins/litellm_config.yaml here on setup.
+LITELLM_CFG  ?= $(HOME)/.config/litellm/config.yaml
+MLFLOW_DIR   ?= $(HOME)/.local/share/mlflow
+KTAP_DIR     ?= $(WS_DIR)/git/src/demo/demo-do178c
+TEMPORAL_DB  ?= $(WS_DIR)/data/temporal/temporal.db
+LITELLM_DB   ?= litellm
+LITELLM_DB_URL ?= postgresql://$(USER)@localhost/$(LITELLM_DB)
+# Monthly budget cap in USD — LiteLLM hard-stops when exceeded
+LITELLM_BUDGET ?= 200
+# Stamp file: prisma generate only runs when absent (r-cdo98 Principle II)
+PRISMA_STAMP ?= $(HOME)/.local/share/make-ai/.stamp-prisma-generated
 
 ## debug: environment troubleshooting
 .PHONY: debug
 debug:
 	echo "OSTYPE=$(shell uname -msr)"
-	echo "findstring=$(findstring Darwin,$(shell uname -msr))"
+	echo "LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT)"
 
-## rclone: rclone sync the Linux clone of Google Drive back up
-# https://rclone.org/local/
-# this is very hard have to make an OAuth 2.0 consent screen and then an id with the right scopes
-# https://rclone.org/drive/#making-your-own-client-id
-# https://rclone.org/drive/
-# Gnome sync is easier but then you deal with GUIDs
-# https://askubuntu.com/questions/1368874/can-google-drive-desktop-be-used-on-ubuntu
-.PHONY: rclone
-rclone:
-	mkdir -p "$(OPEN_WEBUI_DATA_DIR)"
-	rclone bisync --resync --interactive "$(OPEN_WEBUI_DATA_DIR)" "app:open-webui-data/$(AI_USER)"
-
-# port does not work use 8080 default and is deprecated
-# PORT ?= 1314
+# ## rclone: rclone sync the Linux clone of Google Drive back up
+# .PHONY: rclone
+# rclone:
+# 	mkdir -p "$(OPEN_WEBUI_DATA_DIR)"
+# 	rclone bisync --resync --interactive "$(OPEN_WEBUI_DATA_DIR)" "app:open-webui-data/$(AI_USER)"
 
 # usage: $(call start_server,port of service, app, arguments...)
 # this generations a strange problem
@@ -69,71 +60,15 @@ open_server = if lsof -i:$(1) -sTCP:LISTEN; then open "http://localhost:$(1)$(2)
 # usage $(call check_ports to see if the command wowrked)
 check_port = -sleep 5 && lsof -i:$(1) -sTCP:LISTEN
 
-## ai.install: installation requires ./src/bin
-.PHONY: ai.install
-ai.install:
-	$(BIN_DIR)/install-ai.sh -v
-
-## %.ps: [ ollama | open-webui | ... ].ps process status
-	# @-pgrep -fL "$*"
+## %.ps: process status for any service (e.g. make litellm.ps)
 %.ps:
-	if ! pgrep -fl $*; then echo $*; fi
+	if ! pgrep -fl $*; then echo "$* not running"; fi
 
-# ignore with a dash in gnu make so || true isn't needed but there in case
-# https://www.gnu.org/software/make/manual/make.html#Errors
-# -f means find anywhere in the argument field
-#  https://www.stackstate.com/blog/sigkill-vs-sigterm-a-developers-guide-to-process-termination/
-#  Send SIGTERM 15 and wait 10 seconds then SIGKILL 9
-# if a pkill does not work,  on stderr you can get a "Signal 15 ignored"
-# If this happens, then you need to do a kill -9
-# the bug is that in doing a pgrep, it will find the search process itself as
-# Make generates a new sheell
-# https://stackoverflow.com/questions/49040992/pgrep-returning-true-in-makefile-but-not-in-shell
-# note that you have to use the pipe because otherwise it will see the $$ in the
-# bash line
-# also the make itself may be there an give a false positive
-# echo hello
-# which pgrep
-# if ! pgrep -fl ollama; then echo "no ollama"; else echo "found ollama"; fi
-# if ! pgrep -fl ollama; then echo "no ollama"; else echo pkill -f ollama; fi
-# if grep -q "^$$$$" <<<"$$(pgrep -f ollama)"; then echo "no ollama"; else pkill -f ollama; fi
-	# if grep -q "^$$$$" <<<"$$(pgrep -f ollama)"; then echo "no ollama"; else pkill -f ollama; fi
-	# if pgrep -fl %*; then pkill -l $*; fi
-	# grep -q "^$$$$" <<<"$$(pgrep -f ollama)"
-	# if grep -v "^$$$$" <<<"$$(pgrep -fl ollama)"; then echo "no foo"; else echo pkill -f $*; fi
-	# There is always going to be the current process in addition to anything
-	# running
-	#
-
-# kill -f $* 2>/dev/null || echo "no $*"
-# if grep -v "^$$$$" <<<"$$(pgrep -fl $*)"; then echo "no $*"; else echo pkill -f $*; fi
-# note some need a hard kill -9 SIGKILL while this only gives a -15 SIGTERM
-# so after a pkill we wait 5 an$d
-# if (( $$(pgrep -fl $* | wc -l) > 1 )) && ! pkill -f $*; then
-
-# this is only needed for original pgrep in MacOS
-# the GNU grep does not find itself
-grep-kill = (( $$(pgrep -fl $* | wc -l) > 1 )) && ! pkill $2 -f $1
-old.%.kill:
-	if $(call grep-kill,$*); then echo pkill error; else sleep 2 && \
-			if $(call grep-kill,$*,-9); then \
-				echo pkill -9 $* error \
-			; fi \
-	; fi &
-
-
-# debugging for this one command
-		# echo "kill" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | cut -f 1 -d ' ' | xargs -r kill $$signal || true && sleep 1 \
-## [ollama | open-web | ngrok | ... ].kill the % running process gracefull then -9
-		# echo "found $*:" && pgrep -fl "$*"; \
-		# echo "no make or pgrep" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' || true ; \
-# use grep to look for make or pgrep as the makefile will span this
-# xargs -r means do not run the kill if there are no such processes
-# if grep -vE fails so there are no processes it generates an error so need ||
-# true to mask this as we just want to go on
-# do loop so you first normally terminate and if this doesn't work then kill it
-# run in background as this is slow
-# you cannot use cut for the field because pid can have a space in them
+## [service].kill: gracefully stop then SIGKILL any service matched by name
+# -f means find anywhere in the argument field; SIGTERM first, SIGKILL after 5s
+# xargs -r means do not run kill if there are no matching processes
+# grep -vE strips the make process itself and pgrep from the match list
+# run in background (&) as the sleep makes this slow
 %.kill:
 	for signal in "" "-9"; do \
 		echo "pid only" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | awk '{print $$1}' || true; \
@@ -141,297 +76,385 @@ old.%.kill:
 	done &
 
 
+# note never use brew for status very slow
+	# brew services start postgresql@17 2>/dev/null || brew services start postgresql 2>/dev/null || true
+## postgres: start PostgreSQL via brew services (needed for LiteLLM spend tracking)
+.PHONY: postgres
+postgres:
+	if ! command -v psql >/dev/null 2>&1; then \
+		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
+	fi
+	until pg_isready -q; do sleep 1; done
+	psql -lqt | grep -q "$(LITELLM_DB)" || createdb "$(LITELLM_DB)"
+
+	# brew services start redis 2>/dev/null || true
+## redis: start Redis via brew services (needed for LiteLLM response caching)
+.PHONY: redis
+redis:
+	if ! command -v redis-cli >/dev/null 2>&1; then \
+		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
+	fi
+	until redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
+
 ## mlflow: start MLflow tracking server at http://localhost:$(MLFLOW_PORT)
+## mlflow has no Homebrew formula — install chain is: uv tool install → uvx (ephemeral).
+## uv tool install puts the binary in ~/.local/bin which may not be in Make's PATH,
+## so we resolve at runtime with `command -v mlflow || echo uvx mlflow`.
 .PHONY: mlflow
 mlflow:
-	$(call start_server,$(MLFLOW_PORT),mlflow server --host 127.0.0.1 --port $(MLFLOW_PORT))
+	if ! command -v mlflow >/dev/null 2>&1 && ! uvx mlflow --version >/dev/null 2>&1; then \
+		echo "mlflow not installed — running make ai-install first"; \
+		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
+	fi
+	mkdir -p "$(MLFLOW_DIR)/artifacts"
+	$(call start_server,$(MLFLOW_PORT),$$(command -v mlflow || echo uvx mlflow) server --host 127.0.0.1 --port $(MLFLOW_PORT) \
+		--backend-store-uri sqlite:///$(MLFLOW_DIR)/mlflow.db \
+		--default-artifact-root $(MLFLOW_DIR)/artifacts)
 	$(call check_port,$(MLFLOW_PORT))
 
 ## litellm: start LiteLLM proxy at http://localhost:$(LITELLM_PORT)
+## Mixed-auth mode: ANTHROPIC_BASE_URL routes through LiteLLM for caching/observability,
+## but Claude Code's Max plan OAuth token passes through unchanged — no PAYG API key used.
+## ANTHROPIC_API_KEY is set to LITELLM_MASTER_KEY (not a real Anthropic key).
+## This is LiteLLM's virtual-key pass-through pattern: Claude Code sends it as Bearer token,
+## LiteLLM validates against its own master_key and routes to real providers with their keys.
+## See: docs.litellm.ai/docs/proxy/virtual_keys
+## litellm binary also lives in ~/.local/bin (uv tool install) — same PATH fix as mlflow.
 .PHONY: litellm
 litellm:
-	$(call start_server,$(LITELLM_PORT),litellm --config $(LITELLM_CFG) --port $(LITELLM_PORT))
+	if ! command -v litellm >/dev/null 2>&1 && ! uvx litellm --version >/dev/null 2>&1; then \
+		echo "litellm not installed — running make ai-install first"; \
+		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
+	fi
+	if [ ! -f "$(PRISMA_STAMP)" ]; then \
+		_venv=$$(pipx environment --value PIPX_LOCAL_VENVS 2>/dev/null)/litellm; \
+		_schema=$$_venv/lib/python*/site-packages/litellm/proxy/schema.prisma; \
+		$$_venv/bin/python -m prisma generate --schema $$_schema; \
+		mkdir -p $$(dirname $(PRISMA_STAMP)) && touch $(PRISMA_STAMP); \
+	fi
+	$(call start_server,$(LITELLM_PORT),ANTHROPIC_API_KEY=$${LITELLM_MASTER_KEY} DATABASE_URL=postgresql://$$USER@localhost/litellm $$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
 	$(call check_port,$(LITELLM_PORT))
 
-## temporal: start Temporal workflow server at http://localhost:$(TEMPORAL_PORT)
-.PHONY: temporal
-temporal:
-	mkdir -p "$(dir $(TEMPORAL_DB))" && \
-	$(call start_server,$(TEMPORAL_PORT),temporal server start-dev --db-filename $(TEMPORAL_DB) --ui-port 8080)
-	$(call check_port,$(TEMPORAL_PORT))
+# ── Harness + model variables ─────────────────────────────────────────────────
+# HARNESS: the AI coding assistant CLI. Swap without changing targets.
+#   make ai                        # claude (default)
+#   make ai HARNESS=aider          # aider
+#   make ai HARNESS=codex          # codex CLI (plan provider via CLIProxyAPI)
+# MODEL: any model_name from $(LITELLM_CFG). Run 'make ai-models' to list all.
+#   make ai MODEL=kimi-k2.6
+# HARNESS_ARGS: extra flags forwarded to the harness binary.
+#   make ai HARNESS_ARGS="--continue"
+HARNESS            ?= claude
+HARNESS_ARGS       ?=
+MODEL              ?=
+# Pick smallest installed LM Studio model by size; fallback if lms not running
+LOCAL_MODEL        ?= $(or $(shell lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {print $$4+0, "lms-" $$1}' | sort -n | awk 'NR==1{print $$2}'),lms-google/gemma-4-e4b)
 
-## ktap: start KTAP knowledge graph viewer at http://localhost:$(KTAP_PORT)
-.PHONY: ktap
-ktap:
-	cd "$(KTAP_DIR)" && \
-	$(call start_server,$(KTAP_PORT),python3 ktap.py viz --port $(KTAP_PORT))
-	$(call check_port,$(KTAP_PORT))
+# ── Internal runner macro ─────────────────────────────────────────────────────
+# Inlined into each entry point via $(call _run_harness,MODEL).
+# Sets ANTHROPIC_BASE_URL + OPENAI_BASE_URL so any OpenAI-compatible harness works.
+define _run_harness
+	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
+	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
+	$(if $(1),CLAUDE_MODEL=$(1),$(if $(MODEL),CLAUDE_MODEL=$(MODEL),)) \
+	$(HARNESS) $(HARNESS_ARGS)
+endef
 
-## ccr: start Claude Code Router at http://localhost:$(CCR_PORT)
-.PHONY: ccr
-ccr:
-	$(call start_server,$(CCR_PORT),ccr start)
-	$(call check_port,$(CCR_PORT))
+# ── Public entry points ───────────────────────────────────────────────────────
 
-## ccr-ui: open Claude Code Router web UI
-.PHONY: ccr-ui
-ccr-ui:
-	ccr ui
-
-## ai: start TNE Compass stack — mlflow (:$(MLFLOW_PORT)) litellm (:$(LITELLM_PORT)) temporal (:$(TEMPORAL_PORT)) ktap (:$(KTAP_PORT)) ccr (:$(CCR_PORT))
-## Use 'make ai-local' to additionally start LM Studio for local LLM inference.
+## ai: start sidecars + launch vanilla Claude Code  [PLAN — Anthropic Max, no per-token cost]
+##   make ai                             # vanilla Claude Code, Anthropic Max plan
+##   make ai MODEL=kimi-k2.6             # Kimi K2 Coding Plan ($19/mo flat)  [PLAN]
+##   make ai MODEL=gemini-2.5-flash      # Gemini Flash                       [PAYG]
+##   make ai MODEL=kimi-k2.5-free        # OpenRouter free tier               [FREE]
+##   make ai MODEL=deepseek-v3-free      # DeepSeek free tier                 [FREE]
+##   make ai HARNESS=aider               # swap harness, same sidecar stack
+##   See all models: make ai-models
+## Sidecars: postgres redis mlflow litellm temporal ccr
 .PHONY: ai
-ai: mlflow litellm temporal ktap ccr
+ai: postgres redis mlflow litellm temporal ccr
+	$(call _run_harness,)
 
-## ai-local: start TNE Compass + LM Studio for local LLM inference
+## ai-local: full sidecar stack + GPU + LM Studio, launch with local model  [FREE]
+##   make ai-local                              # default: $(LOCAL_MODEL)
+##   make ai-local LOCAL_MODEL=lms-qwen3.6-27b
+## Zero marginal cost — inference runs on your GPU via LM Studio
 .PHONY: ai-local
-ai-local: ai lms-server
+ai-local: postgres redis mlflow litellm temporal ccr set-gpu-max-memory lms-server
+	$(call _run_harness,$(LOCAL_MODEL))
 
-## ai-max: allocate maximum RAM to the GPU then start local LLM stack
-.PHONY: ai-max
-ai-max: set-gpu-max-memory ai-local
+## ai-cli: CLI-auth providers via CLIProxyAPI adapter  [PLAN — flat-rate subscriptions]
+## Authenticates via provider CLI login, not per-token API key.
+##   make ai-cli MODEL=codex        # ChatGPT/Codex plan (codex login)        [PLAN]
+##   make ai-cli MODEL=gemini-proxy # Google Gemini plan (gemini auth login)  [PLAN]
+.PHONY: ai-cli
+ai-cli: postgres redis mlflow litellm cliproxyapi
+	$(call _run_harness,)
 
-## set-gpu-max-memory: Set GPU limits
-.PHONY: set-gpu-max-memory
-set-gpu-max-memory:
-	MEMORY="$$(($$(sysctl -n hw.memsize) / 2 ** 30))" && \
-	if ((MEMORY <= 16)); then \
-		MEMORY_SYSTEM="$${MEMORY_SYSTEM:-5}" && \
-		MEMORY_GPU="$${MEMORY_GPU:-2}"; \
-	elif ((MEMORY <= 32)); then \
-		MEMORY_SYSTEM="$${MEMORY_SYSTEM:-6}" && \
-		MEMORY_GPU="$${MEMORY_GPU:-4}"; \
-	elif ((MEMORY <= 64)); then \
-		MEMORY_SYSTEM="$${MEMORY_SYSTEM:-7}" && \
-		MEMORY_GPU="$${MEMORY_GPU:-5}"; \
-	elif ((MEMORY <= 128)); then \
-		MEMORY_SYSTEM="$${MEMORY_SYSTEM:-9}" && \
-		MEMORY_GPU="$${MEMORY_GPU:-9}"; \
-	elif ((MEMORY <= 256)); then \
-		MEMORY_SYSTEM="$${MEMORY_SYSTEM:-10}" && \
-		MEMORY_GPU="$${MEMORY_GPU:-10}"; \
-	else \
-		MEMORY_SYSTEM="$${MEMORY_SYSTEM:-10}" && \
-		MEMORY_GPU="$${MEMORY_GPU:-10}"; \
-	fi &&  \
-	sudo sysctl iogpu.wired_limit_mb=$$(bc -l <<<"($$MEMORY - $$MEMORY_GPU)*1024")
+## ai-auto: difficulty-routing — cheap for simple tasks, strong for hard  [PLAN+PLAN]
+## Easy prompts → kimi-k2.6 (Coding Plan $19/mo), hard → claude-sonnet (Max plan)
+.PHONY: ai-auto
+ai-auto: postgres redis mlflow litellm routellm
+	$(call _run_harness,routellm)
 
-## ai-open: open TNE Compass UIs (CCR web UI + LM Studio)
-	# $(call open_server,$(OLLAMA_SERVER_PORT),/api/tags)
-	# $(call open_server,$(OPEN_WEBUI_PORT))
+## ai-auth: log in to all AI providers (run once per machine or after token expiry)
+##   make ai-auth              # all providers
+##   make ai-auth PROVIDER=claude   # claude /login
+##   make ai-auth PROVIDER=gemini   # gemini auth login
+##   make ai-auth PROVIDER=codex    # codex login
+PROVIDER ?=
+.PHONY: ai-auth
+ai-auth:
+	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "claude" ]]; then \
+		echo "==> claude /login"; claude /login; \
+	fi
+	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "gemini" ]]; then \
+		echo "==> gemini auth login"; gemini auth login 2>/dev/null || echo "  (gemini CLI not installed — brew install gemini)"; \
+	fi
+	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "codex" ]]; then \
+		echo "==> codex login"; codex login 2>/dev/null || echo "  (codex CLI not installed — npm install -g @openai/codex)"; \
+	fi
+
+# ── Supporting sidecars ───────────────────────────────────────────────────────
+
+## cliproxyapi: CLIProxyAPI — wraps codex/gemini CLI auth as OpenAI-compatible API
+## Install: brew install cliproxyapi  Login: codex login  or  gemini auth login
+CLIPROXYAPI_PORT ?= 8080
+.PHONY: cliproxyapi
+cliproxyapi:
+	command -v cliproxyapi >/dev/null || { echo "cliproxyapi not installed — run: brew install cliproxyapi"; exit 1; }
+	$(call start_server,$(CLIPROXYAPI_PORT),cliproxyapi start)
+	$(call check_port,$(CLIPROXYAPI_PORT))
+
+## routellm: RouteLLM difficulty-routing server
+ROUTELLM_PORT ?= 6060
+ROUTELLM_CFG  ?= $(HOME)/.config/routellm/config.yaml
+.PHONY: routellm
+routellm:
+	$(call start_server,$(ROUTELLM_PORT),uvx routellm.server --config $(ROUTELLM_CFG) --port $(ROUTELLM_PORT))
+	$(call check_port,$(ROUTELLM_PORT))
+
+## ai-open: open all service UIs in Chrome
 .PHONY: ai-open
 ai-open:
-	ccr ui
-	open -a "LM Studio"
+	open -a "Google Chrome" "http://localhost:$(LITELLM_PORT)/ui/login"
+	open -a "Google Chrome" "http://localhost:$(MLFLOW_PORT)"
+	open -a "Google Chrome" "http://localhost:$(TEMPORAL_PORT)"
 
-## ai-ps: process status of TNE Compass stack
+## ai-status: health check for all sidecars
+.PHONY: ai-status
+ai-status:
+	echo "PostgreSQL :$(POSTGRES_PORT): $$(pg_isready -q 2>/dev/null && echo ok || echo stopped)"
+	echo "Redis      :$(REDIS_PORT): $$(redis-cli ping 2>/dev/null | grep -q PONG && echo ok || echo stopped)"
+	echo "LiteLLM    :$(LITELLM_PORT): $$(nc -z localhost $(LITELLM_PORT) 2>/dev/null && echo ok || echo stopped)"
+	echo "MLflow     :$(MLFLOW_PORT): $$(nc -z localhost $(MLFLOW_PORT) 2>/dev/null && echo ok || echo stopped)"
+	echo "Temporal   :$(TEMPORAL_PORT): $$(nc -z localhost $(TEMPORAL_PORT) 2>/dev/null && echo ok || echo stopped)"
+	echo "CCR        :$(CCR_PORT): $$(nc -z localhost $(CCR_PORT) 2>/dev/null && echo ok || echo stopped)"
+	echo "LM Studio  : $$(pgrep -x 'LM Studio' >/dev/null 2>&1 && echo ok || echo stopped)"
+
+## ai-models: list available models with make invocation examples
+.PHONY: ai-models
+ai-models:
+	echo ""
+	echo "Cloud models — make ai MODEL=<name>"
+	echo "──────────────────────────────────────────────────────"
+	yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | sort -u | grep -v '^lms-' | \
+		while IFS= read -r name; do \
+			case "$$name" in \
+			*-free)    tag="FREE  -- provider free tier via OpenRouter" ;; \
+			claude*)   tag="PLAN  -- Anthropic Max (~\$$20-100/mo flat)" ;; \
+			kimi*)     tag="PLAN  -- Kimi Coding Plan (\$$19/mo flat)" ;; \
+			glm*)      tag="PLAN  -- ZAI Coding Plan (~\$$10/mo flat)" ;; \
+			qwen3*)    tag="PLAN  -- Qwen Coding Plan (\$$50/mo flat)" ;; \
+			minimax*)  tag="PLAN  -- MiniMax plan" ;; \
+			routellm*) tag="PLAN+PLAN -- auto-routes kimi->claude by difficulty" ;; \
+			gemini*)   tag="PAYG  -- pay per token (flash: free tier available)" ;; \
+			deepseek*) tag="PAYG  -- pay per token" ;; \
+			*)         tag="PAYG" ;; \
+			esac; \
+			printf '  make ai MODEL=%-32s # %s\n' "$$name" "$$tag"; \
+		done || echo "  (config not found — run make ai-install)"
+	echo ""
+	echo "Local models — make ai-local LOCAL_MODEL=<name>"
+	echo "──────────────────────────────────────────────────────"
+	lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {printf "  make ai-local LOCAL_MODEL=lms-%-38s # FREE — %.1f GB\n", $$1, $$4+0}' | sort -k6 -n \
+		|| echo "  (lms not running — start LM Studio or run: make lms-server)"
+	echo ""
+	echo "Entry points:"
+	echo "  make ai                              # PLAN  — Anthropic Max (default)"
+	echo "  make ai MODEL=kimi-k2.6              # PLAN  — any cloud model above"
+	echo "  make ai HARNESS=aider                # swap AI harness"
+	echo "  make ai-local [LOCAL_MODEL=lms-*]    # FREE  — local GPU via LM Studio"
+	echo "  make ai-cli MODEL=codex              # PLAN  — codex login"
+	echo "  make ai-cli MODEL=gemini-proxy       # PLAN  — gemini auth login"
+	echo "  make ai-auto                         # PLAN+PLAN — kimi (easy) → claude (hard)"
+
+## ai-logs: push Claude Code session logs to MLflow
+.PHONY: ai-logs
+ai-logs:
+	uv run "$(MLFLOW_LOG_SCRIPT)"
+
+## ai-ps: process status of all sidecars
 .PHONY: ai-ps
-ai-ps: mlflow.ps litellm.ps temporal.ps ktap.ps ccr.ps
+ai-ps: mlflow.ps litellm.ps temporal.ps ccr.ps
+	brew services list | grep -E "postgresql|redis" | awk '{printf "%-10s %s\n", $$1, $$2}'
 
-## ai-local-ps: process status of Compass + local LLM stack
-.PHONY: ai-local-ps
-ai-local-ps: ai-ps
-	lms server status
-
-# open-webui exists in pip packages, open_webui in builds from source
-# reset the gpu memory limit to the default
-## ai-kill: kill TNE Compass stack (mlflow, litellm, temporal, ktap, ccr)
+## ai-kill: stop all sidecars (brew services for postgres/redis, pkill for others)
 .PHONY: ai-kill
-ai-kill: $(MLFLOW_PORT).kill \
-	$(LITELLM_PORT).kill \
-	$(TEMPORAL_PORT).kill \
-	$(KTAP_PORT).kill \
-	$(CCR_PORT).kill
+ai-kill: $(MLFLOW_PORT).kill $(LITELLM_PORT).kill $(TEMPORAL_PORT).kill $(CCR_PORT).kill
+	brew services stop redis 2>/dev/null || true
+	brew services stop postgresql@17 2>/dev/null || brew services stop postgresql 2>/dev/null || true
 
-## ai-local-kill: kill Compass stack + LM Studio
+## ai-local-kill: stop sidecars + LM Studio + restore GPU memory limit
 .PHONY: ai-local-kill
 ai-local-kill: ai-kill
 	lms server stop
 	sudo sysctl iogpu.wired_limit_mb=0
 
-## lms-server: LM Studio server
+## ai-install: install AI CLI tools via brew + uv (run once per machine, no external scripts)
+##   Installs: litellm mlflow redis postgresql@17 codex gemini-cli kimi-cli qwen-code lm-studio
+##   Then runs: make ai-server  to start sidecars
+.PHONY: ai-install
+ai-install:
+	echo "==> brew: core AI infrastructure"
+	for pkg in redis postgresql@17 yq; do \
+		command -v "$$pkg" >/dev/null 2>&1 || brew install "$$pkg"; \
+	done
+	echo "==> brew: AI CLI coding plan providers"
+	for pkg in codex gemini-cli qwen-code kimi-cli; do \
+		command -v "$$pkg" >/dev/null 2>&1 || brew install "$$pkg" 2>/dev/null || echo "  ($$pkg not in brew — skip)"; \
+	done
+	echo "==> uv: litellm proxy + mlflow tracking"
+	uv tool install 'litellm[proxy]' 2>/dev/null || uvx litellm --version >/dev/null
+	uv tool install mlflow 2>/dev/null || uvx mlflow --version >/dev/null
+	uv tool install prisma 2>/dev/null || command -v prisma >/dev/null
+	echo "==> prisma: generate client for LiteLLM spend tracking"
+	_venv=$$(pipx environment --value PIPX_LOCAL_VENVS 2>/dev/null)/litellm; \
+	_schema=$$_venv/lib/python*/site-packages/litellm/proxy/schema.prisma; \
+	$$_venv/bin/python -m prisma generate --schema $$_schema
+	mkdir -p $$(dirname $(PRISMA_STAMP)) && touch $(PRISMA_STAMP)
+	echo "==> brew services: start redis + postgresql"
+	brew services start redis 2>/dev/null || true
+	brew services start postgresql@17 2>/dev/null || brew services start postgresql 2>/dev/null || true
+	echo "==> creating litellm database"
+	createdb $(LITELLM_DB) 2>/dev/null || true
+	echo "==> litellm config"
+	mkdir -p "$(HOME)/.config/litellm"
+	[[ -f "$(LITELLM_CFG)" ]] && echo "  config exists: $(LITELLM_CFG)" || echo "  WARNING: $(LITELLM_CFG) missing — copy from tne-plugins or install-ai.sh"
+	echo "==> Done. Run: make ai-status  to verify  |  make ai  to launch"
+
+## ai-server: start all background sidecars without launching the AI harness
+## Use this to pre-warm sidecars before a session (postgres redis mlflow litellm)
+.PHONY: ai-server
+ai-server: postgres redis mlflow litellm
+	echo "Sidecars running. Launch with: make ai [MODEL=...]"
+
+## set-gpu-max-memory: allocate maximum RAM to GPU (needed for large local models)
+.PHONY: set-gpu-max-memory
+set-gpu-max-memory:
+	MEMORY="$$(($$(sysctl -n hw.memsize) / 2 ** 30))" && \
+	if ((MEMORY <= 16)); then MEMORY_GPU=2; \
+	elif ((MEMORY <= 32)); then MEMORY_GPU=4; \
+	elif ((MEMORY <= 64)); then MEMORY_GPU=5; \
+	elif ((MEMORY <= 128)); then MEMORY_GPU=9; \
+	else MEMORY_GPU=10; fi && \
+	sudo sysctl iogpu.wired_limit_mb=$$(bc -l <<<"($$MEMORY - $$MEMORY_GPU)*1024") || echo "set-gpu-max-memory: sudo failed — run manually or add to sudoers"
+
+## lms-server: start LM Studio local inference server
 .PHONY: lms-server
 lms-server:
 	lms server start
 
-# usage: $(call start_ollama,command,port,url_port)
-# the export cannot be inside the if statement
-# Note ollama takes a little time to start
-# Add OLLAMA_DEBUG=1 if there are problems
-OLLAMA_CONTEXT_LENGTH ?= 131072
-OLLAMA_FLASH_ATTENTION ?= 1
-OLLAMA_KV_CACHE_TYPE ?= q4_0
-define start_ollama
-	$(call start_server,$(2),OLLAMA_CONTEXT_LENGTH=$(OLLAMA_CONTEXT_LENGTH) \
-		OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=$(OLLAMA_FLASH_ATTENTION) \
-		OLLAMA_KV_CACHE_TYPE=$(OLLAMA_KV_CACHE_TYPE) $(1) serve)
-	$(call check_port,$(2))
-	OLLAMA_HOST="$(3)" ollama run qwen3:4b-Q4_K_M "hello how are you?"
-endef
-## ollama: run ollama at http://localhost:11434 change with OLLAMA_HOST=127.0.0.1:port
-# https://docs.openwebui.com/troubleshooting/connection-error/
-# 0.0.0.0 means it will serve remote openwebui clients
-# https://github.com/ollama/ollama/blob/main/docs/faq.md
-# note must be lower than 64K
-# set the default context high for coding apps
-.PHONY: ollama
-ollama:
-	$(call start_ollama,ollama,$(OLLAMA_SERVER_PORT),127.0.0.1:$(OLLAMA_SERVER_PORT))
-	$(call check_port,$(OLLAMA_SERVER_PORT))
+# ── Commented-out stacks ──────────────────────────────────────────────────────
 
-# usage $(call start_open-webui,OLLAMA_BASE_URL,data_dir,open_webui_backend port)
-define start_open-webui
-	@echo if Internet flaky turnoff set OFFLINE_MODE=1
-	@echo the webui.db configuration on the python venv where you start
-	-export OLLAMA_BASE_URL="$(1)" DATA_DIR="$(2)" && $(call start_server,$(3),open-webui,serve --port $(3))
-	$(call check_port,$(3))
-endef
+## temporal: Temporal workflow server at http://localhost:$(TEMPORAL_PORT)
+.PHONY: temporal
+temporal:
+	mkdir -p "$(dir $(TEMPORAL_DB))"
+	$(call start_server,$(TEMPORAL_PORT),temporal server start-dev --db-filename $(TEMPORAL_DB) --ui-port 8080)
+	$(call check_port,$(TEMPORAL_PORT))
 
-## ollama-ls: List models by size
-.PHONY: ollama-ls
-ollama-ls:
-	ollama ls | sort -k3 -hr
+# ktap is tne-plugin-only — override in project Makefile if needed
+# ## ktap: KTAP knowledge graph viewer at http://localhost:$(KTAP_PORT)
+# .PHONY: ktap
+# ktap:
+# 	cd "$(KTAP_DIR)" && $(call start_server,$(KTAP_PORT),python3 ktap.py viz --port $(KTAP_PORT))
+# 	$(call check_port,$(KTAP_PORT))
 
-OLLAMA_BASE_URL ?= http://localhost:$(OLLAMA_SERVER_PORT)
-# if you have your own ollama build
-# the default if you have trouble note the package is open-webui and ps isAmake
-# open_webui with an underscore
-## open-webui: run packaged open webui as frontend port 5173 and backend 8080
-.PHONY: open-webui
-open-webui:
-	@echo recommend starting in $(WS_DIR)/git/src/lib
-	-$(call start_open-webui,$(OLLAMA_BASE_URL),$(OPEN_WEBUI_DATA_DIR),$(OPEN_WEBUI_PORT))
+## ccr: Claude Code Router at http://localhost:$(CCR_PORT)
+.PHONY: ccr
+ccr:
+	$(call start_server,$(CCR_PORT),ccr start)
+	$(call check_port,$(CCR_PORT))
 
+# ── Commented-out local inference stacks ─────────────────────────────────────
 
-# the webui.db is 300MB so blows through github LFS quota too quicklk move to
-# Google Drive
-# OPEN_WEBUI_USER_DIR ?= $(WS_DIR)/git/src/user/$(USER)/ml/open-webui
-# https://docs.openwebui.com/getting-started/env-configuration/#directories
-# note that these strings are always quoted so do not put a backslash in Shared drievs
+# ## ollama: Ollama local inference at http://localhost:11434
+# OLLAMA_CONTEXT_LENGTH ?= 131072
+# OLLAMA_FLASH_ATTENTION ?= 1
+# OLLAMA_KV_CACHE_TYPE   ?= q4_0
+# OLLAMA_BASE_URL        ?= http://localhost:$(OLLAMA_SERVER_PORT)
+# define start_ollama
+# 	$(call start_server,$(2),OLLAMA_CONTEXT_LENGTH=$(OLLAMA_CONTEXT_LENGTH) \
+# 		OLLAMA_HOST=$(3) OLLAMA_FLASH_ATTENTION=$(OLLAMA_FLASH_ATTENTION) \
+# 		OLLAMA_KV_CACHE_TYPE=$(OLLAMA_KV_CACHE_TYPE) $(1) serve)
+# 	$(call check_port,$(2))
+# endef
+# .PHONY: ollama
+# ollama:
+# 	$(call start_ollama,ollama,$(OLLAMA_SERVER_PORT),127.0.0.1:$(OLLAMA_SERVER_PORT))
+# .PHONY: ollama-ls
+# ollama-ls:
+# 	ollama ls | sort -k3 -hr
 
-# this starts the original source version of openwebui and not the tne.ai dev
-# branch TOPO merge with the tne.ai version which uses yarn instead of npm
-# for some reason ahve to to an export && before the if
-# usage $(call start_open_webui_src,ollama base url,source directory,data_dir,frontend port,backend port,frontend start_script)
-define start_open-webui_src
-  $(call start_open-webui_src_frontend,$(2),$(3),$(4),$(6))
-	$(call start_open-webui_src_backend,$(1),$(2),$(3),$(4),$(5))
-endef
+# ## open-webui: Open WebUI frontend for Ollama
+# .PHONY: open-webui
+# open-webui:
+# 	-export OLLAMA_BASE_URL="$(OLLAMA_BASE_URL)" DATA_DIR="$(OPEN_WEBUI_DATA_DIR)" && \
+# 		$(call start_server,$(OPEN_WEBUI_PORT),open-webui serve --port $(OPEN_WEBUI_PORT))
+# 	$(call check_port,$(OPEN_WEBUI_PORT))
 
-# usage $(call start_open_webui_src_frontend,source directory,data_dir,frontend port,start_script)
-# these both fail for some reason so ignore the errors with a dash
-define start_open-webui_src_frontend
-	-export DATA_DIR="$(2)" && \
-		if ! lsof -i:$(3) -sTCP:LISTEN | grep LISTEN; then \
-		cd "$(1)" && \
-		$(4) ; fi &
-	@echo start frontend http://localhost:$(3)
-	$(call check_port,$(3))
-endef
+## llama-server: llama.cpp inference server at $(LLAMA_SERVER_PORT)
+# Note: does not support Mistral or Gemma architecture models
+LLAMA_SERVER_PORT ?= 8082
+OLLAMA_MODEL  ?= $(HOME)/.ollama/models/blobs
+PHI4-14B-GGUF ?= sha256-fd7b6731c33c57f61767612f56517460ec2d1e2e5a3f0163e0eb3d8d8cb5df20
+.PHONY: llama-server
+llama-server:
+	$(call start_server,$(LLAMA_SERVER_PORT),llama-server \
+		--ctx-size 131072 --port $(LLAMA_SERVER_PORT) --flash-attn --split-mode row \
+		-m "$(OLLAMA_MODEL)/$(PHI4-14B-GGUF)" \
+		--cache-type-k q8_0 --cache-type-v q8_0)
+	$(call check_port,$(LLAMA_SERVER_PORT))
 
-# note that pyproject is above backend and you have to start bash to run dev.sh
-# usage $(call start_open_webui_src_backend,ollama base url,source directory,data_dir,backend port)
-define start_open-webui_src_backend
-	@echo start backend at http://localhost:$(4)
-	-export DATA_DIR="$(3)" OLLAMA_BASE_URL="$(1)" PORT="$(4)"  && \
-		if ! lsof -i:$(4) -sTCP:LISTEN; then \
-				cd "$(2)/backend" && \
-				if [[ -r requirements.txt ]]; then uv pip install -r requirements.txt; fi && \
-				uv run ./dev.sh; \
-			fi &
-	@echo "webui.db is in $(3)"
-	@echo "start open-webui at localhost:$(4)"
-	$(call check_port,$(4))
-endef
+## mlx: MLX inference server (Apple Silicon) at $(MLX_PORT)
+MLX_PORT        ?= 9000
+HF_HUB_CACHE    ?= $(HOME)/.cache/huggingface/hub
+GLM-4.5-AIR-4BIT ?= models--mlx-community--GLM-4.5-Air-4bit/snapshots/60837794f3caafc4682dd1a9188a82c55a9100ef
+.PHONY: mlx
+mlx:
+	$(call start_server,$(MLX_PORT),mlx_lm.server --port $(MLX_PORT) \
+		--model "$(HF_HUB_CACHE)/$(GLM-4.5-AIR-4BIT)")
+	$(call check_port,$(MLX_PORT))
 
+## tika: Apache Tika document extraction server at port 9998
 TIKA_VERSION ?= 2.9.2
-TIKA_JAR ?= tika-server-standard-$(TIKA_VERSION).jar
-## tika: run the tika server at 9998
+TIKA_JAR     ?= tika-server-standard-$(TIKA_VERSION).jar
 .PHONY: tika
 tika:
 	$(call start_server,9998,java -jar "$$HOME/jar/$(TIKA_JAR)")
 	$(call check_port,9998)
 
-## docling: REMOVED — no longer used
-# .PHONY: docling
-# docling:
-# 	$(call start_server,$(DOCLING_PORT),docling-serve run --enable-ui --port $(DOCLING_PORT))
-# 	$(call check_port,$(DOCLING_PORT))
-# 	@echo "docling at http://locahost:$(DOCLING_PORT)/ui"
-
-
-
-OLLAMA_MODEL ?= $(HOME)/.ollama/models/blobs
-# look in the blog list to match this find this model in
-# $HOME/.ollama/models/manifests/registry/<model name> and look for sha of the
-# largest blob and insert sha256- in front of the blob number
-
-PHI4-14B-GGUF ?= sha256-fd7b6731c33c57f61767612f56517460ec2d1e2e5a3f0163e0eb3d8d8cb5df20
-DEEPSEEK-R1-14B-GGUF ?= sha256-6e9f90f02bb3b39b59e81916e8cfce9deb45aeaeb9a54a5be4414486b907dc1e
-DEEPSEEK-R1-32B-GGUF ?= sha256-6150cb382311b69f09cc0f9a1b69fc029cbd742b66bb8ec531aa5ecf5c613e93
-DEEPSEEK-R1-70B-GGUF ?= sha256-4cd576d9aa16961244012223abf01445567b061f1814b57dfef699e4cf8df339
-# llama-server cannot  use Mistral architecture models or Gemma
-MISTRAL-SMALL-3.1-24B-GGUF ?= sha256-1fa8532d986d729117d6b5ac2c884824d0717c9468094554fd1d36412c740cfc
-GEMMA3-27B-GGUF ?= e796792eba26c4d3b04b0ac5adb01a453dd9ec2dfd83b6c59cbf6fe5f30b0f68
-# deprecated with Qwen3
-QWENCODER2.5-32B-GGUF ?= sha256-ac3d1ba8aa77755dab3806d9024e9c385ea0d5b412d6bdf9157f8a4a7e9fc0d9
-QWEN2.5-14B-GGUF ?= sha256-2049f5674b1e92b4463e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54
-LLAMA3.2-3B-GGUF ?= sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da77af9f7ccdff
-
-# system prmpt is deprecated
-# LLAMA_SYSTEM_PROMPT ?= $(WS_DIR)/git/src/res/system-prompt/system-prompt.txt
-# https://github.com/abetlen/llama-python/issues/1359
-# https://github.com/open-webui/open-webui/discussions/7543
-# https://github.com/ggerganov/llama/discussions/8947
-## to use cache prompting must set cahce_prompt
-# https://www.reddit.com/r/LocalLLaMA/comments/1fkv940/caching_some_prompts_when_using_llamaserver/
-
-		# -m "$(OLLAMA_MODEL)/$(DEEPSEEK-R1-14B-GGUF)" \
-		# -m "$(OLLAMA_MODEL)/$(PHI4-14B-GGUF)"
-# Q8_0 cache is faster
-# usage: $(call start_llama,port)
-define start_llama
-	@echo "Start dedicate llama.cpp server with specific model"
-	$(call start_server,$(1),llama-server, \
-		--ctx-size 131072 --port "$(1)"  \
-		--verbose-prompt -v --metrics \
-		--flash-attn --split-mode row \
-		--keep -1 \
-		 -m "$(OLLAMA_MODEL)/$(PHI4-14B-GGUF)" \
-		--cache-type-k q8_0 --cache-type-v q8_0 \
-		)
-	$(call check_port,$(1))
-endef
-
-## llama-server: run llama.cpp server at port 8082 (default is 8080) with qwen
-.PHONY: llama-server
-llama-server:
-	$(call start_llama,$(LLAMA_SERVER_PORT))
-
-## comfy: Start ComfyUI Desktop
-# this seems to fail unless given more time
+## comfy: start ComfyUI Desktop
 .PHONY: comfy
 comfy:
 	open -a "ComfyUI.app"
 
-## mlx: start the MacOS mlx server using huggingface cli download on port 9000
-# assumes you did a download of these
-QWEN2.5-14B-MLX ?= models--mlx-community--Qwen2.5-Coder-14B-Instruct-abliterated-4bit
-DEEPSEEK-R1-DISTILL-LLAMA-70B-4BIT ?= models--mlx-community--DeepSeek-R1-Distill-Llama-70B-4bit
-GLM-4.5-AIR-4BIT ?= models--mlx-community--GLM-4.5-Air-4bit/snapshots/60837794f3caafc4682dd1a9188a82c55a9100ef
-GLM-4.5-AIR-3BIT ?= models--mlx-community--GLM-4.5-Air-3bit/
-
-HF_HUB_CACHE ?= $(HOME)/.cache/huggingface/hub
-.PHONY: mlx
-mlx:
-	$(call start_server,$(MLX_PORT),mlx_lm.server --port $(MLX_PORT) --model "$(HF_HUB_CACHE)/$(GLM-4.5-AIR-4BIT)")
-
-MCPO_CONFIG ?= $(HOME)/.config/mcp/claude-desktop.json
-# set default if not set outside
-MCPO_API_KEY ?= secret_mcpo_api_key
-## mcpo: allow openAPI/Swagger REST API called to MCP Servers from claude-desktop.json
-## see https://github.com/punkpeye/awesome-mcp-servers
-#
-.PHONY: mcpo
-mcpo:
-	$(call start_server,$(MCPO_PORT),uvx mcpo --port "$(MCPO_PORT)" --api-key "$(MCPO_API_KEY)" --config "$(MCPO_CONFIG)")
+# ## mcpo: MCP → OpenAPI adapter (exposes MCP servers as REST endpoints)
+# MCPO_PORT    ?= 8001
+# MCPO_CONFIG  ?= $(HOME)/.config/mcp/claude-desktop.json
+# MCPO_API_KEY ?= secret_mcpo_api_key
+# .PHONY: mcpo
+# mcpo:
+# 	$(call start_server,$(MCPO_PORT),uvx mcpo --port "$(MCPO_PORT)" \
+# 		--api-key "$(MCPO_API_KEY)" --config "$(MCPO_CONFIG)")

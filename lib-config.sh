@@ -586,6 +586,89 @@ config_upsert_json() {
 		 end"
 }
 
+# YAML config helpers (config_edit_yaml / config_upsert_yaml / config_set_yaml)
+#
+# Require yq v4 (https://github.com/mikefarah/yq) — `brew install yq`.
+# Mirror the JSON helpers above but operate on YAML files.
+# All three use the same atomic tmp→mv pattern for crash-safety.
+#
+# PATTERN — choose by what you're doing:
+#
+#   Set/overwrite a scalar or object   →  config_set_yaml
+#   Upsert an object in a YAML array   →  config_upsert_yaml
+#   Any raw yq expression              →  config_edit_yaml
+#
+# YQ CHEAT SHEET (v4):
+#   .foo                  — read field foo
+#   .foo = "bar"          — set scalar
+#   .foo.bar |= . + [x]   — append to array
+#   .[] | select(.name == "x")  — filter array by key
+#   with_entries(...)     — transform map entries
+#   env(VAR)              — read shell env var inside yq expression
+
+# Atomically apply a yq v4 expression to a YAML file in-place.
+# Creates the file with {} if it does not exist.
+# NOTE: yq v4 does NOT support --arg/--argjson (those are jq flags).
+#       Pass variables via shell env and read with env(VAR) in the expression.
+# usage:   config_edit_yaml file expression
+# example: config_edit_yaml ~/.config/app.yaml '.server.port = 4000'
+# returns: 0 on success, 1 on yq error
+config_edit_yaml() {
+	if (($# < 2)); then return 1; fi
+	local file="$1"
+	local expr="$2"
+	[[ -f "$file" ]] || echo '{}' >"$file"
+	local ytmp
+	ytmp="$(mktemp "${file}.XXXX")"
+	if yq -P "$expr" "$file" >"$ytmp"; then
+		mv "$ytmp" "$file"
+	else
+		rm -f "$ytmp"
+		return 1
+	fi
+}
+
+# Idempotently set a scalar or object at a yq path.
+# usage:   config_set_yaml file yq_path value
+# example: config_set_yaml litellm_config.yaml '.litellm_settings.mlflow_tracking_uri' '"http://localhost:5001"'
+# returns: 0 on success, 1 on error
+config_set_yaml() {
+	if (($# < 3)); then return 1; fi
+	local file="$1"
+	local ypath="$2"
+	local value="$3"
+	config_edit_yaml "$file" "${ypath} = ${value}"
+}
+
+# Idempotently upsert an object (given as JSON) into a YAML array, keyed by a field.
+# Replaces any existing entry with the same key value; appends if absent.
+# Uses shell env vars + yq env() — no --arg needed (yq v4 doesn't support --arg).
+# usage:   config_upsert_yaml file array_path key_field json_object
+# example: config_upsert_yaml litellm_config.yaml .model_list model_name \
+#              '{"model_name":"kimi","litellm_params":{"model":"openai/moonshot-v1-8k"}}'
+# returns: 0 on success, 1 on error
+config_upsert_yaml() {
+	if (($# < 4)); then return 1; fi
+	local file="$1"
+	local array_path="$2"
+	local key_field="$3"
+	local obj="$4"
+	local key_value
+	key_value=$(printf '%s' "$obj" | jq -r ".${key_field}" 2>/dev/null) ||
+		{
+			echo "config_upsert_yaml: invalid JSON object" >&2
+			return 1
+		}
+	# Export as env vars so yq can read them via env()
+	# _CUY_KF = key field name, _CUY_KV = key value, _CUY_OBJ = JSON object string
+	# strenv() (not env()) because the value is a multi-char string; from_yaml parses JSON too
+	_CUY_KF="$key_field" \
+		_CUY_KV="$key_value" \
+		_CUY_OBJ="$obj" \
+		config_edit_yaml "$file" \
+		"${array_path} = ((${array_path} // []) | map(select(.[env(_CUY_KF)] != env(_CUY_KV)))) + [strenv(_CUY_OBJ) | from_yaml]"
+}
+
 #
 # config_add_var [file|""] variable strings...
 # adds a string to a bash variable at the beginning assuming the variable doesn'
