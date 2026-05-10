@@ -52,7 +52,7 @@ debug:
 # usage: $(call start_server,port of service, app, arguments...)
 # this generations a strange problem
 # if ! pgrep -fL $(1) || ! lsof -i :$(2) ; then; $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10)
-start_server = if ! lsof -i:$(1) -sTCP:LISTEN; then nohup bash -c '$(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10)' >/tmp/sidecar-$(1).log 2>&1; fi &
+start_server = if ! lsof -i:$(1) -sTCP:LISTEN; then bash -c "$(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) >>/tmp/sidecar-$(1).log 2>&1 & disown"; fi
 
 # usage: $(call open_server,port of service, url_suffix)
 open_server = if lsof -i:$(1) -sTCP:LISTEN; then open "http://localhost:$(1)$(2)"; fi &
