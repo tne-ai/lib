@@ -13,6 +13,7 @@ AI_ORG ?= tne.ai
 MLFLOW_PORT    ?= 5001
 LITELLM_PORT   ?= 4000
 TEMPORAL_PORT  ?= 7233
+TEMPORAL_UI_PORT ?= 8080
 KTAP_PORT      ?= 8765
 CCR_PORT       ?= 3456
 REDIS_PORT     ?= 6379
@@ -49,30 +50,44 @@ debug:
 # 	mkdir -p "$(OPEN_WEBUI_DATA_DIR)"
 # 	rclone bisync --resync --interactive "$(OPEN_WEBUI_DATA_DIR)" "app:open-webui-data/$(AI_USER)"
 
-# usage: $(call start_server,port of service, app, arguments...)
-# this generations a strange problem
-# if ! pgrep -fL $(1) || ! lsof -i :$(2) ; then; $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10)
-start_server = if ! lsof -i:$(1) -sTCP:LISTEN; then bash -c "$(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) >>/tmp/sidecar-$(1).log 2>&1 & disown"; fi
+# Use the simplest pattern that works for the sidecar type (r-cto-dev108):
+#   start_server        — native binaries (Go, C, Node, Java): nohup + </dev/null
+#   start_server_double_fork — Python ASGI/WSGI (Uvicorn/Gunicorn): required, not optional
+#   start_server_brew   — brew-managed services: let brew own the lifecycle
+#   start_server_self   — self-managing daemons: binary handles its own daemonization
+SETSID ?= $(or $(shell which setsid 2>/dev/null),/opt/homebrew/opt/util-linux/bin/setsid)
+start_server = if ! $(call port_ready,$(1)); then \
+    nohup bash -c "$(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) \
+                   </dev/null >>/tmp/sidecar-$(1).log 2>&1 &" &>/dev/null; fi
+# Uvicorn/Gunicorn detect terminal group membership — double-fork required; nohup is not enough.
+start_server_double_fork = if ! $(call port_ready,$(1)); then \
+    ($(SETSID) bash -c "$(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) \
+                        </dev/null >>/tmp/sidecar-$(1).log 2>&1 &"); fi
+start_server_brew = brew services start $(2) 2>/dev/null || true
+start_server_self = $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) || true
 
 # usage: $(call open_server,port of service, url_suffix)
-open_server = if lsof -i:$(1) -sTCP:LISTEN; then open "http://localhost:$(1)$(2)"; fi &
+open_server = if $(call port_ready,$(1)); then open -a "Google Chrome" "http://localhost:$(1)$(2)"; fi &
 
-# usage $(call check_ports to see if the command wowrked)
-check_port = -sleep 5 && lsof -i:$(1) -sTCP:LISTEN
+# Python servers run DB migrations before binding — 15s covers Prisma (~13s). Native binaries bind immediately.
+CHECK_PORT_WAIT ?= 15
+# usage: $(call check_port,port) — sleep then confirm port is accepting connections
+check_port = -sleep $(CHECK_PORT_WAIT) && $(call port_ready,$(1))
+
+# usage: $(call port_ready,port) — true if something is listening on port
+port_ready = nc -z localhost $(1) 2>/dev/null
 
 ## %.ps: process status for any service (e.g. make litellm.ps)
 %.ps:
 	if ! pgrep -fl $*; then echo "$* not running"; fi
 
-## [service].kill: gracefully stop then SIGKILL any service matched by name
-# -f means find anywhere in the argument field; SIGTERM first, SIGKILL after 5s
-# xargs -r means do not run kill if there are no matching processes
-# grep -vE strips the make process itself and pgrep from the match list
+## [service].stop: graceful stop — SIGTERM first, SIGKILL fallback after 5s
+# kill is last resort only; this target implements the normal stop lifecycle term.
 # run in background (&) as the sleep makes this slow
-%.kill:
+%.stop:
 	for signal in "" "-9"; do \
-		echo "pid only" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | awk '{print $$1}' || true; \
-		echo "$$signal" && pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | awk '{print $$1}' | xargs -r kill $$signal || true && sleep 5; \
+		pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | awk '{print $$1}' || true; \
+		pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | awk '{print $$1}' | xargs -r kill $$signal || true && sleep 5; \
 	done &
 
 
@@ -84,17 +99,18 @@ postgres:
 	if ! command -v psql >/dev/null 2>&1; then \
 		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
 	fi
-	until pg_isready -q; do sleep 1; done
+	$(call port_ready,$(POSTGRES_PORT)) || brew services start postgresql@17 2>/dev/null || brew services start postgresql 2>/dev/null || true
+	timeout=30; until $(call port_ready,$(POSTGRES_PORT)); do sleep 1; timeout=$$((timeout-1)); [ $$timeout -gt 0 ] || { echo "postgres did not become ready"; exit 1; }; done
 	psql -lqt | grep -q "$(LITELLM_DB)" || createdb "$(LITELLM_DB)"
 
-	# brew services start redis 2>/dev/null || true
 ## redis: start Redis via brew services (needed for LiteLLM response caching)
 .PHONY: redis
 redis:
 	if ! command -v redis-cli >/dev/null 2>&1; then \
 		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
 	fi
-	until redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
+	$(call port_ready,$(REDIS_PORT)) || brew services start redis 2>/dev/null || true
+	timeout=30; until $(call port_ready,$(REDIS_PORT)); do sleep 1; timeout=$$((timeout-1)); [ $$timeout -gt 0 ] || { echo "redis did not become ready"; exit 1; }; done
 
 ## mlflow: start MLflow tracking server at http://localhost:$(MLFLOW_PORT)
 ## mlflow has no Homebrew formula — install chain is: uv tool install → uvx (ephemeral).
@@ -107,7 +123,7 @@ mlflow:
 		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
 	fi
 	mkdir -p "$(MLFLOW_DIR)/artifacts"
-	$(call start_server,$(MLFLOW_PORT),$$(command -v mlflow || echo uvx mlflow) server --host 127.0.0.1 --port $(MLFLOW_PORT) \
+	$(call start_server_double_fork,$(MLFLOW_PORT),$$(command -v mlflow || echo uvx mlflow) server --host 127.0.0.1 --port $(MLFLOW_PORT) \
 		--backend-store-uri sqlite:///$(MLFLOW_DIR)/mlflow.db \
 		--default-artifact-root $(MLFLOW_DIR)/artifacts)
 	$(call check_port,$(MLFLOW_PORT))
@@ -132,7 +148,7 @@ litellm:
 		$$_venv/bin/python -m prisma generate --schema $$_schema; \
 		mkdir -p $$(dirname $(PRISMA_STAMP)) && touch $(PRISMA_STAMP); \
 	fi
-	$(call start_server,$(LITELLM_PORT),ANTHROPIC_API_KEY=$${LITELLM_MASTER_KEY} DATABASE_URL=postgresql://$$USER@localhost/litellm $$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
+	$(call start_server_double_fork,$(LITELLM_PORT),ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" DATABASE_URL=postgresql://$$USER@localhost/litellm $$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
 	$(call check_port,$(LITELLM_PORT))
 
 # ── Harness + model variables ─────────────────────────────────────────────────
@@ -170,6 +186,7 @@ endef
 ##   make ai-run HARNESS=aider
 .PHONY: ai-run
 ai-run:
+	@$(call port_ready,$(LITELLM_PORT)) || { echo "LiteLLM is not running on port $(LITELLM_PORT). Run 'make ai' first."; exit 1; }
 	$(call _run_harness,$(MODEL))
 
 # ── Public entry points ───────────────────────────────────────────────────────
@@ -242,7 +259,7 @@ CLIPROXYAPI_PORT ?= 8080
 .PHONY: cliproxyapi
 cliproxyapi:
 	command -v cliproxyapi >/dev/null || { echo "cliproxyapi not installed — run: brew install cliproxyapi"; exit 1; }
-	$(call start_server,$(CLIPROXYAPI_PORT),cliproxyapi start)
+	$(call start_server_self,$(CLIPROXYAPI_PORT),cliproxyapi start)
 	$(call check_port,$(CLIPROXYAPI_PORT))
 
 ## routellm: RouteLLM difficulty-routing server
@@ -250,25 +267,26 @@ ROUTELLM_PORT ?= 6060
 ROUTELLM_CFG  ?= $(HOME)/.config/routellm/config.yaml
 .PHONY: routellm
 routellm:
-	$(call start_server,$(ROUTELLM_PORT),uvx routellm.server --config $(ROUTELLM_CFG) --port $(ROUTELLM_PORT))
+	$(call start_server_double_fork,$(ROUTELLM_PORT),uvx routellm.server --config $(ROUTELLM_CFG) --port $(ROUTELLM_PORT))
 	$(call check_port,$(ROUTELLM_PORT))
 
-## ai-open: open all service UIs in Chrome
+## ai-open: open service UIs in Chrome (skips any port not yet listening)
 .PHONY: ai-open
 ai-open:
-	open -a "Google Chrome" "http://localhost:$(LITELLM_PORT)/ui/login"
-	open -a "Google Chrome" "http://localhost:$(MLFLOW_PORT)"
-	open -a "Google Chrome" "http://localhost:$(TEMPORAL_PORT)"
+	$(call open_server,$(LITELLM_PORT),/ui/login)
+	$(call open_server,$(MLFLOW_PORT),)
+	$(call open_server,$(TEMPORAL_UI_PORT),)
+	$(call open_server,$(CCR_PORT),)
 
 ## ai-status: health check for all sidecars
 .PHONY: ai-status
 ai-status:
-	echo "PostgreSQL :$(POSTGRES_PORT): $$(pg_isready -q 2>/dev/null && echo ok || echo stopped)"
-	echo "Redis      :$(REDIS_PORT): $$(redis-cli ping 2>/dev/null | grep -q PONG && echo ok || echo stopped)"
-	echo "LiteLLM    :$(LITELLM_PORT): $$(nc -z localhost $(LITELLM_PORT) 2>/dev/null && echo ok || echo stopped)"
-	echo "MLflow     :$(MLFLOW_PORT): $$(nc -z localhost $(MLFLOW_PORT) 2>/dev/null && echo ok || echo stopped)"
-	echo "Temporal   :$(TEMPORAL_PORT): $$(nc -z localhost $(TEMPORAL_PORT) 2>/dev/null && echo ok || echo stopped)"
-	echo "CCR        :$(CCR_PORT): $$(nc -z localhost $(CCR_PORT) 2>/dev/null && echo ok || echo stopped)"
+	echo "PostgreSQL :$(POSTGRES_PORT): $$($(call port_ready,$(POSTGRES_PORT)) && echo ok || echo stopped)"
+	echo "Redis      :$(REDIS_PORT): $$($(call port_ready,$(REDIS_PORT)) && echo ok || echo stopped)"
+	echo "LiteLLM    :$(LITELLM_PORT): $$($(call port_ready,$(LITELLM_PORT)) && echo ok || echo stopped)"
+	echo "MLflow     :$(MLFLOW_PORT): $$($(call port_ready,$(MLFLOW_PORT)) && echo ok || echo stopped)"
+	echo "Temporal   :$(TEMPORAL_PORT): $$($(call port_ready,$(TEMPORAL_PORT)) && echo ok || echo stopped)"
+	echo "CCR        :$(CCR_PORT): $$($(call port_ready,$(CCR_PORT)) && echo ok || echo stopped)"
 	echo "LM Studio  : $$(pgrep -x 'LM Studio' >/dev/null 2>&1 && echo ok || echo stopped)"
 
 ## ai-models: list available models with make invocation examples
@@ -318,15 +336,15 @@ ai-logs:
 ai-ps: mlflow.ps litellm.ps temporal.ps ccr.ps
 	brew services list | grep -E "postgresql|redis" | awk '{printf "%-10s %s\n", $$1, $$2}'
 
-## ai-kill: stop all sidecars (brew services for postgres/redis, pkill for others)
-.PHONY: ai-kill
-ai-kill: $(MLFLOW_PORT).kill $(LITELLM_PORT).kill $(TEMPORAL_PORT).kill $(CCR_PORT).kill
+## ai-stop: stop all sidecars (brew services stop for postgres/redis, SIGTERM for others)
+.PHONY: ai-stop
+ai-stop: $(MLFLOW_PORT).stop $(LITELLM_PORT).stop $(TEMPORAL_PORT).stop $(CCR_PORT).stop
 	brew services stop redis 2>/dev/null || true
 	brew services stop postgresql@17 2>/dev/null || brew services stop postgresql 2>/dev/null || true
 
-## ai-local-kill: stop sidecars + LM Studio + restore GPU memory limit
-.PHONY: ai-local-kill
-ai-local-kill: ai-kill
+## ai-local-stop: stop sidecars + LM Studio + restore GPU memory limit
+.PHONY: ai-local-stop
+ai-local-stop: ai-stop
 	lms server stop
 	sudo sysctl iogpu.wired_limit_mb=0
 
@@ -401,9 +419,12 @@ temporal:
 # 	$(call check_port,$(KTAP_PORT))
 
 ## ccr: Claude Code Router at http://localhost:$(CCR_PORT)
+# BUG(2026-05-10): ccr start exits with code 1 even on success — daemon runs fine, launcher
+# has wrong exit convention. Track: github.com/musistudio/claude-code-router/issues/544
+# CHECK: 2026-06-10 — if fixed upstream, remove || true from start_server_self call.
 .PHONY: ccr
 ccr:
-	$(call start_server,$(CCR_PORT),ccr start)
+	$(call start_server_self,$(CCR_PORT),ccr start)
 	$(call check_port,$(CCR_PORT))
 
 # ── Commented-out local inference stacks ─────────────────────────────────────
