@@ -1,0 +1,27 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Claude Issue Triage
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Analyze this issue and:
+            1. Suggest appropriate labels (bug, feature, docs, etc.)
+            2. Assess priority (critical, high, medium, low)
+            3. Identify if it's a duplicate of existing issues
+            4. Add a helpful initial response to the reporter

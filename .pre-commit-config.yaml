@@ -70,7 +70,7 @@ repos:
     hooks:
       # dependent on local shellcheck install but must faster than docker
       - id: shellcheck
-        args: [-x]
+        args: [--source-path=SCRIPTDIR]
         exclude: (.*\.zsh$|\.zshrc$|\.zprofile$|\.fzf\.bash$|\.bashrc$|\.bash_profile$)
       # Generating a ruby error with run with all-files
       # this is using the ruby mdl utility so switching to the node version
@@ -89,7 +89,7 @@ repos:
   #  rev: v0.8.0
   #  hooks:
   #    - id: shellcheck
-  #      args: [-x]
+  #      args: [--source-path=SCRIPTDIR]
   #      exclude: (.*\.zsh$|\.zshrc$|\.zprofile$|\.fzf\.bash$|\.bashrc$|\.bash_profile$)
 
   # this is bettert han the jumanji version as it uses go to build
