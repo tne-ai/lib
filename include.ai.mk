@@ -52,7 +52,7 @@ debug:
 # usage: $(call start_server,port of service, app, arguments...)
 # this generations a strange problem
 # if ! pgrep -fL $(1) || ! lsof -i :$(2) ; then; $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10)
-start_server = if ! lsof -i:$(1) -sTCP:LISTEN; then $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10); fi &
+start_server = if ! lsof -i:$(1) -sTCP:LISTEN; then nohup bash -c '$(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10)' >/tmp/sidecar-$(1).log 2>&1; fi &
 
 # usage: $(call open_server,port of service, url_suffix)
 open_server = if lsof -i:$(1) -sTCP:LISTEN; then open "http://localhost:$(1)$(2)"; fi &
@@ -153,35 +153,54 @@ LOCAL_MODEL        ?= $(or $(shell lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9
 # ── Internal runner macro ─────────────────────────────────────────────────────
 # Inlined into each entry point via $(call _run_harness,MODEL).
 # Sets ANTHROPIC_BASE_URL + OPENAI_BASE_URL so any OpenAI-compatible harness works.
+# ANTHROPIC_CUSTOM_HEADERS passes the LiteLLM master key — required because Make
+# does not source shell profiles, so the profile-set ANTHROPIC_CUSTOM_HEADERS is absent.
 define _run_harness
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
+	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
 	$(if $(1),CLAUDE_MODEL=$(1),$(if $(MODEL),CLAUDE_MODEL=$(MODEL),)) \
 	$(HARNESS) $(HARNESS_ARGS)
 endef
 
+# ── Run-only target (servers already up) ──────────────────────────────────────
+## ai-run: launch the AI harness against already-running sidecars
+##   make ai-run                    # claude (default)
+##   make ai-run MODEL=kimi-k2.6   # different model
+##   make ai-run HARNESS=aider
+.PHONY: ai-run
+ai-run:
+	$(call _run_harness,$(MODEL))
+
 # ── Public entry points ───────────────────────────────────────────────────────
 
-## ai: start sidecars + launch vanilla Claude Code  [PLAN — Anthropic Max, no per-token cost]
-##   make ai                             # vanilla Claude Code, Anthropic Max plan
-##   make ai MODEL=kimi-k2.6             # Kimi K2 Coding Plan ($19/mo flat)  [PLAN]
-##   make ai MODEL=gemini-2.5-flash      # Gemini Flash                       [PAYG]
-##   make ai MODEL=kimi-k2.5-free        # OpenRouter free tier               [FREE]
-##   make ai MODEL=deepseek-v3-free      # DeepSeek free tier                 [FREE]
-##   make ai HARNESS=aider               # swap harness, same sidecar stack
+## ai: start sidecars (postgres redis mlflow litellm temporal ccr)  [PLAN — Anthropic Max]
+##   make ai                             # start servers, then run: make ai-run
+##   make ai-run                         # launch claude against running servers
+##   make ai-run MODEL=kimi-k2.6         # Kimi K2 Coding Plan ($19/mo flat)  [PLAN]
+##   make ai-run MODEL=gemini-2.5-flash  # Gemini Flash                       [PAYG]
+##   make ai-run HARNESS=aider           # swap harness, same sidecar stack
 ##   See all models: make ai-models
 ## Sidecars: postgres redis mlflow litellm temporal ccr
 .PHONY: ai
 ai: postgres redis mlflow litellm temporal ccr
-	$(call _run_harness,)
+	@echo ""
+	@echo "  Sidecars are up. Run your AI harness in a separate terminal:"
+	@echo "    make ai-run                  # claude (Max plan)"
+	@echo "    make ai-run MODEL=kimi-k2.6  # Kimi K2 (Coding plan)"
+	@echo "    make ai-run HARNESS=aider    # aider"
+	@echo ""
 
-## ai-local: full sidecar stack + GPU + LM Studio, launch with local model  [FREE]
-##   make ai-local                              # default: $(LOCAL_MODEL)
+## ai-local: full sidecar stack + GPU + LM Studio — servers only  [FREE]
+##   make ai-local                              # start servers, then: make ai-run LOCAL_MODEL=...
 ##   make ai-local LOCAL_MODEL=lms-qwen3.6-27b
 ## Zero marginal cost — inference runs on your GPU via LM Studio
 .PHONY: ai-local
 ai-local: postgres redis mlflow litellm temporal ccr set-gpu-max-memory lms-server
-	$(call _run_harness,$(LOCAL_MODEL))
+	@echo ""
+	@echo "  Local stack ready. Run your harness in a separate terminal:"
+	@echo "    make ai-run LOCAL_MODEL=$(LOCAL_MODEL)"
+	@echo ""
 
 ## ai-cli: CLI-auth providers via CLIProxyAPI adapter  [PLAN — flat-rate subscriptions]
 ## Authenticates via provider CLI login, not per-token API key.
@@ -189,13 +208,13 @@ ai-local: postgres redis mlflow litellm temporal ccr set-gpu-max-memory lms-serv
 ##   make ai-cli MODEL=gemini-proxy # Google Gemini plan (gemini auth login)  [PLAN]
 .PHONY: ai-cli
 ai-cli: postgres redis mlflow litellm cliproxyapi
-	$(call _run_harness,)
+	@echo "  CLI stack ready. Run: make ai-run MODEL=codex"
 
 ## ai-auto: difficulty-routing — cheap for simple tasks, strong for hard  [PLAN+PLAN]
 ## Easy prompts → kimi-k2.6 (Coding Plan $19/mo), hard → claude-sonnet (Max plan)
 .PHONY: ai-auto
 ai-auto: postgres redis mlflow litellm routellm
-	$(call _run_harness,routellm)
+	@echo "  Auto-routing stack ready. Run: make ai-run MODEL=routellm"
 
 ## ai-auth: log in to all AI providers (run once per machine or after token expiry)
 ##   make ai-auth              # all providers
