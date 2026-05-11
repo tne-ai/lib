@@ -285,8 +285,12 @@ ai: postgres redis mlflow litellm temporal ccr
 ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lms-server
 	@echo ""
 	@echo "  Local stack ready. Run your harness in a separate terminal:"
-	@echo "    make ai-run MODEL=$(LOCAL_MODEL)    # local GPU  [FREE]"
+	@echo "    make ai-run MODEL=<lms-name>         # local GPU  [FREE]"
 	@echo "    make ai-run                          # claude Max [PLAN]"
+	@echo ""
+	@echo "  Local models (litellm-registered names):"
+	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lms-' | sort | \
+		while IFS= read -r name; do printf '    make ai-run MODEL=%-36s # FREE\n' "$$name"; done
 	@echo ""
 
 ## ai-cli: CLI-auth providers via CLIProxyAPI adapter  [PLAN — flat-rate subscriptions]
