@@ -234,10 +234,15 @@ endef
 ## ai-run: drop into a subshell with LiteLLM env vars set so ALL tools route through LiteLLM
 ##   make ai-run                    # interactive shell (all tools auto-route via LiteLLM)
 ##   make ai-run MODEL=kimi-k2.6   # pin CLAUDE_MODEL for the session
+##   make ai-run MODEL=lms-qwen3.6-27b  # auto-loads model in LM Studio, then runs
 ##   make ai-run HARNESS=aider     # launch aider directly (still with LiteLLM env vars)
 .PHONY: ai-run
 ai-run:
 	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 || { echo "LiteLLM is not ready on port $(LITELLM_PORT). Run 'make litellm' first."; exit 1; }
+	@$(if $(filter lms-%,$(MODEL)), \
+		_lms_id=$$(echo "$(MODEL)" | sed 's/^lms-//'); \
+		echo "==> loading LM Studio model: $$_lms_id"; \
+		lms load "$$_lms_id" --gpu max 2>&1 || echo "⚠️  lms load failed — model may already be loaded or name mismatch",)
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
