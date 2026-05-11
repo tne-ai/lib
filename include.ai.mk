@@ -33,6 +33,7 @@ LITELLM_CFG  ?= $(HOME)/.config/litellm/config.yaml
 MLFLOW_DIR   ?= $(TNE_DB_DIR)
 KTAP_DIR     ?= $(WS_DIR)/git/src/demo/demo-do178c
 TEMPORAL_DB  ?= $(TNE_DB_DIR)/temporal/temporal.db
+export TEMPORAL_DB
 LITELLM_DB   ?= litellm
 LITELLM_DB_URL ?= postgresql://$(USER)@localhost/$(LITELLM_DB)
 # Monthly budget cap in USD — LiteLLM hard-stops when exceeded
@@ -67,7 +68,7 @@ start_server = if ! $(call port_ready,$(1)); then \
 start_server_double_fork = if $(call port_ready,$(1)); then \
     true; \
   elif lsof -ti :$(1) -sTCP:LISTEN &>/dev/null 2>&1; then \
-    echo "⚠️  port $(1) is held by a zombie process — run: make $(1).stop"; \
+    echo "⚠️  port $(1) is held by a zombie process — run: lsof -ti :$(1) -sTCP:LISTEN | xargs kill -9"; \
   else \
     ($(SETSID) bash -c "$(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) \
                         </dev/null >>$(TNE_LOG_DIR)/sidecar-$(1).log 2>&1 &"); fi
@@ -200,14 +201,18 @@ define _run_harness
 endef
 
 # ── Run-only target (servers already up) ──────────────────────────────────────
-## ai-run: launch the AI harness against already-running sidecars
-##   make ai-run                    # claude (default)
-##   make ai-run MODEL=kimi-k2.6   # different model
-##   make ai-run HARNESS=aider
+## ai-run: drop into a subshell with LiteLLM env vars set so ALL tools route through LiteLLM
+##   make ai-run                    # interactive shell (all tools auto-route via LiteLLM)
+##   make ai-run MODEL=kimi-k2.6   # pin CLAUDE_MODEL for the session
+##   make ai-run HARNESS=aider     # launch aider directly (still with LiteLLM env vars)
 .PHONY: ai-run
 ai-run:
 	@$(call port_ready,$(LITELLM_PORT)) || { echo "LiteLLM is not running on port $(LITELLM_PORT). Run 'make ai' first."; exit 1; }
-	$(call _run_harness,$(MODEL))
+	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
+	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
+	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
+	$(if $(MODEL),CLAUDE_MODEL=$(MODEL),) \
+	$(if $(filter claude,$(HARNESS)),$(SHELL),$(call _run_harness,$(MODEL)))
 
 # ── Public entry points ───────────────────────────────────────────────────────
 
