@@ -68,7 +68,7 @@ start_server = if ! $(call port_ready,$(1)); then \
 start_server_double_fork = if $(call port_ready,$(1)); then \
     true; \
   elif lsof -ti :$(1) -sTCP:LISTEN &>/dev/null 2>&1; then \
-    echo "⚠️  port $(1) is held by a zombie process — run: lsof -ti :$(1) -sTCP:LISTEN | xargs kill -9"; \
+    echo "⚠️  port $(1) is held by a zombie process — run: make $(1).stop"; \
   else \
     ($(SETSID) bash -c "$(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) \
                         </dev/null >>$(TNE_LOG_DIR)/sidecar-$(1).log 2>&1 &"); fi
@@ -149,9 +149,10 @@ mlflow:
 ## LiteLLM validates against its own master_key and routes to real providers with their keys.
 ## See: docs.litellm.ai/docs/proxy/virtual_keys
 ## litellm binary also lives in ~/.local/bin (uv tool install) — same PATH fix as mlflow.
-## litellm.stop: kill ALL litellm processes (port-based + pkill sweep for random-port zombies)
-.PHONY: litellm.stop
-litellm.stop:
+## litellm.stop / 4000.stop: kill ALL litellm processes (port kill + pkill sweep for zombies)
+.PHONY: litellm.stop 4000.stop
+litellm.stop 4000.stop:
+	@-lsof -ti :$(LITELLM_PORT) -sTCP:LISTEN | xargs kill 2>/dev/null || true
 	@pkill -f "litellm" 2>/dev/null || true
 	@sleep 1
 	@pkill -9 -f "litellm" 2>/dev/null || true
