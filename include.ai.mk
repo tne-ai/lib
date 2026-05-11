@@ -282,7 +282,7 @@ ai: postgres redis mlflow litellm temporal ccr
 ## Default model: smallest loaded LM Studio model (auto-detected via lms ls).
 ## Use make ai-run (no MODEL) to switch back to claude against the same sidecar stack.
 .PHONY: ai-local
-ai-local: postgres redis mlflow litellm temporal ccr set-gpu-max-memory lms-server
+ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lms-server
 	@echo ""
 	@echo "  Local stack ready. Run your harness in a separate terminal:"
 	@echo "    make ai-run MODEL=$(LOCAL_MODEL)    # local GPU  [FREE]"
