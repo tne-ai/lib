@@ -80,10 +80,11 @@ start_server_self = $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) || true
 # usage: $(call open_server,port of service, url_suffix)
 open_server = if $(call port_ready,$(1)); then open -a "Google Chrome" "http://localhost:$(1)$(2)"; fi &
 
-# usage: $(call check_port,port) — poll until ready (HTTP /health first, TCP fallback)
-# HTTP /health works for litellm/mlflow. gRPC services (temporal) and raw TCP (redis)
-# get nc fallback — curl returns non-2xx but nc succeeds once the socket is open.
-check_port = timeout=60; until curl -sf http://localhost:$(1)/health >/dev/null 2>&1 \
+# usage: $(call check_port,port) — poll until ready (HTTP /health/readiness first, TCP fallback)
+# /health/readiness is unauthenticated on litellm/mlflow. /health requires the master key
+# and returns 401 even when healthy — do not use it for readiness checks.
+# gRPC services (temporal) and raw TCP (redis) use nc fallback.
+check_port = timeout=60; until curl -sf http://localhost:$(1)/health/readiness >/dev/null 2>&1 \
                || nc -z localhost $(1) 2>/dev/null; do \
     sleep 2; timeout=$$((timeout-2)); \
     [ $$timeout -gt 0 ] || { echo "⚠️  port $(1) did not become ready after 60s"; exit 0; }; \
@@ -236,7 +237,7 @@ endef
 ##   make ai-run HARNESS=aider     # launch aider directly (still with LiteLLM env vars)
 .PHONY: ai-run
 ai-run:
-	@curl -sf http://localhost:$(LITELLM_PORT)/health >/dev/null 2>&1 || { echo "LiteLLM is not ready on port $(LITELLM_PORT). Run 'make litellm' first."; exit 1; }
+	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 || { echo "LiteLLM is not ready on port $(LITELLM_PORT). Run 'make litellm' first."; exit 1; }
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
