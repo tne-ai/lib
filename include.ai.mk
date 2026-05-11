@@ -7,6 +7,7 @@ WS_DIR ?= $(HOME)/ws
 BIN_DIR ?= $(WS_DIR)/git/src/bin
 TNE_DB_DIR  ?= $(WS_DIR)/db
 TNE_LOG_DIR ?= $(WS_DIR)/log
+TNE_DATA    ?= $(WS_DIR)/data
 export WS_DIR BIN_DIR TNE_DB_DIR TNE_LOG_DIR
 
 AI_USER ?= $(USER)
@@ -17,7 +18,7 @@ MLFLOW_PORT    ?= 5001
 LITELLM_PORT   ?= 4000
 TEMPORAL_PORT  ?= 7233
 TEMPORAL_UI_PORT ?= 8080
-KTAP_PORT      ?= 8765
+KTAP_PORT      ?= 8630
 CCR_PORT       ?= 3456
 REDIS_PORT     ?= 6379
 POSTGRES_PORT  ?= 5432
@@ -166,11 +167,13 @@ litellm:
 		echo "litellm not installed — running make ai-install first"; \
 		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
 	fi
-	if [ ! -f "$(PRISMA_STAMP)" ]; then \
-		_venv=$$(pipx environment --value PIPX_LOCAL_VENVS 2>/dev/null)/litellm; \
-		_schema=$$_venv/lib/python*/site-packages/litellm/proxy/schema.prisma; \
-		$$_venv/bin/python -m prisma generate --schema $$_schema; \
-		mkdir -p $$(dirname $(PRISMA_STAMP)) && touch $(PRISMA_STAMP); \
+	_venv=$$(pipx environment --value PIPX_LOCAL_VENVS 2>/dev/null)/litellm; \
+	_schema=$$(echo $$_venv/lib/python*/site-packages/litellm/proxy/schema.prisma); \
+	_schema_hash=$$(md5 -q "$$_schema" 2>/dev/null || md5sum "$$_schema" 2>/dev/null | awk '{print $$1}'); \
+	if [ "$$(cat $(PRISMA_STAMP) 2>/dev/null)" != "$$_schema_hash" ]; then \
+		echo "==> prisma generate (schema changed or first run)"; \
+		$$_venv/bin/python -m prisma generate --schema "$$_schema"; \
+		mkdir -p $$(dirname $(PRISMA_STAMP)) && echo "$$_schema_hash" > $(PRISMA_STAMP); \
 	fi
 	$(call start_server_double_fork,$(LITELLM_PORT),ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" DATABASE_URL=postgresql://$$USER@localhost/litellm $$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
 	$(call check_port,$(LITELLM_PORT))
@@ -308,6 +311,7 @@ ai-open:
 	$(call open_server,$(MLFLOW_PORT),)
 	$(call open_server,$(TEMPORAL_UI_PORT),)
 	$(call open_server,$(CCR_PORT),)
+	$(call open_server,$(KTAP_PORT),)
 
 ## ai-status: health check for all sidecars
 .PHONY: ai-status
@@ -318,6 +322,7 @@ ai-status:
 	echo "MLflow     :$(MLFLOW_PORT): $$($(call port_ready,$(MLFLOW_PORT)) && echo ok || echo stopped)"
 	echo "Temporal   :$(TEMPORAL_PORT): $$($(call port_ready,$(TEMPORAL_PORT)) && echo ok || echo stopped)"
 	echo "CCR        :$(CCR_PORT): $$($(call port_ready,$(CCR_PORT)) && echo ok || echo stopped)"
+	echo "ktap       :$(KTAP_PORT): $$($(call port_ready,$(KTAP_PORT)) && echo ok || echo stopped)"
 	echo "LM Studio  : $$(pgrep -x 'LM Studio' >/dev/null 2>&1 && echo ok || echo stopped)"
 
 ## ai-models: list available models with make invocation examples
@@ -361,6 +366,19 @@ ai-models:
 .PHONY: ai-logs
 ai-logs:
 	uv run "$(MLFLOW_LOG_SCRIPT)"
+
+## ai-log: tail all sidecar logs from TNE_LOG_DIR (Ctrl-C to stop)
+.PHONY: ai-log
+ai-log:
+	@mkdir -p "$(TNE_LOG_DIR)"
+	@echo "Tailing logs from $(TNE_LOG_DIR) — Ctrl-C to stop"
+	@tail -f \
+		"$(TNE_LOG_DIR)/sidecar-$(LITELLM_PORT).log" \
+		"$(TNE_LOG_DIR)/sidecar-$(MLFLOW_PORT).log" \
+		"$(TNE_LOG_DIR)/sidecar-$(KTAP_PORT).log" \
+		"$(TNE_LOG_DIR)/ktap.log" \
+		"$(TNE_LOG_DIR)/tne-engine.log" \
+		2>/dev/null || echo "(no log files yet — start services with make ai-local)"
 
 ## ai-ps: process status of all sidecars
 .PHONY: ai-ps
