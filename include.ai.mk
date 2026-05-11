@@ -62,7 +62,13 @@ start_server = if ! $(call port_ready,$(1)); then \
     nohup bash -c "$(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) \
                    </dev/null >>$(TNE_LOG_DIR)/sidecar-$(1).log 2>&1 &" &>/dev/null; fi
 # Uvicorn/Gunicorn detect terminal group membership — double-fork required; nohup is not enough.
-start_server_double_fork = if ! $(call port_ready,$(1)); then \
+# If something holds the LISTEN socket but is not yet accepting connections (zombie), warn and
+# skip — do not auto-kill. Run `make $(1).stop` to clear the port first.
+start_server_double_fork = if $(call port_ready,$(1)); then \
+    true; \
+  elif lsof -ti :$(1) -sTCP:LISTEN &>/dev/null 2>&1; then \
+    echo "⚠️  port $(1) is held by a zombie process — run: make $(1).stop"; \
+  else \
     ($(SETSID) bash -c "$(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) \
                         </dev/null >>$(TNE_LOG_DIR)/sidecar-$(1).log 2>&1 &"); fi
 start_server_brew = brew services start $(2) 2>/dev/null || true
@@ -87,10 +93,14 @@ port_ready = nc -z localhost $(1) 2>/dev/null
 # kill is last resort only; this target implements the normal stop lifecycle term.
 # run in background (&) as the sleep makes this slow
 %.stop:
-	for signal in "" "-9"; do \
-		pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | awk '{print $$1}' || true; \
-		pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | awk '{print $$1}' | xargs -r kill $$signal || true && sleep 5; \
-	done &
+	@for signal in "" "-9"; do \
+		if echo "$*" | grep -qE '^[0-9]+$$'; then \
+			lsof -ti :$* -sTCP:LISTEN 2>/dev/null | xargs -r kill $$signal 2>/dev/null || true; \
+		else \
+			pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | awk '{print $$1}' | xargs -r kill $$signal 2>/dev/null || true; \
+		fi; \
+		sleep 3; \
+	done
 
 
 # note never use brew for status very slow
@@ -138,6 +148,14 @@ mlflow:
 ## LiteLLM validates against its own master_key and routes to real providers with their keys.
 ## See: docs.litellm.ai/docs/proxy/virtual_keys
 ## litellm binary also lives in ~/.local/bin (uv tool install) — same PATH fix as mlflow.
+## litellm.stop: kill ALL litellm processes (port-based + pkill sweep for random-port zombies)
+.PHONY: litellm.stop
+litellm.stop:
+	@pkill -f "litellm" 2>/dev/null || true
+	@sleep 1
+	@pkill -9 -f "litellm" 2>/dev/null || true
+	@echo "litellm stopped"
+
 .PHONY: litellm
 litellm:
 	if ! command -v litellm >/dev/null 2>&1 && ! uvx litellm --version >/dev/null 2>&1; then \
@@ -211,14 +229,17 @@ ai: postgres redis mlflow litellm temporal ccr
 	@echo ""
 
 ## ai-local: full sidecar stack + GPU + LM Studio — servers only  [FREE]
-##   make ai-local                              # start servers, then: make ai-run LOCAL_MODEL=...
-##   make ai-local LOCAL_MODEL=lms-qwen3.6-27b
-## Zero marginal cost — inference runs on your GPU via LM Studio
+##   make ai-local                              # start, then: make ai-run MODEL=<local>
+##   make ai-local LOCAL_MODEL=lms-qwen3.6-27b  # pin a specific local model
+## Zero marginal cost — inference runs on your GPU via LM Studio.
+## Default model: smallest loaded LM Studio model (auto-detected via lms ls).
+## Use make ai-run (no MODEL) to switch back to claude against the same sidecar stack.
 .PHONY: ai-local
 ai-local: postgres redis mlflow litellm temporal ccr set-gpu-max-memory lms-server
 	@echo ""
 	@echo "  Local stack ready. Run your harness in a separate terminal:"
-	@echo "    make ai-run LOCAL_MODEL=$(LOCAL_MODEL)"
+	@echo "    make ai-run MODEL=$(LOCAL_MODEL)    # local GPU  [FREE]"
+	@echo "    make ai-run                          # claude Max [PLAN]"
 	@echo ""
 
 ## ai-cli: CLI-auth providers via CLIProxyAPI adapter  [PLAN — flat-rate subscriptions]
@@ -340,7 +361,7 @@ ai-ps: mlflow.ps litellm.ps temporal.ps ccr.ps
 
 ## ai-stop: stop all sidecars (brew services stop for postgres/redis, SIGTERM for others)
 .PHONY: ai-stop
-ai-stop: $(MLFLOW_PORT).stop $(LITELLM_PORT).stop $(TEMPORAL_PORT).stop $(CCR_PORT).stop
+ai-stop: $(MLFLOW_PORT).stop litellm.stop $(TEMPORAL_PORT).stop $(CCR_PORT).stop
 	brew services stop redis 2>/dev/null || true
 	brew services stop postgresql@17 2>/dev/null || brew services stop postgresql 2>/dev/null || true
 
