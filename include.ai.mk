@@ -184,7 +184,8 @@ litellm.stop 4000.stop:
 ##
 ## Prisma stamp ($(PRISMA_STAMP)) stores the md5 hash of schema.prisma.
 ## On every run: hash the current schema → compare to stamp → if different
-## (or stamp absent), regenerate the Prisma client then update the stamp.
+## (or stamp absent), regenerate the Prisma client AND push schema to DB,
+## then update the stamp. Covers both client codegen and DB migrations in one step.
 ## This means `pipx upgrade litellm` automatically triggers regeneration
 ## on the next `make litellm` — no manual intervention needed.
 ## To force regeneration: rm $(PRISMA_STAMP)
@@ -200,9 +201,12 @@ litellm:
 	if [ "$$(cat $(PRISMA_STAMP) 2>/dev/null)" != "$$_schema_hash" ]; then \
 		echo "==> prisma generate (schema changed or first run)"; \
 		PATH="$$_venv/bin:$$PATH" $$_venv/bin/prisma generate --schema "$$_schema"; \
+		echo "==> prisma db push (applying schema changes to database)"; \
+		DATABASE_URL=postgresql://$$USER@localhost/litellm \
+			PATH="$$_venv/bin:$$PATH" $$_venv/bin/prisma db push --schema "$$_schema" --accept-data-loss; \
 		mkdir -p $$(dirname $(PRISMA_STAMP)) && echo "$$_schema_hash" > $(PRISMA_STAMP); \
 	fi
-	$(call start_server_double_fork,$(LITELLM_PORT),ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" DATABASE_URL=postgresql://$$USER@localhost/litellm $$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
+	$(call start_server_double_fork,$(LITELLM_PORT),ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" DATABASE_URL=postgresql://$$USER@localhost/litellm LM_STUDIO_API_TOKEN="$${LM_STUDIO_API_TOKEN}" MOONSHOT_API_KEY="$${MOONSHOT_API_KEY}" GEMINI_API_KEY="$${GEMINI_API_KEY}" DEEPSEEK_API_KEY="$${DEEPSEEK_API_KEY}" ALIBABA_API_KEY="$${ALIBABA_API_KEY}" QWEN_CODING_API_KEY="$${QWEN_CODING_API_KEY}" Z_AI_API_KEY="$${Z_AI_API_KEY}" MINIMAX_API_KEY="$${MINIMAX_API_KEY}" OPENROUTER_API_KEY="$${OPENROUTER_API_KEY}" $$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
 	$(call check_port,$(LITELLM_PORT))
 
 # ── Harness + model variables ─────────────────────────────────────────────────
