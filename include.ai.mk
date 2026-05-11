@@ -84,10 +84,13 @@ open_server = if $(call port_ready,$(1)); then open -a "Google Chrome" "http://l
 # /health/readiness is unauthenticated on litellm/mlflow. /health requires the master key
 # and returns 401 even when healthy — do not use it for readiness checks.
 # gRPC services (temporal) and raw TCP (redis) use nc fallback.
-check_port = timeout=60; until curl -sf http://localhost:$(1)/health/readiness >/dev/null 2>&1 \
+# 90s timeout: litellm cold-start (prisma init + model load) routinely takes 30-45s;
+# 60s was too tight and caused false "not ready" reports on first launch.
+check_port = timeout=90; until curl -sf http://localhost:$(1)/health/readiness >/dev/null 2>&1 \
                || nc -z localhost $(1) 2>/dev/null; do \
     sleep 2; timeout=$$((timeout-2)); \
-    [ $$timeout -gt 0 ] || { echo "⚠️  port $(1) did not become ready after 60s"; exit 0; }; \
+    [ $$timeout -eq 44 ] && echo "  still waiting for port $(1)..."; \
+    [ $$timeout -gt 0 ] || { echo "⚠️  port $(1) did not become ready after 90s"; exit 0; }; \
   done && echo "✓ port $(1) ready"
 
 # usage: $(call port_ready,port) — true if something is listening on port
