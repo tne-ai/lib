@@ -161,6 +161,13 @@ litellm.stop 4000.stop:
 	@pkill -9 -f "litellm" 2>/dev/null || true
 	@echo "litellm stopped"
 
+## litellm: start LiteLLM proxy with automatic Prisma client regeneration
+## Prisma stamp ($(PRISMA_STAMP)) stores the md5 hash of schema.prisma.
+## On every run: hash the current schema → compare to stamp → if different
+## (or stamp absent), regenerate the Prisma client then update the stamp.
+## This means `pipx upgrade litellm` automatically triggers regeneration
+## on the next `make litellm` — no manual intervention needed.
+## To force regeneration: rm $(PRISMA_STAMP)
 .PHONY: litellm
 litellm:
 	if ! command -v litellm >/dev/null 2>&1 && ! uvx litellm --version >/dev/null 2>&1; then \
