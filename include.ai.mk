@@ -7,6 +7,7 @@ WS_DIR ?= $(HOME)/ws
 BIN_DIR ?= $(WS_DIR)/git/src/bin
 TNE_DB_DIR  ?= $(WS_DIR)/db
 TNE_LOG_DIR ?= $(WS_DIR)/log
+export WS_DIR BIN_DIR TNE_DB_DIR TNE_LOG_DIR
 
 AI_USER ?= $(USER)
 AI_ORG ?= tne.ai
