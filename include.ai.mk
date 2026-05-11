@@ -80,10 +80,13 @@ start_server_self = $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) || true
 # usage: $(call open_server,port of service, url_suffix)
 open_server = if $(call port_ready,$(1)); then open -a "Google Chrome" "http://localhost:$(1)$(2)"; fi &
 
-# usage: $(call check_port,port) — poll HTTP /health until ready or 60s timeout
-check_port = timeout=60; until curl -sf http://localhost:$(1)/health >/dev/null 2>&1; do \
+# usage: $(call check_port,port) — poll until ready (HTTP /health first, TCP fallback)
+# HTTP /health works for litellm/mlflow. gRPC services (temporal) and raw TCP (redis)
+# get nc fallback — curl returns non-2xx but nc succeeds once the socket is open.
+check_port = timeout=60; until curl -sf http://localhost:$(1)/health >/dev/null 2>&1 \
+               || nc -z localhost $(1) 2>/dev/null; do \
     sleep 2; timeout=$$((timeout-2)); \
-    [ $$timeout -gt 0 ] || { echo "⚠️  port $(1) did not become ready after 60s"; break; }; \
+    [ $$timeout -gt 0 ] || { echo "⚠️  port $(1) did not become ready after 60s"; exit 0; }; \
   done && echo "✓ port $(1) ready"
 
 # usage: $(call port_ready,port) — true if something is listening on port
