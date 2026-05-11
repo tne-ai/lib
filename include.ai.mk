@@ -78,10 +78,11 @@ start_server_self = $(2) $(3) $(4) $(5) $(6) $(7) $(8) $(9) $(10) || true
 # usage: $(call open_server,port of service, url_suffix)
 open_server = if $(call port_ready,$(1)); then open -a "Google Chrome" "http://localhost:$(1)$(2)"; fi &
 
-# Python servers run DB migrations before binding — 15s covers Prisma (~13s). Native binaries bind immediately.
-CHECK_PORT_WAIT ?= 15
-# usage: $(call check_port,port) — sleep then confirm port is accepting connections
-check_port = -sleep $(CHECK_PORT_WAIT) && $(call port_ready,$(1))
+# usage: $(call check_port,port) — poll HTTP /health until ready or 60s timeout
+check_port = timeout=60; until curl -sf http://localhost:$(1)/health >/dev/null 2>&1; do \
+    sleep 2; timeout=$$((timeout-2)); \
+    [ $$timeout -gt 0 ] || { echo "⚠️  port $(1) did not become ready after 60s"; break; }; \
+  done && echo "✓ port $(1) ready"
 
 # usage: $(call port_ready,port) — true if something is listening on port
 port_ready = nc -z localhost $(1) 2>/dev/null
@@ -208,7 +209,7 @@ endef
 ##   make ai-run HARNESS=aider     # launch aider directly (still with LiteLLM env vars)
 .PHONY: ai-run
 ai-run:
-	@$(call port_ready,$(LITELLM_PORT)) || { echo "LiteLLM is not running on port $(LITELLM_PORT). Run 'make ai' first."; exit 1; }
+	@curl -sf http://localhost:$(LITELLM_PORT)/health >/dev/null 2>&1 || { echo "LiteLLM is not ready on port $(LITELLM_PORT). Run 'make litellm' first."; exit 1; }
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
