@@ -165,6 +165,19 @@ litellm.stop 4000.stop:
 	@echo "litellm stopped"
 
 ## litellm: start LiteLLM proxy with automatic Prisma client regeneration
+##
+## WHY venv Python for prisma generate (not system prisma):
+##   LiteLLM uses Prisma Client Python (prisma==0.15.0) installed inside its
+##   own pipx venv. `prisma generate` writes the query-engine bindings into
+##   whichever Python environment owns the `prisma` binary. If you run the
+##   system/uv-tool prisma binary it writes to *that* env, not to the litellm
+##   venv — litellm never sees the updated client and crashes with
+##   FieldNotFoundError on every `pipx upgrade litellm` that adds DB columns.
+##   Solution: always call $$_venv/bin/python -m prisma generate so the
+##   generated client lands in the litellm venv. Do NOT install prisma as a
+##   standalone uv tool or pipx app — those create a separate env that
+##   shadows the litellm venv's client and causes the same mismatch.
+##
 ## Prisma stamp ($(PRISMA_STAMP)) stores the md5 hash of schema.prisma.
 ## On every run: hash the current schema → compare to stamp → if different
 ## (or stamp absent), regenerate the Prisma client then update the stamp.
