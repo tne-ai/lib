@@ -491,6 +491,34 @@ set-gpu-max-memory:
 lms-server:
 	lms server start
 
+## lms-sync: sync litellm config model_names with lms ls output
+## Removes all lms-* entries and re-adds them as lms-<vendor>/<model> to match lms ls IDs.
+## Also writes local-only fallbacks (smallest → next-smallest) so ai-local never leaks to cloud.
+## Run after installing new models in LM Studio.
+.PHONY: lms-sync
+lms-sync:
+	@echo "==> Removing old lms-* entries from $(LITELLM_CFG)"
+	@yq -i 'del(.model_list[] | select(.model_name | test("^lms-")))' "$(LITELLM_CFG)"
+	@echo "==> Adding lms-<vendor>/<model> entries from lms ls"
+	@lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {print $$1}' | grep -v 'text-embedding' | \
+		while IFS= read -r id; do \
+			name="lms-$$id"; \
+			yq -i ".model_list += [{\"model_name\": \"$$name\", \"litellm_params\": {\"model\": \"openai/$$id\", \"api_base\": \"http://localhost:1234/v1\", \"api_key\": \"os.environ/LM_STUDIO_API_TOKEN\"}}]" "$(LITELLM_CFG)"; \
+			echo "  + $$name"; \
+		done
+	@echo "==> Writing local-only fallbacks (ordered smallest → largest)"
+	@yq -i 'del(.router_settings.fallbacks)' "$(LITELLM_CFG)"
+	@lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {print $$4+0, $$1}' | grep -v 'text-embedding' | sort -n | awk '{print $$2}' > /tmp/lms-ordered.txt; \
+		models=($$(cat /tmp/lms-ordered.txt)); \
+		count=$${#models[@]}; \
+		for i in $$(seq 0 $$((count-2))); do \
+			src="lms-$${models[$$i]}"; \
+			dst="lms-$${models[$$((i+1))]}"; \
+			yq -i ".router_settings.fallbacks += [{\"$$src\": [\"$$dst\"]}]" "$(LITELLM_CFG)"; \
+		done; \
+		echo "  fallback chain: $$(cat /tmp/lms-ordered.txt | sed 's|^|lms-|' | tr '\n' ' → ' | sed 's| → $$||')"
+	@echo "==> Done. Restart litellm: make litellm.stop && make litellm"
+
 # ── Commented-out stacks ──────────────────────────────────────────────────────
 
 ## temporal: Temporal workflow server at http://localhost:$(TEMPORAL_PORT)
