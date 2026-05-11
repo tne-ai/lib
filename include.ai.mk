@@ -195,7 +195,7 @@ litellm:
 	_schema_hash=$$(md5 -q "$$_schema" 2>/dev/null || md5sum "$$_schema" 2>/dev/null | awk '{print $$1}'); \
 	if [ "$$(cat $(PRISMA_STAMP) 2>/dev/null)" != "$$_schema_hash" ]; then \
 		echo "==> prisma generate (schema changed or first run)"; \
-		$$_venv/bin/python -m prisma generate --schema "$$_schema"; \
+		PATH="$$_venv/bin:$$PATH" $$_venv/bin/prisma generate --schema "$$_schema"; \
 		mkdir -p $$(dirname $(PRISMA_STAMP)) && echo "$$_schema_hash" > $(PRISMA_STAMP); \
 	fi
 	$(call start_server_double_fork,$(LITELLM_PORT),ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" DATABASE_URL=postgresql://$$USER@localhost/litellm $$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
