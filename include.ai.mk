@@ -250,11 +250,7 @@ ai-run:
 		_lms_id=$$(echo "$(MODEL)" | sed 's/^lms\///'); \
 		echo "==> loading LM Studio model: $$_lms_id"; \
 		lms load "$$_lms_id" --gpu max 2>&1 || echo "⚠️  lms load failed — model may already be loaded or name mismatch",)
-	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
-	$(if $(MODEL),CLAUDE_MODEL=$(MODEL),) \
-	$(if $(filter claude,$(HARNESS)),$(SHELL),$(call _run_harness,$(MODEL)))
+	$(call _run_harness,$(MODEL))
 
 # ── Public entry points ───────────────────────────────────────────────────────
 
