@@ -222,7 +222,7 @@ HARNESS            ?= claude
 HARNESS_ARGS       ?=
 MODEL              ?=
 # Pick smallest installed LM Studio model by size; fallback if lms not running
-LOCAL_MODEL        ?= $(or $(shell lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {print $$4+0, "lms-" $$1}' | sort -n | awk 'NR==1{print $$2}'),lms-google/gemma-4-e4b)
+LOCAL_MODEL        ?= $(or $(shell lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {print $$4+0, "lms/" $$1}' | sort -n | awk 'NR==1{print $$2}'),lms/google/gemma-4-e4b)
 
 # ── Internal runner macro ─────────────────────────────────────────────────────
 # Inlined into each entry point via $(call _run_harness,MODEL).
@@ -241,13 +241,13 @@ endef
 ## ai-run: drop into a subshell with LiteLLM env vars set so ALL tools route through LiteLLM
 ##   make ai-run                    # interactive shell (all tools auto-route via LiteLLM)
 ##   make ai-run MODEL=kimi-k2.6   # pin CLAUDE_MODEL for the session
-##   make ai-run MODEL=lms-qwen3.6-27b  # auto-loads model in LM Studio, then runs
+##   make ai-run MODEL=lms/qwen/qwen3.6-27b  # auto-loads model in LM Studio, then runs
 ##   make ai-run HARNESS=aider     # launch aider directly (still with LiteLLM env vars)
 .PHONY: ai-run
 ai-run:
 	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 || { echo "LiteLLM is not ready on port $(LITELLM_PORT). Run 'make litellm' first."; exit 1; }
-	@$(if $(filter lms-%,$(MODEL)), \
-		_lms_id=$$(echo "$(MODEL)" | sed 's/^lms-//'); \
+	@$(if $(filter lms/%,$(MODEL)), \
+		_lms_id=$$(echo "$(MODEL)" | sed 's/^lms\///'); \
 		echo "==> loading LM Studio model: $$_lms_id"; \
 		lms load "$$_lms_id" --gpu max 2>&1 || echo "⚠️  lms load failed — model may already be loaded or name mismatch",)
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
@@ -277,7 +277,7 @@ ai: postgres redis mlflow litellm temporal ccr
 
 ## ai-local: full sidecar stack + GPU + LM Studio — servers only  [FREE]
 ##   make ai-local                              # start, then: make ai-run MODEL=<local>
-##   make ai-local LOCAL_MODEL=lms-qwen3.6-27b  # pin a specific local model
+##   make ai-local LOCAL_MODEL=lms/qwen/qwen3.6-27b  # pin a specific local model
 ## Zero marginal cost — inference runs on your GPU via LM Studio.
 ## Default model: smallest loaded LM Studio model (auto-detected via lms ls).
 ## Use make ai-run (no MODEL) to switch back to claude against the same sidecar stack.
@@ -285,11 +285,11 @@ ai: postgres redis mlflow litellm temporal ccr
 ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lms-server
 	@echo ""
 	@echo "  Local stack ready. Run your harness in a separate terminal:"
-	@echo "    make ai-run MODEL=<lms-name>         # local GPU  [FREE]"
+	@echo "    make ai-run MODEL=lms/<vendor>/<model>  # local GPU  [FREE]"
 	@echo "    make ai-run                          # claude Max [PLAN]"
 	@echo ""
 	@echo "  Local models (litellm-registered names):"
-	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lms-' | sort | \
+	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lms' | sort | \
 		while IFS= read -r name; do printf '    make ai-run MODEL=%-36s # FREE\n' "$$name"; done
 	@echo ""
 
@@ -362,6 +362,7 @@ ai-status:
 	echo "MLflow     :$(MLFLOW_PORT): $$($(call port_ready,$(MLFLOW_PORT)) && echo ok || echo stopped)"
 	echo "Temporal   :$(TEMPORAL_PORT): $$($(call port_ready,$(TEMPORAL_PORT)) && echo ok || echo stopped)"
 	echo "CCR        :$(CCR_PORT): $$($(call port_ready,$(CCR_PORT)) && echo ok || echo stopped)"
+	echo "kimi-proxy :$(KIMI_CLAUDE_PROXY_PORT): $$($(call port_ready,$(KIMI_CLAUDE_PROXY_PORT)) && echo ok || echo stopped)"
 	echo "ktap       :$(KTAP_PORT): $$($(call port_ready,$(KTAP_PORT)) && echo ok || echo stopped)"
 	echo "LM Studio  : $$(pgrep -x 'LM Studio' >/dev/null 2>&1 && echo ok || echo stopped)"
 
@@ -371,7 +372,7 @@ ai-models:
 	echo ""
 	echo "Cloud models — make ai MODEL=<name>"
 	echo "──────────────────────────────────────────────────────"
-	yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | sort -u | grep -v '^lms-' | \
+	yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | sort -u | grep -v '^lms/' | \
 		while IFS= read -r name; do \
 			case "$$name" in \
 			*-free)    tag="FREE  -- provider free tier via OpenRouter" ;; \
@@ -390,14 +391,14 @@ ai-models:
 	echo ""
 	echo "Local models — make ai-local LOCAL_MODEL=<name>"
 	echo "──────────────────────────────────────────────────────"
-	lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {printf "  make ai-local LOCAL_MODEL=lms-%-38s # FREE — %.1f GB\n", $$1, $$4+0}' | sort -k6 -n \
+	lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {printf "  make ai-run MODEL=lms/%-42s # FREE — %.1f GB\n", $$1, $$4+0}' | sort -k6 -n \
 		|| echo "  (lms not running — start LM Studio or run: make lms-server)"
 	echo ""
 	echo "Entry points:"
 	echo "  make ai                              # PLAN  — Anthropic Max (default)"
 	echo "  make ai MODEL=kimi-k2.6              # PLAN  — any cloud model above"
 	echo "  make ai HARNESS=aider                # swap AI harness"
-	echo "  make ai-local [LOCAL_MODEL=lms-*]    # FREE  — local GPU via LM Studio"
+	echo "  make ai-local                        # FREE  — local GPU (run make ai-run MODEL=lms/...)"
 	echo "  make ai-cli MODEL=codex              # PLAN  — codex login"
 	echo "  make ai-cli MODEL=gemini-proxy       # PLAN  — gemini auth login"
 	echo "  make ai-auto                         # PLAN+PLAN — kimi (easy) → claude (hard)"
@@ -419,6 +420,87 @@ ai-log:
 		"$(TNE_LOG_DIR)/ktap.log" \
 		"$(TNE_LOG_DIR)/tne-engine.log" \
 		2>/dev/null || echo "(no log files yet — start services with make ai-local)"
+
+## test-ai: validate tools, config, and running sidecars for all ai-* stack variants
+##   Checks installs, litellm config routing, and port health — reports ✓/✗ without failing.
+##   Subsections mirror the make ai-* targets: base, local, cli, plan, auto.
+.PHONY: test-ai
+test-ai:
+	@echo "══ make ai (base stack) ══════════════════════════════"
+	@command -v litellm >/dev/null 2>&1 || uvx litellm --version >/dev/null 2>&1 \
+		&& echo "✓ litellm installed" \
+		|| echo "✗ litellm missing — run: make ai-install"
+	@command -v mlflow >/dev/null 2>&1 || uvx mlflow --version >/dev/null 2>&1 \
+		&& echo "✓ mlflow installed" \
+		|| echo "✗ mlflow missing — run: make ai-install"
+	@command -v temporal >/dev/null 2>&1 \
+		&& echo "✓ temporal installed" \
+		|| echo "✗ temporal missing — run: brew install temporal"
+	@command -v ccr >/dev/null 2>&1 \
+		&& echo "✓ ccr (claude-code-router) installed" \
+		|| echo "✗ ccr missing — run: npm install -g @anthropic-ai/claude-code-router"
+	@test -f "$(LITELLM_CFG)" \
+		&& echo "✓ litellm config found: $(LITELLM_CFG)" \
+		|| echo "✗ litellm config missing at $(LITELLM_CFG) — run: make ai-install"
+	@echo "  ports:"
+	@$(call port_ready,5432) && echo "  ✓ postgres :5432" || echo "  ✗ postgres :5432 stopped"
+	@$(call port_ready,6379) && echo "  ✓ redis    :6379" || echo "  ✗ redis    :6379 stopped"
+	@$(call port_ready,$(MLFLOW_PORT))   && echo "  ✓ mlflow   :$(MLFLOW_PORT)"   || echo "  ✗ mlflow   :$(MLFLOW_PORT) stopped"
+	@$(call port_ready,$(LITELLM_PORT))  && echo "  ✓ litellm  :$(LITELLM_PORT)"  || echo "  ✗ litellm  :$(LITELLM_PORT) stopped  → make litellm"
+	@$(call port_ready,$(TEMPORAL_PORT)) && echo "  ✓ temporal :$(TEMPORAL_PORT)" || echo "  ✗ temporal :$(TEMPORAL_PORT) stopped  → make temporal"
+	@$(call port_ready,$(CCR_PORT))      && echo "  ✓ ccr      :$(CCR_PORT)"      || echo "  ✗ ccr      :$(CCR_PORT) stopped      → make ccr"
+	@echo ""
+	@echo "══ make ai-local (+ LM Studio local inference) ═══════"
+	@command -v lms >/dev/null 2>&1 \
+		&& echo "✓ lms (LM Studio CLI) installed" \
+		|| echo "✗ lms missing — install LM Studio from lmstudio.ai"
+	@$(call port_ready,1234) && echo "  ✓ lms-server :1234" || echo "  ✗ lms-server :1234 stopped  → make lms-server"
+	@echo ""
+	@echo "══ make ai-cli (+ CLIProxyAPI for Gemini/Codex subs) ══"
+	@command -v cliproxyapi >/dev/null 2>&1 \
+		&& echo "✓ cliproxyapi installed" \
+		|| echo "✗ cliproxyapi missing — run: brew install cliproxyapi"
+	@$(call port_ready,$(CLIPROXYAPI_PORT)) \
+		&& echo "  ✓ cliproxyapi :$(CLIPROXYAPI_PORT)" \
+		|| echo "  ✗ cliproxyapi :$(CLIPROXYAPI_PORT) stopped  → make cliproxyapi"
+	@echo ""
+	@echo "══ make ai-plan (+ claude-code-proxy for Kimi/ChatGPT) "
+	@command -v claude-code-proxy >/dev/null 2>&1 \
+		&& echo "✓ claude-code-proxy installed" \
+		|| echo "✗ claude-code-proxy missing — run: brew install raine/claude-code-proxy/claude-code-proxy"
+	@grep -q "localhost:$(KIMI_CLAUDE_PROXY_PORT)" "$(LITELLM_CFG)" 2>/dev/null \
+		&& echo "✓ litellm kimi → localhost:$(KIMI_CLAUDE_PROXY_PORT) (PLAN)" \
+		|| echo "✗ litellm config: kimi still PAYG (expected localhost:$(KIMI_CLAUDE_PROXY_PORT))"
+	@grep -q "localhost:$(CLIPROXYAPI_PORT)" "$(LITELLM_CFG)" 2>/dev/null \
+		&& echo "✓ litellm gemini → localhost:$(CLIPROXYAPI_PORT) (PLAN)" \
+		|| echo "✗ litellm config: gemini still PAYG (expected localhost:$(CLIPROXYAPI_PORT))"
+	@$(call port_ready,$(KIMI_CLAUDE_PROXY_PORT)) \
+		&& echo "  ✓ claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT)" \
+		|| echo "  ✗ claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT) stopped  → make kimi-claude-proxy"
+	@echo ""
+	@echo "══ make ai-auto (+ RouteLLM difficulty router) ════════"
+	@$(call port_ready,$(ROUTELLM_PORT)) \
+		&& echo "  ✓ routellm :$(ROUTELLM_PORT)" \
+		|| echo "  ✗ routellm :$(ROUTELLM_PORT) stopped  → make routellm"
+
+## test-ai-plan: alias for targeted plan-mode validation only
+.PHONY: test-ai-plan
+test-ai-plan: test-ai
+
+## test-ai-kimi: live round-trip test against kimi-k2.6 via claude-code-proxy + litellm
+##   Requires: make ai (sidecars up) + make kimi-claude-proxy (subscription bridge up)
+##   Sends a single completion to kimi-k2.6 through litellm on localhost:$(LITELLM_PORT).
+.PHONY: test-ai-kimi
+test-ai-kimi:
+	@echo "==> kimi round-trip test via litellm :$(LITELLM_PORT)"
+	@$(call port_ready,$(LITELLM_PORT)) || { echo "✗ LiteLLM not running — run: make ai"; exit 1; }
+	@$(call port_ready,$(KIMI_CLAUDE_PROXY_PORT)) || { echo "✗ claude-code-proxy not running — run: make kimi-claude-proxy"; exit 1; }
+	@curl -sf -X POST http://localhost:$(LITELLM_PORT)/v1/chat/completions \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $${LITELLM_MASTER_KEY}" \
+		-d '{"model":"kimi-k2.6","messages":[{"role":"user","content":"reply with the single word: pong"}],"max_tokens":10}' \
+		| python3 -c "import sys,json; r=json.load(sys.stdin); print('✓ kimi response:', r['choices'][0]['message']['content'].strip()); print('  model:', r.get('model','?')); print('  provider:', r.get('x_litellm_model_group', r.get('system_fingerprint','?')))" \
+		|| echo "✗ kimi round-trip failed — check litellm logs: make litellm.log"
 
 ## ai-ps: process status of all sidecars
 .PHONY: ai-ps
@@ -492,17 +574,17 @@ lms-server:
 	lms server start
 
 ## lms-sync: sync litellm config model_names with lms ls output
-## Removes all lms-* entries and re-adds them as lms-<vendor>/<model> to match lms ls IDs.
+## Removes all lms/* entries and re-adds them as lms/<vendor>/<model> to match lms ls IDs.
 ## Also writes local-only fallbacks (smallest → next-smallest) so ai-local never leaks to cloud.
 ## Run after installing new models in LM Studio.
 .PHONY: lms-sync
 lms-sync:
-	@echo "==> Removing old lms-* entries from $(LITELLM_CFG)"
-	@yq -i 'del(.model_list[] | select(.model_name | test("^lms-")))' "$(LITELLM_CFG)"
-	@echo "==> Adding lms-<vendor>/<model> entries from lms ls"
+	@echo "==> Removing old lms/* entries from $(LITELLM_CFG)"
+	@yq -i 'del(.model_list[] | select(.model_name | test("^lms/")))' "$(LITELLM_CFG)"
+	@echo "==> Adding lms/<vendor>/<model> entries from lms ls"
 	@lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {print $$1}' | grep -v 'text-embedding' | \
 		while IFS= read -r id; do \
-			name="lms-$$id"; \
+			name="lms/$$id"; \
 			yq -i ".model_list += [{\"model_name\": \"$$name\", \"litellm_params\": {\"model\": \"openai/$$id\", \"api_base\": \"http://localhost:1234/v1\", \"api_key\": \"os.environ/LM_STUDIO_API_TOKEN\"}}]" "$(LITELLM_CFG)"; \
 			echo "  + $$name"; \
 		done
@@ -512,11 +594,11 @@ lms-sync:
 		models=($$(cat /tmp/lms-ordered.txt)); \
 		count=$${#models[@]}; \
 		for i in $$(seq 0 $$((count-2))); do \
-			src="lms-$${models[$$i]}"; \
-			dst="lms-$${models[$$((i+1))]}"; \
+			src="lms/$${models[$$i]}"; \
+			dst="lms/$${models[$$((i+1))]}"; \
 			yq -i ".router_settings.fallbacks += [{\"$$src\": [\"$$dst\"]}]" "$(LITELLM_CFG)"; \
 		done; \
-		echo "  fallback chain: $$(cat /tmp/lms-ordered.txt | sed 's|^|lms-|' | tr '\n' ' → ' | sed 's| → $$||')"
+		echo "  fallback chain: $$(cat /tmp/lms-ordered.txt | sed 's|^|lms/|' | tr '\n' ' → ' | sed 's| → $$||')"
 	@echo "==> Done. Restart litellm: make litellm.stop && make litellm"
 
 # ── Commented-out stacks ──────────────────────────────────────────────────────
@@ -543,6 +625,35 @@ temporal:
 ccr:
 	$(call start_server_self,$(CCR_PORT),ccr start)
 	$(call check_port,$(CCR_PORT))
+
+## kimi-claude-proxy: claude-code-proxy sidecar — bridges Kimi/ChatGPT subscription to Claude Code
+## Uses OAuth login (not PAYG API key). Login once: make kimi-claude-login
+## Supports: kimi (kimi.com Coding Plan $19/mo) | chatgpt (ChatGPT Plus/Pro)
+KIMI_CLAUDE_PROXY_PORT ?= 3457
+KIMI_CLAUDE_PROVIDER   ?= kimi
+.PHONY: kimi-claude-proxy
+kimi-claude-proxy:
+	command -v claude-code-proxy >/dev/null || { echo "claude-code-proxy not installed — run: brew install raine/claude-code-proxy/claude-code-proxy"; exit 1; }
+	$(call start_server,$(KIMI_CLAUDE_PROXY_PORT),claude-code-proxy start --port $(KIMI_CLAUDE_PROXY_PORT))
+	$(call check_port,$(KIMI_CLAUDE_PROXY_PORT))
+
+## kimi-claude-login: log in to Kimi (or ChatGPT) for claude-code-proxy subscription auth
+##   make kimi-claude-login                       # login to kimi (default)
+##   make kimi-claude-login KIMI_CLAUDE_PROVIDER=chatgpt  # login to ChatGPT
+.PHONY: kimi-claude-login
+kimi-claude-login:
+	claude-code-proxy login $(KIMI_CLAUDE_PROVIDER)
+
+## kimi-claude: run Claude Code against Kimi Coding Plan via claude-code-proxy  [PLAN — $19/mo]
+## Uses OAuth subscription — no PAYG API key required.
+## Login first: make kimi-claude-login
+##   make kimi-claude                             # Kimi plan (default)
+##   make kimi-claude KIMI_CLAUDE_PROVIDER=chatgpt  # ChatGPT Plus/Pro plan
+.PHONY: kimi-claude
+kimi-claude: kimi-claude-proxy
+	ANTHROPIC_BASE_URL=http://localhost:$(KIMI_CLAUDE_PROXY_PORT) \
+	ANTHROPIC_API_KEY=placeholder \
+	claude $(HARNESS_ARGS)
 
 # ── Commented-out local inference stacks ─────────────────────────────────────
 
