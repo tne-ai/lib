@@ -17,7 +17,7 @@ AI_ORG ?= tne.ai
 MLFLOW_PORT    ?= 5001
 LITELLM_PORT   ?= 4000
 TEMPORAL_PORT  ?= 7233
-TEMPORAL_UI_PORT ?= 8080
+TEMPORAL_UI_PORT ?= 8081
 KTAP_PORT      ?= 8630
 CCR_PORT       ?= 3456
 REDIS_PORT     ?= 6379
@@ -206,7 +206,19 @@ litellm:
 			PATH="$$_venv/bin:$$PATH" $$_venv/bin/prisma db push --schema "$$_schema" --accept-data-loss; \
 		mkdir -p $$(dirname $(PRISMA_STAMP)) && echo "$$_schema_hash" > $(PRISMA_STAMP); \
 	fi
-	$(call start_server_double_fork,$(LITELLM_PORT),ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" DATABASE_URL=postgresql://$$USER@localhost/litellm LM_STUDIO_API_TOKEN="$${LM_STUDIO_API_TOKEN}" MOONSHOT_API_KEY="$${MOONSHOT_API_KEY}" GEMINI_API_KEY="$${GEMINI_API_KEY}" DEEPSEEK_API_KEY="$${DEEPSEEK_API_KEY}" ALIBABA_API_KEY="$${ALIBABA_API_KEY}" QWEN_CODING_API_KEY="$${QWEN_CODING_API_KEY}" Z_AI_API_KEY="$${Z_AI_API_KEY}" MINIMAX_API_KEY="$${MINIMAX_API_KEY}" OPENROUTER_API_KEY="$${OPENROUTER_API_KEY}" $$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
+	$(call start_server_double_fork,$(LITELLM_PORT),\
+		ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" \
+		DATABASE_URL=postgresql://$$USER@localhost/litellm \
+		LM_STUDIO_API_TOKEN="$${LM_STUDIO_API_TOKEN}" \
+		MOONSHOT_API_KEY="$${MOONSHOT_API_KEY}" \
+		GEMINI_API_KEY="$${GEMINI_API_KEY}" \
+		DEEPSEEK_API_KEY="$${DEEPSEEK_API_KEY}" \
+		ALIBABA_API_KEY="$${ALIBABA_API_KEY}" \
+		QWEN_CODING_API_KEY="$${QWEN_CODING_API_KEY}" \
+		Z_AI_API_KEY="$${Z_AI_API_KEY}" \
+		MINIMAX_API_KEY="$${MINIMAX_API_KEY}" \
+		OPENROUTER_API_KEY="$${OPENROUTER_API_KEY}" \
+		$$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
 	$(call check_port,$(LITELLM_PORT))
 
 # ── Harness + model variables ─────────────────────────────────────────────────
@@ -221,8 +233,6 @@ litellm:
 HARNESS            ?= claude
 HARNESS_ARGS       ?=
 MODEL              ?=
-# Pick smallest installed LM Studio model by size; fallback if lms not running
-LOCAL_MODEL        ?= $(or $(shell lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {print $$4+0, "lms/" $$1}' | sort -n | awk 'NR==1{print $$2}'),lms/google/gemma-4-e4b)
 
 # ── Run-only target (servers already up) ──────────────────────────────────────
 ## ai-run: launch harness with LiteLLM env vars — requires sidecars already running
@@ -264,7 +274,7 @@ ai: postgres redis mlflow litellm temporal ccr
 
 ## ai-local: full sidecar stack + GPU + LM Studio — servers only  [FREE]
 ##   make ai-local                              # start, then: make ai-run MODEL=<local>
-##   make ai-local LOCAL_MODEL=lms/qwen/qwen3.6-27b  # pin a specific local model
+##   After start: make ai-run MODEL=lms/qwen/qwen3.6-27b
 ## Zero marginal cost — inference runs on your GPU via LM Studio.
 ## Default model: smallest loaded LM Studio model (auto-detected via lms ls).
 ## Use make ai-run (no MODEL) to switch back to claude against the same sidecar stack.
@@ -376,7 +386,7 @@ ai-models:
 			printf '  make ai MODEL=%-32s # %s\n' "$$name" "$$tag"; \
 		done || echo "  (config not found — run make ai-install)"
 	echo ""
-	echo "Local models — make ai-local LOCAL_MODEL=<name>"
+	echo "Local models — make ai-local, then: make ai-run MODEL=lms/<vendor>/<model>"
 	echo "──────────────────────────────────────────────────────"
 	lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {printf "  make ai-run MODEL=lms/%-42s # FREE — %.1f GB\n", $$1, $$4+0}' | sort -k6 -n \
 		|| echo "  (lms not running — start LM Studio or run: make lms-server)"
@@ -594,7 +604,7 @@ lms-sync:
 .PHONY: temporal
 temporal:
 	mkdir -p "$(dir $(TEMPORAL_DB))"
-	$(call start_server,$(TEMPORAL_PORT),temporal server start-dev --db-filename $(TEMPORAL_DB) --ui-port 8080)
+	$(call start_server,$(TEMPORAL_PORT),temporal server start-dev --db-filename $(TEMPORAL_DB) --ui-port $(TEMPORAL_UI_PORT))
 	$(call check_port,$(TEMPORAL_PORT))
 
 # ktap is tne-plugin-only — override in project Makefile if needed
