@@ -341,7 +341,7 @@ routellm:
 	$(call start_server_double_fork,$(ROUTELLM_PORT),uvx routellm.server --config $(ROUTELLM_CFG) --port $(ROUTELLM_PORT))
 	$(call check_port,$(ROUTELLM_PORT))
 
-## ai-open: open service UIs in Chrome — once per boot (stamp resets on reboot)
+## ai-open: open service UIs in Chrome — once per session (stamp in /tmp, resets on reboot)
 ## Skips any port not yet listening. Safe to call multiple times — no duplicate tabs.
 AI_OPEN_STAMP ?= /tmp/.make-ai-open-$(shell id -u)
 .PHONY: ai-open
@@ -349,11 +349,11 @@ ai-open:
 	@if [ -f "$(AI_OPEN_STAMP)" ]; then \
 		echo "  (UIs already opened this session — run: make ai-open-force to reopen)"; \
 	else \
-		$(call open_server,$(LITELLM_PORT),/ui/login); \
-		$(call open_server,$(MLFLOW_PORT),); \
-		$(call open_server,$(TEMPORAL_UI_PORT),); \
-		$(call open_server,$(CCR_PORT),); \
-		$(call open_server,$(KTAP_PORT),); \
+		nc -z localhost $(LITELLM_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(LITELLM_PORT)/ui/login" || true; \
+		nc -z localhost $(MLFLOW_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(MLFLOW_PORT)" || true; \
+		nc -z localhost $(TEMPORAL_UI_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(TEMPORAL_UI_PORT)" || true; \
+		nc -z localhost $(CCR_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(CCR_PORT)" || true; \
+		nc -z localhost $(KTAP_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(KTAP_PORT)" || true; \
 		touch "$(AI_OPEN_STAMP)"; \
 	fi
 
