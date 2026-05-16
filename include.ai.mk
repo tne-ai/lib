@@ -191,10 +191,13 @@ litellm.stop 4000.stop:
 ## To force regeneration: rm $(PRISMA_STAMP)
 .PHONY: litellm
 litellm:
-	if ! command -v litellm >/dev/null 2>&1 && ! uvx litellm --version >/dev/null 2>&1; then \
+	@if ! command -v litellm >/dev/null 2>&1 && ! uvx litellm --version >/dev/null 2>&1; then \
 		echo "litellm not installed — running make ai-install first"; \
 		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
 	fi
+	@[[ "$${LITELLM_MASTER_KEY}" == op://* ]] \
+		&& { echo "==> resolving LITELLM_MASTER_KEY from 1Password"; LITELLM_MASTER_KEY=$$(op read "$${LITELLM_MASTER_KEY}") || { echo "✗ op read failed — run: op signin"; exit 1; }; } \
+		|| true; \
 	_venv=$$(pipx environment --value PIPX_LOCAL_VENVS 2>/dev/null)/litellm; \
 	_schema=$$(echo $$_venv/lib/python*/site-packages/litellm/proxy/schema.prisma); \
 	_schema_hash=$$(md5 -q "$$_schema" 2>/dev/null || md5sum "$$_schema" 2>/dev/null | awk '{print $$1}'); \
@@ -205,7 +208,7 @@ litellm:
 		DATABASE_URL=postgresql://$$USER@localhost/litellm \
 			PATH="$$_venv/bin:$$PATH" $$_venv/bin/prisma db push --schema "$$_schema" --accept-data-loss; \
 		mkdir -p $$(dirname $(PRISMA_STAMP)) && echo "$$_schema_hash" > $(PRISMA_STAMP); \
-	fi
+	fi; \
 	$(call start_server_double_fork,$(LITELLM_PORT),\
 		ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" \
 		DATABASE_URL=postgresql://$$USER@localhost/litellm \
