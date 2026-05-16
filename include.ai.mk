@@ -264,7 +264,7 @@ ai-run:
 ##   See all models: make ai-models
 ## Sidecars: postgres redis mlflow litellm temporal ccr
 .PHONY: ai
-ai: postgres redis mlflow litellm temporal ccr
+ai: postgres redis mlflow litellm temporal ccr ai-open
 	@echo ""
 	@echo "  Sidecars are up. Run your AI harness in a separate terminal:"
 	@echo "    make ai-run                  # claude (Max plan)"
@@ -279,7 +279,7 @@ ai: postgres redis mlflow litellm temporal ccr
 ## Default model: smallest loaded LM Studio model (auto-detected via lms ls).
 ## Use make ai-run (no MODEL) to switch back to claude against the same sidecar stack.
 .PHONY: ai-local
-ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lms-server
+ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lms-server ai-open
 	@echo ""
 	@echo "  Local stack ready. Run your harness in a separate terminal:"
 	@echo "    make ai-run MODEL=lms/<vendor>/<model>  # local GPU  [FREE]"
@@ -295,7 +295,7 @@ ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lms-server
 ##   make ai-cli MODEL=codex        # ChatGPT/Codex plan (codex login)        [PLAN]
 ##   make ai-cli MODEL=gemini-proxy # Google Gemini plan (gemini auth login)  [PLAN]
 .PHONY: ai-cli
-ai-cli: postgres redis mlflow litellm cliproxyapi
+ai-cli: postgres redis mlflow litellm cliproxyapi ai-open
 	@echo "  CLI stack ready. Run: make ai-run MODEL=codex"
 
 ## ai-auto: difficulty-routing — cheap for simple tasks, strong for hard  [PLAN+PLAN]
@@ -341,14 +341,27 @@ routellm:
 	$(call start_server_double_fork,$(ROUTELLM_PORT),uvx routellm.server --config $(ROUTELLM_CFG) --port $(ROUTELLM_PORT))
 	$(call check_port,$(ROUTELLM_PORT))
 
-## ai-open: open service UIs in Chrome (skips any port not yet listening)
+## ai-open: open service UIs in Chrome — once per boot (stamp resets on reboot)
+## Skips any port not yet listening. Safe to call multiple times — no duplicate tabs.
+AI_OPEN_STAMP ?= /tmp/.make-ai-open-$(shell id -u)
 .PHONY: ai-open
 ai-open:
-	$(call open_server,$(LITELLM_PORT),/ui/login)
-	$(call open_server,$(MLFLOW_PORT),)
-	$(call open_server,$(TEMPORAL_UI_PORT),)
-	$(call open_server,$(CCR_PORT),)
-	$(call open_server,$(KTAP_PORT),)
+	@if [ -f "$(AI_OPEN_STAMP)" ]; then \
+		echo "  (UIs already opened this session — run: make ai-open-force to reopen)"; \
+	else \
+		$(call open_server,$(LITELLM_PORT),/ui/login); \
+		$(call open_server,$(MLFLOW_PORT),); \
+		$(call open_server,$(TEMPORAL_UI_PORT),); \
+		$(call open_server,$(CCR_PORT),); \
+		$(call open_server,$(KTAP_PORT),); \
+		touch "$(AI_OPEN_STAMP)"; \
+	fi
+
+## ai-open-force: open all service UIs unconditionally (clears once-per-session guard)
+.PHONY: ai-open-force
+ai-open-force:
+	@rm -f "$(AI_OPEN_STAMP)"
+	@$(MAKE) ai-open
 
 ## ai-status: health check for all sidecars
 .PHONY: ai-status
