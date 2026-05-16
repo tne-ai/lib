@@ -224,33 +224,24 @@ MODEL              ?=
 # Pick smallest installed LM Studio model by size; fallback if lms not running
 LOCAL_MODEL        ?= $(or $(shell lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {print $$4+0, "lms/" $$1}' | sort -n | awk 'NR==1{print $$2}'),lms/google/gemma-4-e4b)
 
-# ── Internal runner macro ─────────────────────────────────────────────────────
-# Inlined into each entry point via $(call _run_harness,MODEL).
-# Sets ANTHROPIC_BASE_URL + OPENAI_BASE_URL so any OpenAI-compatible harness works.
-# ANTHROPIC_CUSTOM_HEADERS passes the LiteLLM master key — required because Make
-# does not source shell profiles, so the profile-set ANTHROPIC_CUSTOM_HEADERS is absent.
-define _run_harness
+# ── Run-only target (servers already up) ──────────────────────────────────────
+## ai-run: launch harness with LiteLLM env vars — requires sidecars already running
+##   make ai-run                          # claude via Max plan
+##   make ai-run MODEL=kimi-k2.6         # pin model
+##   make ai-run MODEL=lms/qwen/qwen3.6-27b  # local GPU (auto-loads in LM Studio)
+##   make ai-run HARNESS=aider           # swap harness
+.PHONY: ai-run
+ai-run:
+	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
+		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
+	@$(if $(filter lms/%,$(MODEL)), \
+		lms load "$$(echo '$(MODEL)' | sed 's|^lms/||')" --gpu max \
+		|| echo "⚠️  lms load failed — model may already be loaded",)
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
-	$(if $(1),CLAUDE_MODEL=$(1),$(if $(MODEL),CLAUDE_MODEL=$(MODEL),)) \
+	$(if $(MODEL),CLAUDE_MODEL=$(MODEL),) \
 	$(HARNESS) $(HARNESS_ARGS)
-endef
-
-# ── Run-only target (servers already up) ──────────────────────────────────────
-## ai-run: drop into a subshell with LiteLLM env vars set so ALL tools route through LiteLLM
-##   make ai-run                    # interactive shell (all tools auto-route via LiteLLM)
-##   make ai-run MODEL=kimi-k2.6   # pin CLAUDE_MODEL for the session
-##   make ai-run MODEL=lms/qwen/qwen3.6-27b  # auto-loads model in LM Studio, then runs
-##   make ai-run HARNESS=aider     # launch aider directly (still with LiteLLM env vars)
-.PHONY: ai-run
-ai-run:
-	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 || { echo "LiteLLM is not ready on port $(LITELLM_PORT). Run 'make litellm' first."; exit 1; }
-	@$(if $(filter lms/%,$(MODEL)), \
-		_lms_id=$$(echo "$(MODEL)" | sed 's/^lms\///'); \
-		echo "==> loading LM Studio model: $$_lms_id"; \
-		lms load "$$_lms_id" --gpu max 2>&1 || echo "⚠️  lms load failed — model may already be loaded or name mismatch",)
-	$(call _run_harness,$(MODEL))
 
 # ── Public entry points ───────────────────────────────────────────────────────
 
