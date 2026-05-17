@@ -169,6 +169,21 @@ LITELLM_VERSION ?= 1.85.0
 litellm-install:
 	@echo "==> installing litellm==$(LITELLM_VERSION)"
 	pipx install --force "litellm[proxy]==$(LITELLM_VERSION)"
+	@$(MAKE) --no-print-directory litellm-fix-ui
+
+## litellm-fix-ui: patch login/index.html hash mismatch (1.85.x packaging bug)
+## login/index.html ships with stale chunk hashes; overwrite with login.html which is correct.
+.PHONY: litellm-fix-ui
+litellm-fix-ui:
+	@_base=$$(python3 -c "import litellm,os; print(os.path.dirname(litellm.__file__))" 2>/dev/null \
+		|| pipx run --spec "litellm==$(LITELLM_VERSION)" python3 -c "import litellm,os; print(os.path.dirname(litellm.__file__))"); \
+	_out="$$_base/proxy/_experimental/out"; \
+	if [ -f "$$_out/login.html" ] && [ -f "$$_out/login/index.html" ]; then \
+		cp "$$_out/login.html" "$$_out/login/index.html"; \
+		echo "✓ litellm UI patch applied (login/index.html synced from login.html)"; \
+	else \
+		echo "⚠  litellm UI patch: paths not found — skipping"; \
+	fi
 
 ## litellm-check-version: verify installed litellm matches LITELLM_VERSION; fix if not
 ## Called automatically by make litellm before startup.
@@ -179,6 +194,7 @@ litellm-check-version:
 		echo "⚠️  litellm $$_installed ≠ pinned $(LITELLM_VERSION) — reinstalling..."; \
 		pipx install --force "litellm[proxy]==$(LITELLM_VERSION)" --quiet \
 			&& echo "✓ litellm $(LITELLM_VERSION) installed" \
+			&& $(MAKE) --no-print-directory litellm-fix-ui \
 			|| { echo "✗ reinstall failed — run: make litellm-install"; exit 1; }; \
 	else \
 		echo "✓ litellm $(LITELLM_VERSION) (pinned)"; \
