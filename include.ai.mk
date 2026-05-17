@@ -151,6 +151,11 @@ mlflow:
 		--default-artifact-root $(MLFLOW_DIR)/artifacts)
 	$(call check_port,$(MLFLOW_PORT))
 
+## Pin litellm to a known-good version. Unpin by setting LITELLM_VERSION=latest.
+## WHY: litellm has shipped broken UI builds (HTML/JS chunk hash mismatch in 1.83.x)
+## that cause a blank "gigantic zero" dashboard. Pinning ensures a tested coherent build.
+LITELLM_VERSION ?= 1.85.0
+
 ## litellm: start LiteLLM proxy at http://localhost:$(LITELLM_PORT)
 ## Mixed-auth mode: ANTHROPIC_BASE_URL routes through LiteLLM for caching/observability,
 ## but Claude Code's Max plan OAuth token passes through unchanged — no PAYG API key used.
@@ -159,6 +164,26 @@ mlflow:
 ## LiteLLM validates against its own master_key and routes to real providers with their keys.
 ## See: docs.litellm.ai/docs/proxy/virtual_keys
 ## litellm binary also lives in ~/.local/bin (uv tool install) — same PATH fix as mlflow.
+## litellm-install: install or upgrade litellm to the pinned LITELLM_VERSION
+.PHONY: litellm-install
+litellm-install:
+	@echo "==> installing litellm==$(LITELLM_VERSION)"
+	pipx install --force "litellm[proxy]==$(LITELLM_VERSION)"
+
+## litellm-check-version: verify installed litellm matches LITELLM_VERSION; fix if not
+## Called automatically by make litellm before startup.
+.PHONY: litellm-check-version
+litellm-check-version:
+	@_installed=$$(litellm --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1); \
+	if [ "$$_installed" != "$(LITELLM_VERSION)" ]; then \
+		echo "⚠️  litellm $$_installed ≠ pinned $(LITELLM_VERSION) — reinstalling..."; \
+		pipx install --force "litellm[proxy]==$(LITELLM_VERSION)" --quiet \
+			&& echo "✓ litellm $(LITELLM_VERSION) installed" \
+			|| { echo "✗ reinstall failed — run: make litellm-install"; exit 1; }; \
+	else \
+		echo "✓ litellm $(LITELLM_VERSION) (pinned)"; \
+	fi
+
 ## litellm.stop / 4000.stop: kill ALL litellm processes (port kill + pkill sweep for zombies)
 .PHONY: litellm.stop 4000.stop
 litellm.stop 4000.stop:
@@ -190,7 +215,7 @@ litellm.stop 4000.stop:
 ## on the next `make litellm` — no manual intervention needed.
 ## To force regeneration: rm $(PRISMA_STAMP)
 .PHONY: litellm
-litellm:
+litellm: litellm-check-version
 	@if ! command -v litellm >/dev/null 2>&1 && ! uvx litellm --version >/dev/null 2>&1; then \
 		echo "litellm not installed — running make ai-install first"; \
 		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
