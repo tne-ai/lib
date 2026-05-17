@@ -294,8 +294,7 @@ ai-run:
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
-	$(if $(MODEL),CLAUDE_MODEL=$(MODEL),) \
-	$(HARNESS) $(HARNESS_ARGS)
+	$(HARNESS) $(if $(MODEL),--model $(MODEL),) $(HARNESS_ARGS)
 
 # ── Public entry points ───────────────────────────────────────────────────────
 
