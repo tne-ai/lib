@@ -515,6 +515,24 @@ test-ai-kimi:
 		| python3 -c "import sys,json; r=json.load(sys.stdin); print('✓ kimi response:', r['choices'][0]['message']['content'].strip()); print('  model:', r.get('model','?')); print('  provider:', r.get('x_litellm_model_group', r.get('system_fingerprint','?')))" \
 		|| echo "✗ kimi round-trip failed — check litellm logs: make litellm.log"
 
+## test-ai-ui: playwright smoke test — verify each service UI renders correctly
+##   Requires: make ai (sidecars up). Saves failure screenshots to /tmp.
+##   Governed by r-ai-ui-check (playwright eval rule for AI sidecar UIs).
+.PHONY: test-ai-ui
+test-ai-ui:
+	@echo "==> AI sidecar UI smoke tests (playwright)"
+	@python3 $(dir $(abspath $(lastword $(MAKEFILE_LIST))))../bin/check-ai-ui.py
+
+## test-ai-ui-litellm: check only LiteLLM Admin UI
+.PHONY: test-ai-ui-litellm
+test-ai-ui-litellm:
+	@python3 $(dir $(abspath $(lastword $(MAKEFILE_LIST))))../bin/check-ai-ui.py --service litellm
+
+## test-ai-ui-mlflow: check only MLflow UI
+.PHONY: test-ai-ui-mlflow
+test-ai-ui-mlflow:
+	@python3 $(dir $(abspath $(lastword $(MAKEFILE_LIST))))../bin/check-ai-ui.py --service mlflow
+
 ## ai-ps: process status of all sidecars
 .PHONY: ai-ps
 ai-ps: mlflow.ps litellm.ps temporal.ps ccr.ps

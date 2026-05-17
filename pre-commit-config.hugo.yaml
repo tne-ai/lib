@@ -33,7 +33,7 @@ repos:
     rev: 3.0.0
     hooks:
       - id: shellcheck
-        args: [-x]
+        args: [--source-path=SCRIPTDIR]
         exclude: (.*\.zsh$|\.zshrc$|\.zprofile$|\.fzf\.bash$|\.bashrc$|\.bash_profile$)
 
   - repo: https://github.com/scop/pre-commit-shfmt

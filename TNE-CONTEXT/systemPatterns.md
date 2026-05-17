@@ -76,3 +76,11 @@
   app-blue uses a specialized Makefile for SoveraMed Website with npm-based targets, incompatible with standard include.mk
 - _(discovery | 2026-02-20)_ **Examined git-submodule-install-lib.sh default repository configuration**
   Script currently defaults DEST_REPO to array (demo app) with positional parameter override support
+
+<!-- migrated from native memory @ 2026-05-10 09:34 UTC — r-* skill numbering — non-zero integers -->
+
+r-\* ethos skills must use numbers in the 90–99 range, and the number must be non-zero within that range (i.e. r-cai90 is not valid — start at r-cai91 or higher).
+
+**Why:** User confirmed "r- non zero integers" as a naming rule. The r-\* prefix range is 90–99 per r-cai96-skill-naming; within that range, 0-ending numbers (e.g. 90) are reserved or disallowed.
+
+**How to apply:** When naming a new r-\* skill, pick from 91–99. If suggesting a number, never suggest 90. Apply this alongside the standard p-cai1 Name Validation Gate (P0.5).
