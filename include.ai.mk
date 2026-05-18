@@ -292,10 +292,12 @@ ai-run:
 	@$(if $(filter lms/%,$(MODEL)), \
 		lms load "$$(echo '$(MODEL)' | sed 's|^lms/||')" --gpu max \
 		|| echo "⚠️  lms load failed — model may already be loaded",)
+	@[[ "$${LITELLM_MASTER_KEY}" == op://* ]] \
+		&& LITELLM_MASTER_KEY=$$(op read "$${LITELLM_MASTER_KEY}") || true; \
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	ANTHROPIC_AUTH_TOKEN="$${LITELLM_MASTER_KEY}" \
-	$(HARNESS) $(if $(MODEL),--model $(MODEL),) $(HARNESS_ARGS)
+	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
+	env -u CLAUDECODE $(HARNESS) $(if $(MODEL),--model $(MODEL),) $(HARNESS_ARGS)
 
 # ── Public entry points ───────────────────────────────────────────────────────
 
@@ -706,7 +708,7 @@ KIMI_CLAUDE_PROVIDER   ?= kimi
 .PHONY: kimi-claude-proxy
 kimi-claude-proxy:
 	command -v claude-code-proxy >/dev/null || { echo "claude-code-proxy not installed — run: brew install raine/claude-code-proxy/claude-code-proxy"; exit 1; }
-	$(call start_server,$(KIMI_CLAUDE_PROXY_PORT),claude-code-proxy start --port $(KIMI_CLAUDE_PROXY_PORT))
+	$(call start_server,$(KIMI_CLAUDE_PROXY_PORT),PORT=$(KIMI_CLAUDE_PROXY_PORT) claude-code-proxy serve)
 	$(call check_port,$(KIMI_CLAUDE_PROXY_PORT))
 
 ## kimi-claude-login: log in to Kimi (or ChatGPT) for claude-code-proxy subscription auth
