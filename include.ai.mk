@@ -154,7 +154,7 @@ mlflow:
 ## Pin litellm to a known-good version. Unpin by setting LITELLM_VERSION=latest.
 ## WHY: litellm has shipped broken UI builds (HTML/JS chunk hash mismatch in 1.83.x)
 ## that cause a blank "gigantic zero" dashboard. Pinning ensures a tested coherent build.
-LITELLM_VERSION ?= 1.85.0
+LITELLM_VERSION ?= 1.84.0
 
 ## litellm: start LiteLLM proxy at http://localhost:$(LITELLM_PORT)
 ## Mixed-auth mode: ANTHROPIC_BASE_URL routes through LiteLLM for caching/observability,
