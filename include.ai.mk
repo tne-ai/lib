@@ -292,8 +292,6 @@ ai-run:
 	@$(if $(filter lms/%,$(MODEL)), \
 		lms load "$$(echo '$(MODEL)' | sed 's|^lms/||')" --gpu max \
 		|| echo "⚠️  lms load failed — model may already be loaded",)
-	@[[ "$${LITELLM_MASTER_KEY}" == op://* ]] \
-		&& LITELLM_MASTER_KEY=$$(op read "$${LITELLM_MASTER_KEY}") || true; \
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
