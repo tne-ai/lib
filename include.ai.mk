@@ -169,6 +169,7 @@ LITELLM_VERSION ?= 1.85.0
 litellm-install:
 	@echo "==> installing litellm==$(LITELLM_VERSION)"
 	pipx install --force "litellm[proxy]==$(LITELLM_VERSION)"
+	pipx inject litellm mlflow
 	@$(MAKE) --no-print-directory litellm-fix-ui
 
 ## litellm-fix-ui: patch login/index.html hash mismatch (1.85.x packaging bug)
@@ -293,7 +294,7 @@ ai-run:
 		|| echo "⚠️  lms load failed — model may already be loaded",)
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
+	ANTHROPIC_AUTH_TOKEN="$${LITELLM_MASTER_KEY}" \
 	$(HARNESS) $(if $(MODEL),--model $(MODEL),) $(HARNESS_ARGS)
 
 # ── Public entry points ───────────────────────────────────────────────────────
