@@ -283,12 +283,16 @@ MODEL              ?=
 ## ai-run: launch harness with LiteLLM env vars — requires sidecars already running
 ##   make ai-run                          # claude via Max plan
 ##   make ai-run MODEL=kimi-k2.6         # pin model
-##   make ai-run MODEL=lms/qwen/qwen3.6-27b  # local GPU (auto-loads in LM Studio)
-##   make ai-run HARNESS=aider           # swap harness
+##   make ai-run MODEL=lls/qwen/qwen3.6-27b  # local GPU (auto-swaps via llama-server router)
+##   make ai-run MODEL=lms/qwen/qwen3.6-27b  # local GPU (LM Studio — legacy)
+##   make ai-run HARNESS=aider               # swap harness
 .PHONY: ai-run
 ai-run:
 	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
 		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
+	@$(if $(filter lls/%,$(MODEL)), \
+		$(call port_ready,8081) \
+		|| { echo "llama-server not running on :8081 — run: make lls-start"; exit 1; },)
 	@$(if $(filter lms/%,$(MODEL)), \
 		lms load "$$(echo '$(MODEL)' | sed 's|^lms/||')" --gpu max \
 		|| echo "⚠️  lms load failed — model may already be loaded",)
@@ -316,21 +320,21 @@ ai: postgres redis mlflow litellm temporal ccr ai-open
 	@echo "    make ai-run HARNESS=aider    # aider"
 	@echo ""
 
-## ai-local: full sidecar stack + GPU + LM Studio — servers only  [FREE]
+## ai-local: full sidecar stack + GPU + llama-server router — servers only  [FREE]
 ##   make ai-local                              # start, then: make ai-run MODEL=<local>
-##   After start: make ai-run MODEL=lms/qwen/qwen3.6-27b
-## Zero marginal cost — inference runs on your GPU via LM Studio.
-## Default model: smallest loaded LM Studio model (auto-detected via lms ls).
+##   After start: make ai-run MODEL=lls/qwen/qwen3.6-27b
+## Zero marginal cost — inference runs on your GPU via llama.cpp (b9200+ router mode).
+## Models downloaded via LM Studio; served by llama-server at :8081 with auto-swap.
 ## Use make ai-run (no MODEL) to switch back to claude against the same sidecar stack.
 .PHONY: ai-local
-ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lms-server ai-open
+ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start ai-open
 	@echo ""
 	@echo "  Local stack ready. Run your harness in a separate terminal:"
-	@echo "    make ai-run MODEL=lms/<vendor>/<model>  # local GPU  [FREE]"
-	@echo "    make ai-run                          # claude Max [PLAN]"
+	@echo "    make ai-run MODEL=lls/<vendor>/<model>  # local GPU  [FREE]"
+	@echo "    make ai-run                             # claude Max [PLAN]"
 	@echo ""
 	@echo "  Local models (litellm-registered names):"
-	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lms' | sort | \
+	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lls' | sort | \
 		while IFS= read -r name; do printf '    make ai-run MODEL=%-36s # FREE\n' "$$name"; done
 	@echo ""
 
@@ -644,6 +648,26 @@ set-gpu-max-memory:
 .PHONY: lms-server
 lms-server:
 	lms server start
+
+## lls-start: start llama-server router (llama.cpp b9200+ native multi-model swap)
+## Uses ~/.config/litellm/llama-presets.ini — add new models there after downloading via LM Studio.
+## One model loaded at a time (--models-max 1); swaps automatically on model field change.
+## Port 8081 (8080 is reserved for CLIProxyAPI/Gemini).
+.PHONY: lls-start
+lls-start:
+	@$(call port_ready,8081) && echo "llama-server already running on :8081" || \
+		(llama-server \
+			--models-preset "$(HOME)/.config/litellm/llama-presets.ini" \
+			--models-max 1 \
+			--port 8081 \
+			--log-disable & \
+		sleep 3 && curl -s http://localhost:8081/v1/models | \
+			python3 -c "import json,sys; d=json.load(sys.stdin); print('llama-server ready —', len(d[\"data\"]), 'models available')")
+
+## lls-stop: stop llama-server router
+.PHONY: lls-stop
+lls-stop:
+	@pkill -f "llama-server.*8081" && echo "llama-server stopped" || echo "llama-server not running"
 
 ## lms-sync: sync litellm config model_names with lms ls output
 ## Removes all lms/* entries and re-adds them as lms/<vendor>/<model> to match lms ls IDs.
