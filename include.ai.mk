@@ -20,6 +20,7 @@ TEMPORAL_PORT  ?= 7233
 TEMPORAL_UI_PORT ?= 8233
 KTAP_PORT      ?= 8630
 CCR_PORT       ?= 3456
+LLS_PORT       ?= 8081
 REDIS_PORT     ?= 6379
 POSTGRES_PORT  ?= 5432
 CLAUDE_MEM_PORT ?= 37777
@@ -402,6 +403,7 @@ ai-open:
 		nc -z localhost $(TEMPORAL_UI_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(TEMPORAL_UI_PORT)" || true; \
 		nc -z localhost $(CCR_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(CCR_PORT)" || true; \
 		nc -z localhost $(KTAP_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(KTAP_PORT)" || true; \
+		nc -z localhost $(LLS_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(LLS_PORT)/monitor" || true; \
 		touch "$(AI_OPEN_STAMP)"; \
 	fi
 
