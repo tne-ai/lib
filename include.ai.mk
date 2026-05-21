@@ -347,27 +347,33 @@ ai ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start
 	@echo ""
 	@$(MAKE) --no-print-directory ai-warn-bridges
 
-## ai-warn-bridges: warn when subscription-plan proxy bridges are not running
+## ai-warn-bridges: ensure subscription-plan proxy bridges are running; auth + start if not
 ## Called automatically by make ai. Run standalone: make ai-warn-bridges
-## Subscription bridges need one-time auth + a running sidecar (unlike API-key providers).
-##   kimi   — claude-code-proxy  :3457  (make ai-auth PROVIDER=kimi)
-##   gemini — CLIProxyAPI        :8080  (make ai-auth PROVIDER=gemini + make cliproxyapi)
+## Subscription bridges need one-time interactive auth + a running sidecar.
+##   kimi   — claude-code-proxy  :3457  (auth opens browser once; auto-starts after)
+##   gemini — CLIProxyAPI        :8080  (auth opens browser once; cliproxyapi starts after)
 .PHONY: ai-warn-bridges
 ai-warn-bridges:
-	@_warn=0; \
-	if ! nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null; then \
-		echo "  ⚠️  kimi bridge (:$(KIMI_CLAUDE_PROXY_PORT)) not running — kimi-k2.6 will fail"; \
-		echo "       Fix: claude-code-proxy kimi start   # start bridge"; \
-		echo "            make ai-auth PROVIDER=kimi     # if not yet authenticated"; \
-		_warn=1; \
-	fi; \
-	if ! nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
-		echo "  ⚠️  gemini bridge (:$(CLIPROXYAPI_PORT)) not running — gemini-* models will fail"; \
-		echo "       Fix: make cliproxyapi               # start CLIProxyAPI"; \
-		echo "            make ai-auth PROVIDER=gemini   # if not yet authenticated"; \
-		_warn=1; \
-	fi; \
-	[ $$_warn -eq 0 ] && echo "  ✓  Subscription bridges: kimi :$(KIMI_CLAUDE_PROXY_PORT) gemini :$(CLIPROXYAPI_PORT)" || true
+	@if ! nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null; then \
+		echo "  → kimi bridge (:$(KIMI_CLAUDE_PROXY_PORT)) not running — authenticating..."; \
+		claude-code-proxy kimi auth login; \
+		claude-code-proxy kimi start &>/dev/null & \
+		sleep 2; \
+		nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null \
+			&& echo "  ✓  kimi bridge started" \
+			|| echo "  ⚠️  kimi bridge still not up — check: claude-code-proxy kimi status"; \
+	fi
+	@if ! nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
+		echo "  → gemini bridge (:$(CLIPROXYAPI_PORT)) not running — authenticating..."; \
+		gemini auth login; \
+		$(MAKE) --no-print-directory cliproxyapi; \
+		nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null \
+			&& echo "  ✓  gemini bridge started" \
+			|| echo "  ⚠️  gemini bridge still not up — check: cliproxyapi status"; \
+	fi
+	@nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null \
+		&& nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null \
+		&& echo "  ✓  Subscription bridges: kimi :$(KIMI_CLAUDE_PROXY_PORT) gemini :$(CLIPROXYAPI_PORT)" || true
 
 ## ai-cli: CLI-auth providers via CLIProxyAPI adapter  [PLAN — flat-rate subscriptions]
 ## Authenticates via provider CLI login, not per-token API key.
@@ -707,11 +713,46 @@ lls-stop:
 	@pkill -f "llama-server.*8081" && echo "llama-server stopped" || echo "llama-server not running"
 
 ## lls-sync: sync lls/* litellm entries + llama-presets.ini from lms ls --json (GGUF only)
-## Run after downloading new models in LM Studio (Staff Picks → GGUF variants).
-## lls/auto is set to the first GGUF found with the full fallback chain.
+## Setup: open LM Studio → Browse → Staff Picks → download GGUF variants → run make lls-sync
+## Discovers all GGUF LLMs via `lms ls --json`; skips safetensors (llama-server can't load them).
+## lls/<vendor>/<model> → openai/<gguf-basename> in litellm; preset pinned to ctx=100000, kv=q8_0.
+## lls/auto = smallest GGUF with full fallback chain (opt-in escalation via MODEL=lls/auto).
+## Run after adding/removing models; safe to re-run (idempotent).
+LLS_CTX ?= 100000
+LLS_PRESETS ?= $(HOME)/.config/litellm/llama-presets.ini
 .PHONY: lls-sync
 lls-sync:
-	@bash $(BIN_DIR)/install-ai.sh --only-lls
+	@command -v lms >/dev/null 2>&1 || { echo "lms CLI not found — install LM Studio first"; exit 1; }
+	@command -v jq  >/dev/null 2>&1 || { echo "jq not found — brew install jq"; exit 1; }
+	@mkdir -p $$(dirname $(LLS_PRESETS))
+	@echo "==> Removing old lls/* entries from $(LITELLM_CFG)"
+	@yq -i 'del(.model_list[] | select(.model_name | test("^lls/")))' "$(LITELLM_CFG)"
+	@echo "==> Discovering GGUF models via lms ls --json"
+	@lms ls --json 2>/dev/null \
+	  | jq -r '[.[] | select(.type=="llm" and .format=="gguf")] | .[] | [.modelKey, .path] | @tsv' \
+	  | while IFS=$$'\t' read -r model_key path; do \
+	      gguf=$$(find "$(HOME)/.cache/lm-studio/models" -name "*.gguf" -path "*$${path}*" 2>/dev/null | head -1); \
+	      [[ -z "$$gguf" ]] && { echo "  skip $$model_key (no GGUF found)"; continue; }; \
+	      base=$$(basename "$$gguf" .gguf); \
+	      lls_name="lls/$$model_key"; \
+	      grep -qF "[$$base]" "$(LLS_PRESETS)" 2>/dev/null || \
+	        printf '\n[%s]\nmodel = %s\nctx-size = %s\nflash-attn = on\ncache-type-k = q8_0\ncache-type-v = q8_0\n' \
+	          "$$base" "$$gguf" "$(LLS_CTX)" >> "$(LLS_PRESETS)"; \
+	      yq -i ".model_list += [{\"model_name\": \"$$lls_name\", \"litellm_params\": {\"model\": \"openai/$$base\", \"api_base\": \"http://localhost:$(LLS_PORT)/v1\", \"api_key\": \"none\", \"extra_body\": {\"cache_prompt\": true}}}]" "$(LITELLM_CFG)"; \
+	      echo "  + $$lls_name → $$base"; \
+	    done
+	@echo "==> Setting lls/auto (smallest GGUF) + fallback chain"
+	@first=$$(lms ls --json 2>/dev/null \
+	    | jq -r '[.[] | select(.type=="llm" and .format=="gguf")] | .[0].path' 2>/dev/null); \
+	  first_gguf=$$(find "$(HOME)/.cache/lm-studio/models" -name "*.gguf" -path "*$${first}*" 2>/dev/null | head -1); \
+	  first_base=$$(basename "$$first_gguf" .gguf); \
+	  yq -i ".model_list += [{\"model_name\": \"lls/auto\", \"litellm_params\": {\"model\": \"openai/$$first_base\", \"api_base\": \"http://localhost:$(LLS_PORT)/v1\", \"api_key\": \"none\", \"extra_body\": {\"cache_prompt\": true}}}]" "$(LITELLM_CFG)"; \
+	  fallbacks=$$(lms ls --json 2>/dev/null \
+	    | jq -r '[.[] | select(.type=="llm" and .format=="gguf")] | [.[].modelKey] | map("lls/" + .) | tojson'); \
+	  yq -i ".router_settings.routing_strategy = \"simple-shuffle\"" "$(LITELLM_CFG)"; \
+	  yq -i ".router_settings.fallbacks = [{\"lls/auto\": $$fallbacks}]" "$(LITELLM_CFG)"; \
+	  echo "  lls/auto → $$first_base"
+	@echo "==> Done. Restart litellm: make litellm.stop && make litellm"
 
 ## lms-sync: sync litellm config model_names with lms ls output
 ## Removes all lms/* entries and re-adds them as lms/<vendor>/<model> to match lms ls IDs.
