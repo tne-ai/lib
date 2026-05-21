@@ -357,7 +357,7 @@ ai-warn-bridges:
 	@if ! nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null; then \
 		echo "  → kimi bridge (:$(KIMI_CLAUDE_PROXY_PORT)) not running — starting..."; \
 		if command -v claude-code-proxy >/dev/null 2>&1; then \
-			nohup claude-code-proxy kimi start </dev/null >$(TNE_LOG_DIR)/kimi-proxy.log 2>&1 & \
+			PORT=$(KIMI_CLAUDE_PROXY_PORT) nohup claude-code-proxy serve </dev/null >$(TNE_LOG_DIR)/kimi-proxy.log 2>&1 & \
 			sleep 2; \
 			if nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null; then \
 				echo "  ✓  kimi bridge started"; \
