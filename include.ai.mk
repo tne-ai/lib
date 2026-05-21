@@ -363,6 +363,7 @@ ai-auto: postgres redis mlflow litellm routellm
 ## ai-auth: log in to all AI providers (run once per machine or after token expiry)
 ##   make ai-auth              # all providers
 ##   make ai-auth PROVIDER=claude   # claude /login
+##   make ai-auth PROVIDER=kimi     # claude-code-proxy kimi auth login
 ##   make ai-auth PROVIDER=gemini   # gemini auth login
 ##   make ai-auth PROVIDER=codex    # codex login
 PROVIDER ?=
@@ -370,6 +371,10 @@ PROVIDER ?=
 ai-auth:
 	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "claude" ]]; then \
 		echo "==> claude /login"; claude /login; \
+	fi
+	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "kimi" ]]; then \
+		echo "==> claude-code-proxy kimi auth login"; \
+		claude-code-proxy kimi auth login 2>/dev/null || echo "  (claude-code-proxy not installed — brew install raine/claude-code-proxy/claude-code-proxy)"; \
 	fi
 	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "gemini" ]]; then \
 		echo "==> gemini auth login"; gemini auth login 2>/dev/null || echo "  (gemini CLI not installed — brew install gemini)"; \
