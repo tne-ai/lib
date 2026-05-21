@@ -744,10 +744,12 @@ lls-sync:
 	@yq -i 'del(.model_list[] | select(.model_name | test("^lls/")))' "$(LITELLM_CFG)"
 	@echo "==> Discovering GGUF models via lms ls --json"
 	@lms ls --json 2>/dev/null \
-	  | jq -r '[.[] | select(.type=="llm" and .format=="gguf")] | .[] | [.modelKey, .path] | @tsv' \
-	  | while IFS=$$'\t' read -r model_key path; do \
-	      gguf=$$(find "$(HOME)/.cache/lm-studio/models" -name "*.gguf" -path "*$${path}*" 2>/dev/null | head -1); \
-	      [[ -z "$$gguf" ]] && { echo "  skip $$model_key (no GGUF found)"; continue; }; \
+	  | jq -r '[.[] | select(.type=="llm" and .format=="gguf")] | .[] | [.modelKey, .quantization.name] | @tsv' \
+	  | while IFS=$$'\t' read -r model_key quant; do \
+	      model_leaf=$$(basename "$$model_key"); \
+	      gguf=$$(find "$(HOME)/.cache/lm-studio/models" -name "*$${quant}*.gguf" \
+	               ! -name "mmproj*" -ipath "*$${model_leaf}*" 2>/dev/null | head -1); \
+	      [[ -z "$$gguf" ]] && { echo "  skip $$model_key (no GGUF found for $${model_leaf}/$${quant})"; continue; }; \
 	      base=$$(basename "$$gguf" .gguf); \
 	      lls_name="lls/$$model_key"; \
 	      grep -qF "[$$base]" "$(LLS_PRESETS)" 2>/dev/null || \
@@ -757,9 +759,12 @@ lls-sync:
 	      echo "  + $$lls_name → $$base"; \
 	    done
 	@echo "==> Setting lls/auto (smallest GGUF) + fallback chain"
-	@first=$$(lms ls --json 2>/dev/null \
-	    | jq -r '[.[] | select(.type=="llm" and .format=="gguf")] | .[0].path' 2>/dev/null); \
-	  first_gguf=$$(find "$(HOME)/.cache/lm-studio/models" -name "*.gguf" -path "*$${first}*" 2>/dev/null | head -1); \
+	@first_key=$$(lms ls --json 2>/dev/null \
+	    | jq -r '[.[] | select(.type=="llm" and .format=="gguf")] | .[0] | [.modelKey, .quantization.name] | @tsv' 2>/dev/null); \
+	  first_leaf=$$(basename "$$(echo "$$first_key" | cut -f1)"); \
+	  first_quant=$$(echo "$$first_key" | cut -f2); \
+	  first_gguf=$$(find "$(HOME)/.cache/lm-studio/models" -name "*$${first_quant}*.gguf" \
+	               ! -name "mmproj*" -ipath "*$${first_leaf}*" 2>/dev/null | head -1); \
 	  first_base=$$(basename "$$first_gguf" .gguf); \
 	  yq -i ".model_list += [{\"model_name\": \"lls/auto\", \"litellm_params\": {\"model\": \"openai/$$first_base\", \"api_base\": \"http://localhost:$(LLS_PORT)/v1\", \"api_key\": \"none\", \"extra_body\": {\"cache_prompt\": true}}}]" "$(LITELLM_CFG)"; \
 	  fallbacks=$$(lms ls --json 2>/dev/null \
