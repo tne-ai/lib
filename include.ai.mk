@@ -434,7 +434,7 @@ ai-auth:
 CLIPROXYAPI_PORT ?= 8080
 .PHONY: cliproxyapi
 cliproxyapi:
-	command -v cliproxyapi >/dev/null || { echo "cliproxyapi not installed — run: brew install cliproxyapi"; exit 1; }
+	command -v cliproxyapi >/dev/null || brew install cliproxyapi
 	$(call start_server_self,$(CLIPROXYAPI_PORT),cliproxyapi start)
 	$(call check_port,$(CLIPROXYAPI_PORT))
 
