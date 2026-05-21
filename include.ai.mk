@@ -347,29 +347,32 @@ ai ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start
 	@echo ""
 	@$(MAKE) --no-print-directory ai-warn-bridges
 
-## ai-warn-bridges: ensure subscription-plan proxy bridges are running; auth + start if not
-## Called automatically by make ai. Run standalone: make ai-warn-bridges
-## Subscription bridges need one-time interactive auth + a running sidecar.
-##   kimi   — claude-code-proxy  :3457  (auth opens browser once; auto-starts after)
-##   gemini — CLIProxyAPI        :8080  (auth opens browser once; cliproxyapi starts after)
+## ai-warn-bridges: start subscription bridges if not running; warn to auth if they stay down
+## Called automatically by make ai. Non-interactive — never prompts for credentials.
+## If a bridge needs first-time auth, run: make ai-auth PROVIDER=kimi|gemini
+##   kimi   — claude-code-proxy  :3457  starts automatically if already authenticated
+##   gemini — CLIProxyAPI        :8080  starts automatically if already authenticated
 .PHONY: ai-warn-bridges
 ai-warn-bridges:
 	@if ! nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null; then \
-		echo "  → kimi bridge (:$(KIMI_CLAUDE_PROXY_PORT)) not running — authenticating..."; \
-		claude-code-proxy kimi auth login; \
-		claude-code-proxy kimi start &>/dev/null & \
+		echo "  → kimi bridge (:$(KIMI_CLAUDE_PROXY_PORT)) not running — starting..."; \
+		command -v claude-code-proxy >/dev/null 2>&1 \
+			&& (nohup claude-code-proxy kimi start </dev/null >$(TNE_LOG_DIR)/kimi-proxy.log 2>&1 &) \
+			|| true; \
 		sleep 2; \
 		nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null \
 			&& echo "  ✓  kimi bridge started" \
-			|| echo "  ⚠️  kimi bridge still not up — check: claude-code-proxy kimi status"; \
+			|| echo "  ⚠️  kimi bridge not up — run: make ai-auth PROVIDER=kimi"; \
 	fi
 	@if ! nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
-		echo "  → gemini bridge (:$(CLIPROXYAPI_PORT)) not running — authenticating..."; \
-		gemini auth login; \
-		$(MAKE) --no-print-directory cliproxyapi; \
+		echo "  → gemini bridge (:$(CLIPROXYAPI_PORT)) not running — starting..."; \
+		command -v cliproxyapi >/dev/null 2>&1 \
+			&& $(call start_server_self,$(CLIPROXYAPI_PORT),cliproxyapi start) \
+			|| true; \
+		sleep 2; \
 		nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null \
 			&& echo "  ✓  gemini bridge started" \
-			|| echo "  ⚠️  gemini bridge still not up — check: cliproxyapi status"; \
+			|| echo "  ⚠️  gemini bridge not up — run: make ai-auth PROVIDER=gemini"; \
 	fi
 	@nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null \
 		&& nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null \
