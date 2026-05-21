@@ -345,6 +345,29 @@ ai ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start
 	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lls' | sort | \
 		while IFS= read -r name; do printf '    make ai-run MODEL=%-36s # FREE\n' "$$name"; done
 	@echo ""
+	@$(MAKE) --no-print-directory ai-warn-bridges
+
+## ai-warn-bridges: warn when subscription-plan proxy bridges are not running
+## Called automatically by make ai. Run standalone: make ai-warn-bridges
+## Subscription bridges need one-time auth + a running sidecar (unlike API-key providers).
+##   kimi   — claude-code-proxy  :3457  (make ai-auth PROVIDER=kimi)
+##   gemini — CLIProxyAPI        :8080  (make ai-auth PROVIDER=gemini + make cliproxyapi)
+.PHONY: ai-warn-bridges
+ai-warn-bridges:
+	@_warn=0; \
+	if ! nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null; then \
+		echo "  ⚠️  kimi bridge (:$(KIMI_CLAUDE_PROXY_PORT)) not running — kimi-k2.6 will fail"; \
+		echo "       Fix: claude-code-proxy kimi start   # start bridge"; \
+		echo "            make ai-auth PROVIDER=kimi     # if not yet authenticated"; \
+		_warn=1; \
+	fi; \
+	if ! nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
+		echo "  ⚠️  gemini bridge (:$(CLIPROXYAPI_PORT)) not running — gemini-* models will fail"; \
+		echo "       Fix: make cliproxyapi               # start CLIProxyAPI"; \
+		echo "            make ai-auth PROVIDER=gemini   # if not yet authenticated"; \
+		_warn=1; \
+	fi; \
+	[ $$_warn -eq 0 ] && echo "  ✓  Subscription bridges: kimi :$(KIMI_CLAUDE_PROXY_PORT) gemini :$(CLIPROXYAPI_PORT)" || true
 
 ## ai-cli: CLI-auth providers via CLIProxyAPI adapter  [PLAN — flat-rate subscriptions]
 ## Authenticates via provider CLI login, not per-token API key.
@@ -682,6 +705,13 @@ lls-start:
 .PHONY: lls-stop
 lls-stop:
 	@pkill -f "llama-server.*8081" && echo "llama-server stopped" || echo "llama-server not running"
+
+## lls-sync: sync lls/* litellm entries + llama-presets.ini from lms ls --json (GGUF only)
+## Run after downloading new models in LM Studio (Staff Picks → GGUF variants).
+## lls/auto is set to the first GGUF found with the full fallback chain.
+.PHONY: lls-sync
+lls-sync:
+	@bash $(BIN_DIR)/install-ai.sh --only-lls
 
 ## lms-sync: sync litellm config model_names with lms ls output
 ## Removes all lms/* entries and re-adds them as lms/<vendor>/<model> to match lms ls IDs.
