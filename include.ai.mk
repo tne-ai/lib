@@ -273,7 +273,22 @@ litellm: litellm-check-version
 #   make ai HARNESS=aider          # aider
 #   make ai HARNESS=codex          # codex CLI (plan provider via CLIProxyAPI)
 # MODEL: any model_name from $(LITELLM_CFG). Run 'make ai-models' to list all.
-#   make ai MODEL=kimi-k2.6
+#   make ai-run MODEL=kimi-k2.6         # Kimi K2 via $19/mo Coding Plan
+#   make ai-run MODEL=gemini-2.5-flash  # Gemini Flash (PAYG)
+#   make ai-run MODEL=lls/qwen/qwen3.6-27b  # local GPU via llama-server
+#
+# WHY --model accepts non-claude names:
+#   Claude Code normally validates --model against Anthropic's allowlist.
+#   Two things disable that check here:
+#     1. ANTHROPIC_BASE_URL points to LiteLLM (localhost:4000), not api.anthropic.com.
+#        When a custom base URL is set, Claude Code skips the model name allowlist —
+#        it forwards whatever string you give to the endpoint as-is.
+#     2. LiteLLM maps the model_name you pass to the real provider and model behind it.
+#        "kimi-k2.6" → claude-code-proxy (localhost:3457) → Kimi API
+#        "lls/google/gemma-4-e2b" → llama-server (localhost:8081) → local GGUF
+#   So any model_name registered in config.yaml (~/.config/litellm/config.yaml) works.
+#   Run 'make ai-models' to list all available names.
+#
 # HARNESS_ARGS: extra flags forwarded to the harness binary.
 #   make ai HARNESS_ARGS="--continue"
 HARNESS            ?= claude
@@ -282,11 +297,13 @@ MODEL              ?=
 
 # ── Run-only target (servers already up) ──────────────────────────────────────
 ## ai-run: launch harness with LiteLLM env vars — requires sidecars already running
-##   make ai-run                          # claude via Max plan
-##   make ai-run MODEL=kimi-k2.6         # pin model
-##   make ai-run MODEL=lls/qwen/qwen3.6-27b  # local GPU (auto-swaps via llama-server router)
-##   make ai-run MODEL=lms/qwen/qwen3.6-27b  # local GPU (LM Studio — legacy)
-##   make ai-run HARNESS=aider               # swap harness
+##   make ai-run                               # claude via Max plan (default)
+##   make ai-run MODEL=kimi-k2.6              # Kimi K2 Coding Plan ($19/mo flat) [PLAN]
+##   make ai-run MODEL=kimi-k2.5              # Kimi K2.5 Coding Plan             [PLAN]
+##   make ai-run MODEL=gemini-2.5-flash       # Gemini Flash                      [PAYG]
+##   make ai-run MODEL=lls/qwen/qwen3.6-27b   # local GPU (llama-server router)   [FREE]
+##   make ai-run MODEL=lms/qwen/qwen3.6-27b   # local GPU (LM Studio — legacy)    [FREE]
+##   make ai-run HARNESS=aider                # swap harness, same model
 .PHONY: ai-run
 ai-run:
 	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
@@ -304,37 +321,26 @@ ai-run:
 
 # ── Public entry points ───────────────────────────────────────────────────────
 
-## ai: start sidecars (postgres redis mlflow litellm temporal ccr)  [PLAN — Anthropic Max]
-##   make ai                             # start servers, then run: make ai-run
-##   make ai-run                         # launch claude against running servers
-##   make ai-run MODEL=kimi-k2.6         # Kimi K2 Coding Plan ($19/mo flat)  [PLAN]
-##   make ai-run MODEL=gemini-2.5-flash  # Gemini Flash                       [PAYG]
-##   make ai-run HARNESS=aider           # swap harness, same sidecar stack
+## ai: start full sidecar stack — cloud + local GPU, all models available
+##   make ai                                      # start everything, then run: make ai-run
+##   make ai-run                                  # claude via Max plan (default)
+##   make ai-run MODEL=kimi-k2.6                 # Kimi K2 Coding Plan ($19/mo)   [PLAN]
+##   make ai-run MODEL=gemini-2.5-flash          # Gemini Flash                   [PAYG]
+##   make ai-run MODEL=lls/qwen/qwen3.6-27b      # local GPU via llama-server     [FREE]
+##   make ai-run HARNESS=aider                   # swap harness, same model
 ##   See all models: make ai-models
-## Sidecars: postgres redis mlflow litellm temporal ccr
-.PHONY: ai
-ai: postgres redis mlflow litellm temporal ccr ai-open
+## Sidecars: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start
+## (ai-local was merged into ai — one stack serves all models)
+.PHONY: ai ai-local
+ai ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start ai-open
 	@echo ""
-	@echo "  Sidecars are up. Run your AI harness in a separate terminal:"
-	@echo "    make ai-run                  # claude (Max plan)"
-	@echo "    make ai-run MODEL=kimi-k2.6  # Kimi K2 (Coding plan)"
-	@echo "    make ai-run HARNESS=aider    # aider"
+	@echo "  Stack ready. Run your AI harness in a separate terminal:"
+	@echo "    make ai-run                               # claude Max plan"
+	@echo "    make ai-run MODEL=kimi-k2.6              # Kimi K2 (Coding plan)"
+	@echo "    make ai-run MODEL=lls/<vendor>/<model>   # local GPU  [FREE]"
+	@echo "    make ai-run HARNESS=aider                # aider"
 	@echo ""
-
-## ai-local: full sidecar stack + GPU + llama-server router — servers only  [FREE]
-##   make ai-local                              # start, then: make ai-run MODEL=<local>
-##   After start: make ai-run MODEL=lls/qwen/qwen3.6-27b
-## Zero marginal cost — inference runs on your GPU via llama.cpp (b9200+ router mode).
-## Models downloaded via LM Studio; served by llama-server at :8081 with auto-swap.
-## Use make ai-run (no MODEL) to switch back to claude against the same sidecar stack.
-.PHONY: ai-local
-ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start ai-open
-	@echo ""
-	@echo "  Local stack ready. Run your harness in a separate terminal:"
-	@echo "    make ai-run MODEL=lls/<vendor>/<model>  # local GPU  [FREE]"
-	@echo "    make ai-run                             # claude Max [PLAN]"
-	@echo ""
-	@echo "  Local models (litellm-registered names):"
+	@echo "  Local models:"
 	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lls' | sort | \
 		while IFS= read -r name; do printf '    make ai-run MODEL=%-36s # FREE\n' "$$name"; done
 	@echo ""
