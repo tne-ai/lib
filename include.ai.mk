@@ -716,7 +716,7 @@ lms-server:
 ## One model loaded at a time (--models-max 1); swaps automatically on model field change.
 ## Port 8081 (8080 is reserved for CLIProxyAPI/Gemini).
 .PHONY: lls-start
-lls-start:
+lls-start: lls-sync
 	@$(call port_ready,8081) && echo "llama-server already running on :8081" || \
 		(llama-server \
 			--models-preset "$(HOME)/.config/litellm/llama-presets.ini" \
