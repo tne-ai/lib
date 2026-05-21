@@ -296,7 +296,9 @@ HARNESS_ARGS       ?=
 MODEL              ?=
 
 # ── Run-only target (servers already up) ──────────────────────────────────────
-## ai-run: launch harness with LiteLLM env vars — requires sidecars already running
+## ai-run: start full sidecar stack if needed, then launch harness
+## Equivalent to: make ai && make ai-run MODEL=…
+## Auth must already be set up (make ai-auth) — bridges need valid OAuth tokens.
 ##   make ai-run                               # claude via Max plan (default)
 ##   make ai-run MODEL=kimi-k2.6              # Kimi K2 Coding Plan ($19/mo flat) [PLAN]
 ##   make ai-run MODEL=kimi-k2.5              # Kimi K2.5 Coding Plan             [PLAN]
@@ -305,7 +307,7 @@ MODEL              ?=
 ##   make ai-run MODEL=lms/qwen/qwen3.6-27b   # local GPU (LM Studio — legacy)    [FREE]
 ##   make ai-run HARNESS=aider                # swap harness, same model
 .PHONY: ai-run
-ai-run:
+ai-run: ai
 	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
 		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
 	@$(if $(filter lls/%,$(MODEL)), \
@@ -351,7 +353,7 @@ ai ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start
 ## Called automatically by make ai. Non-interactive — never prompts for credentials.
 ## If a bridge needs first-time auth, run: make ai-auth PROVIDER=kimi|gemini
 ##   kimi   — claude-code-proxy  :3457  starts automatically if already authenticated
-##   gemini — CLIProxyAPI        :8080  starts automatically if already authenticated
+##   gemini — CLIProxyAPI        :8317  starts automatically if already authenticated
 .PHONY: ai-warn-bridges
 ai-warn-bridges:
 	@if ! nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null; then \
@@ -408,8 +410,8 @@ ai-auto: postgres redis mlflow litellm routellm
 ##   make ai-auth              # all providers
 ##   make ai-auth PROVIDER=claude   # claude /login
 ##   make ai-auth PROVIDER=kimi     # claude-code-proxy kimi auth login
-##   make ai-auth PROVIDER=gemini   # gemini auth login
-##   make ai-auth PROVIDER=codex    # codex login
+##   make ai-auth PROVIDER=gemini   # cliproxyapi -login  (Google OAuth → ~/.cli-proxy-api/)
+##   make ai-auth PROVIDER=codex    # cliproxyapi -codex-login
 PROVIDER ?=
 .PHONY: ai-auth
 ai-auth:
@@ -421,17 +423,19 @@ ai-auth:
 		claude-code-proxy kimi auth login 2>/dev/null || echo "  (claude-code-proxy not installed — brew install raine/claude-code-proxy/claude-code-proxy)"; \
 	fi
 	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "gemini" ]]; then \
-		echo "==> gemini auth login"; gemini auth login 2>/dev/null || echo "  (gemini CLI not installed — brew install gemini)"; \
+		echo "==> cliproxyapi -login  (Google OAuth for Gemini — stores in ~/.cli-proxy-api/)"; \
+		cliproxyapi -login 2>/dev/null || echo "  (cliproxyapi not installed — brew install cliproxyapi)"; \
 	fi
 	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "codex" ]]; then \
-		echo "==> codex login"; codex login 2>/dev/null || echo "  (codex CLI not installed — npm install -g @openai/codex)"; \
+		echo "==> cliproxyapi -codex-login"; \
+		cliproxyapi -codex-login 2>/dev/null || echo "  (cliproxyapi not installed — brew install cliproxyapi)"; \
 	fi
 
 # ── Supporting sidecars ───────────────────────────────────────────────────────
 
 ## cliproxyapi: CLIProxyAPI — wraps codex/gemini CLI auth as OpenAI-compatible API
 ## Install: brew install cliproxyapi  Login: codex login  or  gemini auth login
-CLIPROXYAPI_PORT ?= 8080
+CLIPROXYAPI_PORT ?= 8317
 .PHONY: cliproxyapi
 cliproxyapi:
 	command -v cliproxyapi >/dev/null || { echo "cliproxyapi not installed — run: brew install cliproxyapi"; exit 1; }
