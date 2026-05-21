@@ -735,7 +735,7 @@ lls-stop:
 ## Setup: open LM Studio → Browse → Staff Picks → download GGUF variants → run make lls-sync
 ## Discovers all GGUF LLMs via `lms ls --json`; skips safetensors (llama-server can't load them).
 ## lls/<vendor>/<model> → openai/<gguf-basename> in litellm; preset pinned to ctx=100000, kv=q8_0.
-## lls/auto = smallest GGUF with full fallback chain (opt-in escalation via MODEL=lls/auto).
+## lls/auto = largest (most capable) GGUF; fallback chain escalates down to smallest.
 ## Run after adding/removing models; safe to re-run (idempotent).
 LLS_CTX ?= 100000
 LLS_PRESETS ?= $(HOME)/.config/litellm/llama-presets.ini
@@ -746,8 +746,9 @@ lls-sync:
 	@mkdir -p $$(dirname $(LLS_PRESETS))
 	@echo "==> Removing old lls/* entries from $(LITELLM_CFG)"
 	@yq -i 'del(.model_list[] | select(.model_name | test("^lls/")))' "$(LITELLM_CFG)"
-	@echo "==> Discovering GGUF models via lms ls --json"
-	@lms ls --json 2>/dev/null \
+	@echo "==> Discovering GGUF models via lms ls --json (sorted largest → smallest)"
+	@_lls_index=/tmp/lls-index-$$$$.tsv; \
+	  lms ls --json 2>/dev/null \
 	  | jq -r '[.[] | select(.type=="llm" and .format=="gguf")] | .[] | [.modelKey, .quantization.name] | @tsv' \
 	  | while IFS=$$'\t' read -r model_key quant; do \
 	      model_leaf=$$(basename "$$model_key"); \
@@ -755,27 +756,26 @@ lls-sync:
 	               ! -name "mmproj*" -ipath "*$${model_leaf}*" 2>/dev/null | head -1); \
 	      [[ -z "$$gguf" ]] && { echo "  skip $$model_key (no GGUF found for $${model_leaf}/$${quant})"; continue; }; \
 	      base=$$(basename "$$gguf" .gguf); \
+	      size=$$(stat -f%z "$$gguf" 2>/dev/null || stat -c%s "$$gguf" 2>/dev/null || echo 0); \
+	      echo "$$size	$$model_key	$$base	$$gguf"; \
+	    done | sort -rn > "$$_lls_index"; \
+	  while IFS=$$'\t' read -r _sz model_key base gguf; do \
 	      lls_name="lls/$$model_key"; \
 	      grep -qF "[$$base]" "$(LLS_PRESETS)" 2>/dev/null || \
 	        printf '\n[%s]\nmodel = %s\nctx-size = %s\nflash-attn = on\ncache-type-k = q8_0\ncache-type-v = q8_0\n' \
 	          "$$base" "$$gguf" "$(LLS_CTX)" >> "$(LLS_PRESETS)"; \
 	      yq -i ".model_list += [{\"model_name\": \"$$lls_name\", \"litellm_params\": {\"model\": \"openai/$$base\", \"api_base\": \"http://localhost:$(LLS_PORT)/v1\", \"api_key\": \"none\", \"extra_body\": {\"cache_prompt\": true}}}]" "$(LITELLM_CFG)"; \
-	      echo "  + $$lls_name → $$base"; \
-	    done
-	@echo "==> Setting lls/auto (smallest GGUF) + fallback chain"
-	@first_key=$$(lms ls --json 2>/dev/null \
-	    | jq -r '[.[] | select(.type=="llm" and .format=="gguf")] | .[0] | [.modelKey, .quantization.name] | @tsv' 2>/dev/null); \
-	  first_leaf=$$(basename "$$(echo "$$first_key" | cut -f1)"); \
-	  first_quant=$$(echo "$$first_key" | cut -f2); \
-	  first_gguf=$$(find "$(HOME)/.cache/lm-studio/models" -name "*$${first_quant}*.gguf" \
-	               ! -name "mmproj*" -ipath "*$${first_leaf}*" 2>/dev/null | head -1); \
-	  first_base=$$(basename "$$first_gguf" .gguf); \
+	      echo "  + $$lls_name → $$base ($$(( _sz / 1024 / 1024 / 1024 ))GB)"; \
+	    done < "$$_lls_index"; \
+	  echo "==> Setting lls/auto (largest GGUF) + fallback chain (largest → smallest)"; \
+	  first_base=$$(head -1 "$$_lls_index" | cut -f3); \
+	  first_gguf=$$(head -1 "$$_lls_index" | cut -f4); \
 	  yq -i ".model_list += [{\"model_name\": \"lls/auto\", \"litellm_params\": {\"model\": \"openai/$$first_base\", \"api_base\": \"http://localhost:$(LLS_PORT)/v1\", \"api_key\": \"none\", \"extra_body\": {\"cache_prompt\": true}}}]" "$(LITELLM_CFG)"; \
-	  fallbacks=$$(lms ls --json 2>/dev/null \
-	    | jq -r '[.[] | select(.type=="llm" and .format=="gguf")] | [.[].modelKey] | map("lls/" + .) | tojson'); \
+	  fallbacks=$$(awk -F'\t' 'BEGIN{s=""} {s=s (s?",":"") "\"lls/" $$2 "\""}  END{print s}' "$$_lls_index"); \
 	  yq -i ".router_settings.routing_strategy = \"simple-shuffle\"" "$(LITELLM_CFG)"; \
-	  yq -i ".router_settings.fallbacks = [{\"lls/auto\": $$fallbacks}]" "$(LITELLM_CFG)"; \
-	  echo "  lls/auto → $$first_base"
+	  yq -i ".router_settings.fallbacks = [{\"lls/auto\": [$$fallbacks]}]" "$(LITELLM_CFG)"; \
+	  echo "  lls/auto → $$first_base"; \
+	  rm -f "$$_lls_index"
 	@echo "==> Done. Restart litellm: make litellm.stop && make litellm"
 
 ## lms-sync: sync litellm config model_names with lms ls output
