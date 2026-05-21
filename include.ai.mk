@@ -373,7 +373,7 @@ ai-warn-bridges:
 	@if ! nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
 		echo "  → gemini bridge (:$(CLIPROXYAPI_PORT)) not running — starting..."; \
 		if command -v cliproxyapi >/dev/null 2>&1; then \
-			$(call start_server_self,$(CLIPROXYAPI_PORT),cliproxyapi start); \
+			nohup cliproxyapi start </dev/null >$(TNE_LOG_DIR)/sidecar-$(CLIPROXYAPI_PORT).log 2>&1 & \
 			sleep 2; \
 			if nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
 				echo "  ✓  gemini bridge started"; \
