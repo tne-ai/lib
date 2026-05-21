@@ -296,7 +296,9 @@ HARNESS_ARGS       ?=
 MODEL              ?=
 
 # ── Run-only target (servers already up) ──────────────────────────────────────
-## ai-run: launch harness with LiteLLM env vars — requires sidecars already running
+## ai-run: start full sidecar stack if needed, then launch harness
+## Equivalent to: make ai && make ai-run MODEL=…
+## Auth must already be set up (make ai-auth) — bridges need valid OAuth tokens.
 ##   make ai-run                               # claude via Max plan (default)
 ##   make ai-run MODEL=kimi-k2.6              # Kimi K2 Coding Plan ($19/mo flat) [PLAN]
 ##   make ai-run MODEL=kimi-k2.5              # Kimi K2.5 Coding Plan             [PLAN]
@@ -305,7 +307,7 @@ MODEL              ?=
 ##   make ai-run MODEL=lms/qwen/qwen3.6-27b   # local GPU (LM Studio — legacy)    [FREE]
 ##   make ai-run HARNESS=aider                # swap harness, same model
 .PHONY: ai-run
-ai-run:
+ai-run: ai
 	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
 		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
 	@$(if $(filter lls/%,$(MODEL)), \
