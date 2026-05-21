@@ -356,23 +356,35 @@ ai ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start
 ai-warn-bridges:
 	@if ! nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null; then \
 		echo "  → kimi bridge (:$(KIMI_CLAUDE_PROXY_PORT)) not running — starting..."; \
-		command -v claude-code-proxy >/dev/null 2>&1 \
-			&& (nohup claude-code-proxy kimi start </dev/null >$(TNE_LOG_DIR)/kimi-proxy.log 2>&1 &) \
-			|| true; \
-		sleep 2; \
-		nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null \
-			&& echo "  ✓  kimi bridge started" \
-			|| echo "  ⚠️  kimi bridge not up — run: make ai-auth PROVIDER=kimi"; \
+		if command -v claude-code-proxy >/dev/null 2>&1; then \
+			nohup claude-code-proxy kimi start </dev/null >$(TNE_LOG_DIR)/kimi-proxy.log 2>&1 & \
+			sleep 2; \
+			if nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null; then \
+				echo "  ✓  kimi bridge started"; \
+			else \
+				echo "  ⚠️  kimi bridge not up — last log lines:"; \
+				tail -5 $(TNE_LOG_DIR)/kimi-proxy.log 2>/dev/null | sed 's/^/       /'; \
+				echo "       Fix: make ai-auth PROVIDER=kimi   (authenticate first, then retry)"; \
+			fi; \
+		else \
+			echo "  ⚠️  claude-code-proxy not installed — brew install raine/claude-code-proxy/claude-code-proxy"; \
+		fi; \
 	fi
 	@if ! nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
 		echo "  → gemini bridge (:$(CLIPROXYAPI_PORT)) not running — starting..."; \
-		command -v cliproxyapi >/dev/null 2>&1 \
-			&& $(call start_server_self,$(CLIPROXYAPI_PORT),cliproxyapi start) \
-			|| true; \
-		sleep 2; \
-		nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null \
-			&& echo "  ✓  gemini bridge started" \
-			|| echo "  ⚠️  gemini bridge not up — run: make ai-auth PROVIDER=gemini"; \
+		if command -v cliproxyapi >/dev/null 2>&1; then \
+			$(call start_server_self,$(CLIPROXYAPI_PORT),cliproxyapi start); \
+			sleep 2; \
+			if nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
+				echo "  ✓  gemini bridge started"; \
+			else \
+				echo "  ⚠️  gemini bridge not up — last log lines:"; \
+				tail -5 $(TNE_LOG_DIR)/sidecar-$(CLIPROXYAPI_PORT).log 2>/dev/null | sed 's/^/       /'; \
+				echo "       Fix: make ai-auth PROVIDER=gemini   (authenticate first, then retry)"; \
+			fi; \
+		else \
+			echo "  ⚠️  cliproxyapi not installed — brew install cliproxyapi"; \
+		fi; \
 	fi
 	@nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null \
 		&& nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null \
