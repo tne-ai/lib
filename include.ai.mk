@@ -351,7 +351,7 @@ ai ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start
 ## Called automatically by make ai. Non-interactive — never prompts for credentials.
 ## If a bridge needs first-time auth, run: make ai-auth PROVIDER=kimi|gemini
 ##   kimi   — claude-code-proxy  :3457  starts automatically if already authenticated
-##   gemini — CLIProxyAPI        :8080  starts automatically if already authenticated
+##   gemini — CLIProxyAPI        :8317  starts automatically if already authenticated
 .PHONY: ai-warn-bridges
 ai-warn-bridges:
 	@if ! nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null; then \
@@ -408,8 +408,8 @@ ai-auto: postgres redis mlflow litellm routellm
 ##   make ai-auth              # all providers
 ##   make ai-auth PROVIDER=claude   # claude /login
 ##   make ai-auth PROVIDER=kimi     # claude-code-proxy kimi auth login
-##   make ai-auth PROVIDER=gemini   # gemini auth login
-##   make ai-auth PROVIDER=codex    # codex login
+##   make ai-auth PROVIDER=gemini   # cliproxyapi -login  (Google OAuth → ~/.cli-proxy-api/)
+##   make ai-auth PROVIDER=codex    # cliproxyapi -codex-login
 PROVIDER ?=
 .PHONY: ai-auth
 ai-auth:
@@ -421,17 +421,19 @@ ai-auth:
 		claude-code-proxy kimi auth login 2>/dev/null || echo "  (claude-code-proxy not installed — brew install raine/claude-code-proxy/claude-code-proxy)"; \
 	fi
 	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "gemini" ]]; then \
-		echo "==> gemini auth login"; gemini auth login 2>/dev/null || echo "  (gemini CLI not installed — brew install gemini)"; \
+		echo "==> cliproxyapi -login  (Google OAuth for Gemini — stores in ~/.cli-proxy-api/)"; \
+		cliproxyapi -login 2>/dev/null || echo "  (cliproxyapi not installed — brew install cliproxyapi)"; \
 	fi
 	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "codex" ]]; then \
-		echo "==> codex login"; codex login 2>/dev/null || echo "  (codex CLI not installed — npm install -g @openai/codex)"; \
+		echo "==> cliproxyapi -codex-login"; \
+		cliproxyapi -codex-login 2>/dev/null || echo "  (cliproxyapi not installed — brew install cliproxyapi)"; \
 	fi
 
 # ── Supporting sidecars ───────────────────────────────────────────────────────
 
 ## cliproxyapi: CLIProxyAPI — wraps codex/gemini CLI auth as OpenAI-compatible API
 ## Install: brew install cliproxyapi  Login: codex login  or  gemini auth login
-CLIPROXYAPI_PORT ?= 8080
+CLIPROXYAPI_PORT ?= 8317
 .PHONY: cliproxyapi
 cliproxyapi:
 	command -v cliproxyapi >/dev/null || { echo "cliproxyapi not installed — run: brew install cliproxyapi"; exit 1; }
