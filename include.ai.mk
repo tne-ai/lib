@@ -6,7 +6,7 @@ SHELL := /usr/bin/env bash
 WS_DIR ?= $(HOME)/ws
 BIN_DIR ?= $(WS_DIR)/git/src/bin
 TNE_DB_DIR  ?= $(WS_DIR)/db
-TNE_LOG_DIR ?= $(WS_DIR)/log
+TNE_LOG_DIR ?= $(WS_DIR)/logs
 TNE_DATA    ?= $(WS_DIR)/data
 export WS_DIR BIN_DIR TNE_DB_DIR TNE_LOG_DIR
 
