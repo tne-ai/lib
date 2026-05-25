@@ -140,8 +140,9 @@ redis:
 ## mlflow has no Homebrew formula — install chain is: uv tool install → uvx (ephemeral).
 ## uv tool install puts the binary in ~/.local/bin which may not be in Make's PATH,
 ## so we resolve at runtime with `command -v mlflow || echo uvx mlflow`.
-.PHONY: mlflow
-mlflow:
+## mlflow-start: fire mlflow in background without waiting — overlaps with postgres/redis startup
+.PHONY: mlflow-start
+mlflow-start:
 	if ! command -v mlflow >/dev/null 2>&1 && ! uvx mlflow --version >/dev/null 2>&1; then \
 		echo "mlflow not installed — running make ai-install first"; \
 		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
@@ -150,6 +151,10 @@ mlflow:
 	$(call start_server_double_fork,$(MLFLOW_PORT),$$(command -v mlflow || echo uvx mlflow) server --host 127.0.0.1 --port $(MLFLOW_PORT) \
 		--backend-store-uri sqlite:///$(MLFLOW_DIR)/mlflow.db \
 		--default-artifact-root $(MLFLOW_DIR)/artifacts)
+
+## mlflow: wait for mlflow to be ready (call mlflow-start first to overlap with postgres/redis)
+.PHONY: mlflow
+mlflow: mlflow-start
 	$(call check_port,$(MLFLOW_PORT))
 
 ## Pin litellm to a known-good version. Unpin by setting LITELLM_VERSION=latest.
@@ -307,7 +312,8 @@ MODEL              ?=
 ##   make ai-run MODEL=lms/qwen/qwen3.6-27b   # local GPU (LM Studio — legacy)    [FREE]
 ##   make ai-run HARNESS=aider                # swap harness, same model
 .PHONY: ai-run
-ai-run: ai
+ai-run:
+	@echo "run ai-run first"
 	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
 		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
 	@$(if $(filter lls/%,$(MODEL)), \
@@ -335,7 +341,7 @@ ai-run: ai
 ## Sidecars: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start
 ## (ai-local was merged into ai — one stack serves all models)
 .PHONY: ai ai-local
-ai ai-local: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start ai-open
+ai ai-local: mlflow-start postgres redis mlflow litellm temporal set-gpu-max-memory lls-start ai-open
 	@echo ""
 	@echo "  Stack ready. Run your AI harness in a separate terminal:"
 	@echo "    make ai-run                               # claude Max plan"
@@ -458,12 +464,15 @@ ai-open:
 	@if [ -f "$(AI_OPEN_STAMP)" ]; then \
 		echo "  (UIs already opened this session — run: make ai-open-force to reopen)"; \
 	else \
-		nc -z localhost $(LITELLM_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(LITELLM_PORT)/ui/login" || true; \
+		nc -z localhost $(LITELLM_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(LITELLM_PORT)/ui" || true; \
 		nc -z localhost $(MLFLOW_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(MLFLOW_PORT)" || true; \
 		nc -z localhost $(TEMPORAL_UI_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(TEMPORAL_UI_PORT)" || true; \
 		nc -z localhost $(CCR_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(CCR_PORT)" || true; \
 		nc -z localhost $(KTAP_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(KTAP_PORT)" || true; \
 		nc -z localhost $(LLS_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(LLS_PORT)/" || true; \
+		open -a "Google Chrome" "https://console.anthropic.com/settings/usage" || true; \
+		open -a "Google Chrome" "https://platform.moonshot.cn/console/account" || true; \
+		open -a "Google Chrome" "https://aistudio.google.com/app/apikey" || true; \
 		touch "$(AI_OPEN_STAMP)"; \
 	fi
 
