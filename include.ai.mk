@@ -305,9 +305,9 @@ MODEL              ?=
 # Set MODEL= here; engine batch jobs inherit ANTHROPIC_BASE_URL via os.environ.
 # All providers route through LiteLLM at :$(LITELLM_PORT) — no per-tool config needed.
 # Auth must already be set up (make ai-auth) — subscription bridges need valid OAuth tokens.
-# OTEL: CLAUDE_CODE_ENABLE_TELEMETRY=1 sends traces to MLflow experiment tne-sessions (id=2).
-# Training data: full session traces (prompts, tool calls) land there for fine-tuning corpus.
-# LiteLLM logs API-level metrics (tokens, costs) separately to ai-usage (id=1).
+# OTEL: CLAUDE_CODE_ENABLE_TELEMETRY=1 sends traces to MLflow experiment tne-training (id=2).
+# tne-training = conversation traces (prompts, tool calls) — fine-tuning corpus.
+# tne-costs    = LiteLLM per-call metrics (model, tokens, spend) — cost/billing analysis.
 ## ai-run: launch interactive AI harness with LiteLLM routing
 ##   make ai-run                               # claude via Max plan (default)
 ##   make ai-run MODEL=kimi-k2.6              # Kimi K2 Coding Plan ($19/mo flat) [PLAN]
