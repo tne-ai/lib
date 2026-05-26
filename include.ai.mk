@@ -671,6 +671,8 @@ test-ai: ai-test
 
 ## ai-test-models: live round-trip — sends 'pong' prompt to every cloud model via LiteLLM
 ##   Requires: make ai (sidecars up). Skips local (lms/*, lls/*) models.
+##   claude-* models tested via `claude -p` (OAuth token flow, not curl).
+##   Thinking models (deepseek-reasoner, minimax-*): checks reasoning_content fallback.
 ##   Reports ✓/✗ per model with response preview and final pass/fail count.
 .PHONY: ai-test-models
 ai-test-models:
@@ -679,25 +681,81 @@ ai-test-models:
 	@pass=0; fail=0; \
 	for model in $$(yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null \
 			| grep -v '^lms/' | grep -v '^lls/'); do \
-		result=$$(curl -sf --max-time 30 -X POST \
-			http://localhost:$(LITELLM_PORT)/v1/chat/completions \
-			-H "Content-Type: application/json" \
-			-H "Authorization: Bearer $${LITELLM_MASTER_KEY}" \
-			-d "{\"model\":\"$$model\",\"messages\":[{\"role\":\"user\",\"content\":\"reply with the single word: pong\"}],\"max_tokens\":20}" \
-			2>&1); \
-		reply=$$(echo "$$result" | python3 -c \
-			'import sys,json; r=json.load(sys.stdin); print(r["choices"][0]["message"]["content"].strip()[:60])' \
-			2>/dev/null); \
+		case "$$model" in \
+		claude-*) \
+			reply=$$(ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
+				ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" \
+				claude -p "reply with the single word: pong" --model "$$model" \
+				--max-turns 1 2>/dev/null | tr -d '\n' | cut -c1-60); \
+			;; \
+		*) \
+			result=$$(curl -sf --max-time 30 -X POST \
+				http://localhost:$(LITELLM_PORT)/v1/chat/completions \
+				-H "Content-Type: application/json" \
+				-H "Authorization: Bearer $${LITELLM_MASTER_KEY}" \
+				-d "{\"model\":\"$$model\",\"messages\":[{\"role\":\"user\",\"content\":\"reply with the single word: pong\"}],\"max_tokens\":20}" \
+				2>&1); \
+			reply=$$(echo "$$result" | python3 -c \
+				'import sys,json; r=json.load(sys.stdin); m=r["choices"][0]["message"]; print((m.get("content") or m.get("reasoning_content","")).strip()[:60])' \
+				2>/dev/null); \
+			;; \
+		esac; \
 		if [ -n "$$reply" ]; then \
 			echo "  ✓ $$model: $$reply"; pass=$$((pass+1)); \
 		else \
-			err=$$(echo "$$result" | python3 -c \
+			err=$$(echo "$${result:-}" | python3 -c \
 				'import sys,json; d=json.load(sys.stdin); print(d.get("error",{}).get("message","?")[:80])' \
-				2>/dev/null || echo "$$result" | head -c 80); \
+				2>/dev/null || echo "$${result:-}" | head -c 80); \
 			echo "  ✗ $$model: $$err"; fail=$$((fail+1)); \
 		fi; \
 	done; \
 	echo ""; echo "==> $$pass passed / $$fail failed"
+
+## ai-latest-models: query each provider API for their current model list; diff against config
+##   Requires: provider API keys in env. Reports new models not yet in LITELLM_CFG.
+.PHONY: ai-latest-models
+ai-latest-models:
+	@echo "==> querying providers for latest model names"
+	@echo ""
+	@echo "── Anthropic ────────────────────────────────────────"
+	@curl -sf https://api.anthropic.com/v1/models \
+		-H "x-api-key: $${ANTHROPIC_API_KEY}" -H "anthropic-version: 2023-06-01" \
+		| python3 -c 'import sys,json; [print(" ", m["id"]) for m in json.load(sys.stdin).get("data",[])]' \
+		2>/dev/null || echo "  (skipped — ANTHROPIC_API_KEY not set or request failed)"
+	@echo ""
+	@echo "── Moonshot / Kimi ──────────────────────────────────"
+	@curl -sf https://api.moonshot.ai/v1/models \
+		-H "Authorization: Bearer $${MOONSHOT_API_KEY}" \
+		| python3 -c 'import sys,json; [print(" ", m["id"]) for m in json.load(sys.stdin).get("data",[])]' \
+		2>/dev/null || echo "  (skipped — MOONSHOT_API_KEY not set or request failed)"
+	@echo ""
+	@echo "── Z.AI / GLM ───────────────────────────────────────"
+	@curl -sf https://api.z.ai/api/anthropic/v1/models \
+		-H "x-api-key: $${Z_AI_API_KEY}" -H "anthropic-version: 2023-06-01" \
+		| python3 -c 'import sys,json; [print(" ", m.get("id","?")) for m in json.load(sys.stdin).get("data",[])]' \
+		2>/dev/null || echo "  (skipped — Z_AI_API_KEY not set or request failed)"
+	@echo ""
+	@echo "── MiniMax ──────────────────────────────────────────"
+	@curl -sf https://api.minimax.io/v1/models \
+		-H "Authorization: Bearer $${MINIMAX_API_KEY}" \
+		| python3 -c 'import sys,json; [print(" ", m["id"]) for m in json.load(sys.stdin).get("data",[])]' \
+		2>/dev/null || echo "  (skipped — MINIMAX_API_KEY not set or request failed)"
+	@echo ""
+	@echo "── DeepSeek ─────────────────────────────────────────"
+	@curl -sf https://api.deepseek.com/models \
+		-H "Authorization: Bearer $${DEEPSEEK_API_KEY}" \
+		| python3 -c 'import sys,json; [print(" ", m["id"]) for m in json.load(sys.stdin).get("data",[])]' \
+		2>/dev/null || echo "  (skipped — DEEPSEEK_API_KEY not set or request failed)"
+	@echo ""
+	@echo "── Qwen / DashScope ─────────────────────────────────"
+	@curl -sf https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models \
+		-H "Authorization: Bearer $${ALIBABA_API_KEY}" \
+		| python3 -c 'import sys,json; [print(" ", m["id"]) for m in json.load(sys.stdin).get("data",[])]' \
+		2>/dev/null || echo "  (skipped — ALIBABA_API_KEY not set or request failed)"
+	@echo ""
+	@echo "── In $(LITELLM_CFG) ────────────────────────────────"
+	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null \
+		| grep -v '^lms/' | grep -v '^lls/' | sed 's/^/  /'
 
 ## ai-test-ui: playwright smoke test — verify each service UI renders correctly
 ##   Requires: make ai (sidecars up). Saves failure screenshots to /tmp.
