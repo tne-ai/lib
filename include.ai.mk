@@ -606,11 +606,11 @@ ai-log:
 		"$(TNE_LOG_DIR)/tne-engine.log" \
 		2>/dev/null || echo "(no log files yet — start services with make ai-local)"
 
-## test-ai: validate tools, config, and running sidecars for all ai-* stack variants
+## ai-test: validate tools, config, and running sidecars for all ai-* stack variants
 ##   Checks installs, litellm config routing, and port health — reports ✓/✗ without failing.
-##   Subsections mirror the make ai-* targets: base, local, cli, plan, auto.
-.PHONY: test-ai
-test-ai:
+##   For live model round-trips run: make ai-test-models
+.PHONY: ai-test test-ai
+ai-test:
 	@echo "══ make ai (base stack) ══════════════════════════════"
 	@command -v litellm >/dev/null 2>&1 || uvx litellm --version >/dev/null 2>&1 \
 		&& echo "✓ litellm installed" \
@@ -667,42 +667,53 @@ test-ai:
 	@$(call port_ready,$(ROUTELLM_PORT)) \
 		&& echo "  ✓ routellm :$(ROUTELLM_PORT)" \
 		|| echo "  ✗ routellm :$(ROUTELLM_PORT) stopped  → make routellm"
+test-ai: ai-test
 
-## test-ai-plan: alias for targeted plan-mode validation only
-.PHONY: test-ai-plan
-test-ai-plan: test-ai
-
-## test-ai-kimi: live round-trip test against kimi-k2.6 via claude-code-proxy + litellm
-##   Requires: make ai (sidecars up) + make kimi-claude-proxy (subscription bridge up)
-##   Sends a single completion to kimi-k2.6 through litellm on localhost:$(LITELLM_PORT).
-.PHONY: test-ai-kimi
-test-ai-kimi:
-	@echo "==> kimi round-trip test via litellm :$(LITELLM_PORT)"
+## ai-test-models: live round-trip — sends 'pong' prompt to every cloud model via LiteLLM
+##   Requires: make ai (sidecars up). Skips local (lms/*, lls/*) models.
+##   Reports ✓/✗ per model with response preview and final pass/fail count.
+.PHONY: ai-test-models
+ai-test-models:
 	@$(call port_ready,$(LITELLM_PORT)) || { echo "✗ LiteLLM not running — run: make ai"; exit 1; }
-	@$(call port_ready,$(KIMI_CLAUDE_PROXY_PORT)) || { echo "✗ claude-code-proxy not running — run: make kimi-claude-proxy"; exit 1; }
-	@curl -sf -X POST http://localhost:$(LITELLM_PORT)/v1/chat/completions \
-		-H "Content-Type: application/json" \
-		-H "Authorization: Bearer $${LITELLM_MASTER_KEY}" \
-		-d '{"model":"kimi-k2.6","messages":[{"role":"user","content":"reply with the single word: pong"}],"max_tokens":10}' \
-		| python3 -c "import sys,json; r=json.load(sys.stdin); print('✓ kimi response:', r['choices'][0]['message']['content'].strip()); print('  model:', r.get('model','?')); print('  provider:', r.get('x_litellm_model_group', r.get('system_fingerprint','?')))" \
-		|| echo "✗ kimi round-trip failed — check litellm logs: make litellm.log"
+	@echo "==> live model round-trips via LiteLLM :$(LITELLM_PORT)"
+	@pass=0; fail=0; \
+	for model in $$(yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null \
+			| grep -v '^lms/' | grep -v '^lls/'); do \
+		result=$$(curl -sf --max-time 30 -X POST \
+			http://localhost:$(LITELLM_PORT)/v1/chat/completions \
+			-H "Content-Type: application/json" \
+			-H "Authorization: Bearer $${LITELLM_MASTER_KEY}" \
+			-d "{\"model\":\"$$model\",\"messages\":[{\"role\":\"user\",\"content\":\"reply with the single word: pong\"}],\"max_tokens\":20}" \
+			2>&1); \
+		reply=$$(echo "$$result" | python3 -c \
+			'import sys,json; r=json.load(sys.stdin); print(r["choices"][0]["message"]["content"].strip()[:60])' \
+			2>/dev/null); \
+		if [ -n "$$reply" ]; then \
+			echo "  ✓ $$model: $$reply"; pass=$$((pass+1)); \
+		else \
+			err=$$(echo "$$result" | python3 -c \
+				'import sys,json; d=json.load(sys.stdin); print(d.get("error",{}).get("message","?")[:80])' \
+				2>/dev/null || echo "$$result" | head -c 80); \
+			echo "  ✗ $$model: $$err"; fail=$$((fail+1)); \
+		fi; \
+	done; \
+	echo ""; echo "==> $$pass passed / $$fail failed"
 
-## test-ai-ui: playwright smoke test — verify each service UI renders correctly
+## ai-test-ui: playwright smoke test — verify each service UI renders correctly
 ##   Requires: make ai (sidecars up). Saves failure screenshots to /tmp.
-##   Governed by r-ai-ui-check (playwright eval rule for AI sidecar UIs).
-.PHONY: test-ai-ui
-test-ai-ui:
+.PHONY: ai-test-ui
+ai-test-ui:
 	@echo "==> AI sidecar UI smoke tests (playwright)"
 	@python3 $(dir $(abspath $(lastword $(MAKEFILE_LIST))))../bin/check-ai-ui.py
 
-## test-ai-ui-litellm: check only LiteLLM Admin UI
-.PHONY: test-ai-ui-litellm
-test-ai-ui-litellm:
+## ai-test-ui-litellm: check only LiteLLM Admin UI
+.PHONY: ai-test-ui-litellm
+ai-test-ui-litellm:
 	@python3 $(dir $(abspath $(lastword $(MAKEFILE_LIST))))../bin/check-ai-ui.py --service litellm
 
-## test-ai-ui-mlflow: check only MLflow UI
-.PHONY: test-ai-ui-mlflow
-test-ai-ui-mlflow:
+## ai-test-ui-mlflow: check only MLflow UI
+.PHONY: ai-test-ui-mlflow
+ai-test-ui-mlflow:
 	@python3 $(dir $(abspath $(lastword $(MAKEFILE_LIST))))../bin/check-ai-ui.py --service mlflow
 
 ## ai-ps: process status of all sidecars
