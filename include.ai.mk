@@ -300,20 +300,24 @@ HARNESS            ?= claude
 HARNESS_ARGS       ?=
 MODEL              ?=
 
-# ── Run-only target (servers already up) ──────────────────────────────────────
-## ai-run: start full sidecar stack if needed, then launch harness
-## Equivalent to: make ai && make ai-run MODEL=…
-## Auth must already be set up (make ai-auth) — bridges need valid OAuth tokens.
+# ── Run-only targets (servers already up) ─────────────────────────────────────
+# ONE-MECHANISM RULE: ai-run / ai-p are the sole model selectors.
+# Set MODEL= here; engine batch jobs inherit ANTHROPIC_BASE_URL via os.environ.
+# All providers route through LiteLLM at :$(LITELLM_PORT) — no per-tool config needed.
+# Auth must already be set up (make ai-auth) — subscription bridges need valid OAuth tokens.
+## ai-run: launch interactive AI harness with LiteLLM routing
 ##   make ai-run                               # claude via Max plan (default)
 ##   make ai-run MODEL=kimi-k2.6              # Kimi K2 Coding Plan ($19/mo flat) [PLAN]
 ##   make ai-run MODEL=kimi-k2.5              # Kimi K2.5 Coding Plan             [PLAN]
 ##   make ai-run MODEL=gemini-2.5-flash       # Gemini Flash                      [PAYG]
+##   make ai-run MODEL=glm-5                  # GLM-5 via Z.AI Anthropic endpoint  [PAYG]
+##   make ai-run MODEL=minimax-m2             # MiniMax M2 Anthropic endpoint      [PAYG]
+##   make ai-run MODEL=qwen-code              # Qwen via DashScope Coding Plan     [PLAN]
 ##   make ai-run MODEL=lls/qwen/qwen3.6-27b   # local GPU (llama-server router)   [FREE]
 ##   make ai-run MODEL=lms/qwen/qwen3.6-27b   # local GPU (LM Studio — legacy)    [FREE]
 ##   make ai-run HARNESS=aider                # swap harness, same model
 .PHONY: ai-run
 ai-run:
-	@echo "run ai-run first"
 	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
 		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
 	@$(if $(filter lls/%,$(MODEL)), \
@@ -328,32 +332,77 @@ ai-run:
 	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
 	env -u CLAUDECODE $(HARNESS) $(if $(MODEL),--model $(MODEL),) $(HARNESS_ARGS)
 
+## ai-p: run a single claude -p batch invocation via LiteLLM routing
+## Same env as ai-run — engine invoker.py inherits ANTHROPIC_BASE_URL via os.environ.
+##   make ai-p MODEL=kimi-k2.5 PROMPT='summarize foo.md'
+##   make ai-p MODEL=gemini-2.5-flash AI_P_ARGS='--output-format json' PROMPT='classify: ...'
+PROMPT ?=
+AI_P_ARGS ?=
+.PHONY: ai-p
+ai-p:
+	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
+		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
+	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
+	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
+	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
+	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
+	claude -p $(AI_P_ARGS) $(if $(MODEL),--model $(MODEL),) "$(PROMPT)"
+
 # ── Public entry points ───────────────────────────────────────────────────────
 
 ## ai: start full sidecar stack — cloud + local GPU, all models available
-##   make ai                                      # start everything, then run: make ai-run
-##   make ai-run                                  # claude via Max plan (default)
-##   make ai-run MODEL=kimi-k2.6                 # Kimi K2 Coding Plan ($19/mo)   [PLAN]
-##   make ai-run MODEL=gemini-2.5-flash          # Gemini Flash                   [PAYG]
-##   make ai-run MODEL=lls/qwen/qwen3.6-27b      # local GPU via llama-server     [FREE]
-##   make ai-run HARNESS=aider                   # swap harness, same model
-##   See all models: make ai-models
+## See all available models after start: make ai-help
 ## Sidecars: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start
 ## (ai-local was merged into ai — one stack serves all models)
 .PHONY: ai ai-local
 ai ai-local: mlflow-start postgres redis mlflow litellm temporal set-gpu-max-memory lls-start ai-open
-	@echo ""
-	@echo "  Stack ready. Run your AI harness in a separate terminal:"
-	@echo "    make ai-run                               # claude Max plan"
-	@echo "    make ai-run MODEL=kimi-k2.6              # Kimi K2 (Coding plan)"
-	@echo "    make ai-run MODEL=lls/<vendor>/<model>   # local GPU  [FREE]"
-	@echo "    make ai-run HARNESS=aider                # aider"
-	@echo ""
-	@echo "  Local models:"
-	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lls' | sort | \
-		while IFS= read -r name; do printf '    make ai-run MODEL=%-36s # FREE\n' "$$name"; done
-	@echo ""
+	@$(MAKE) --no-print-directory ai-help
 	@$(MAKE) --no-print-directory ai-warn-bridges
+
+## ai-help: show available models — static cloud providers + dynamic lls/ollama from live config
+.PHONY: ai-help
+ai-help:
+	@echo ""
+	@echo "  Stack ready. Run your AI harness (MODEL= optional):"
+	@echo ""
+	@echo "  ── Cloud / Subscription ─────────────────────────────────────────────────"
+	@echo "    make ai-run                               # claude Max plan (default)"
+	@printf '    make ai-run MODEL=%-32s # %s\n' \
+		kimi-k2.6   "Kimi K2 Coding Plan \$$19/mo  [PLAN]" \
+		kimi-k2.5   "Kimi K2.5 Coding Plan         [PLAN]" \
+		glm-5       "GLM-5 via Z.AI                [PAYG]" \
+		minimax-m2  "MiniMax M2                    [PAYG]" \
+		qwen-code   "Qwen DashScope Coding Plan    [PLAN]" \
+		gemini-2.5-flash "Gemini Flash             [PAYG]" 2>/dev/null || true
+	@echo ""
+	@echo "  ── Local GPU (llama-server) ─────────────────────────────────────────────"
+	@if nc -z localhost $(LLS_PORT) 2>/dev/null; then \
+		curl -sf http://localhost:$(LLS_PORT)/v1/models 2>/dev/null \
+		| python3 -c "import sys,json; [print('    make ai-run MODEL=lls/{:<28} # FREE'.format(m['id'])) \
+		  for m in json.load(sys.stdin).get('data',[])]" 2>/dev/null \
+		|| yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lls' | sort | \
+		   while IFS= read -r name; do printf '    make ai-run MODEL=%-36s # FREE\n' "$$name"; done; \
+	else \
+		yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lls' | sort | \
+		while IFS= read -r name; do printf '    make ai-run MODEL=%-36s # FREE (lls offline)\n' "$$name"; done; \
+		[ -z "$$(yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lls')" ] \
+		  && echo "    (no lls models in $(LITELLM_CFG))"; \
+	fi
+	@echo ""
+	@echo "  ── Ollama ───────────────────────────────────────────────────────────────"
+	@if nc -z localhost 11434 2>/dev/null; then \
+		curl -sf http://localhost:11434/api/tags 2>/dev/null \
+		| python3 -c "import sys,json; [print('    make ai-run MODEL=ollama/{:<24} # FREE'.format(m['name'])) \
+		  for m in json.load(sys.stdin).get('models',[])]" 2>/dev/null \
+		|| echo "    (ollama running — run: ollama list)"; \
+	else \
+		echo "    (ollama not running — run: ollama serve)"; \
+	fi
+	@echo ""
+	@echo "  ── Batch (claude -p) ────────────────────────────────────────────────────"
+	@echo "    make ai-p MODEL=<model> PROMPT='<prompt>'   # single batch invocation"
+	@echo "    make ai-run HARNESS=aider                   # swap harness"
+	@echo ""
 
 ## ai-warn-bridges: start subscription bridges if not running; warn to auth if they stay down
 ## Called automatically by make ai. Non-interactive — never prompts for credentials.
