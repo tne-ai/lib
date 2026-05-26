@@ -305,6 +305,9 @@ MODEL              ?=
 # Set MODEL= here; engine batch jobs inherit ANTHROPIC_BASE_URL via os.environ.
 # All providers route through LiteLLM at :$(LITELLM_PORT) — no per-tool config needed.
 # Auth must already be set up (make ai-auth) — subscription bridges need valid OAuth tokens.
+# OTEL: CLAUDE_CODE_ENABLE_TELEMETRY=1 sends traces to MLflow experiment tne-training (id=2).
+# tne-training = conversation traces (prompts, tool calls) — fine-tuning corpus.
+# tne-costs    = LiteLLM per-call metrics (model, tokens, spend) — cost/billing analysis.
 ## ai-run: launch interactive AI harness with LiteLLM routing
 ##   make ai-run                               # claude via Max plan (default)
 ##   make ai-run MODEL=kimi-k2.6              # Kimi K2 Coding Plan ($19/mo flat) [PLAN]
@@ -330,6 +333,10 @@ ai-run:
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
 	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
+	CLAUDE_CODE_ENABLE_TELEMETRY=1 \
+	OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
+	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$(MLFLOW_PORT) \
+	OTEL_EXPORTER_OTLP_HEADERS="x-mlflow-experiment-id=2" \
 	env -u CLAUDECODE $(HARNESS) $(if $(MODEL),--model $(MODEL),) $(HARNESS_ARGS)
 
 ## ai-p: run a single claude -p batch invocation via LiteLLM routing
@@ -346,6 +353,10 @@ ai-p:
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
 	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
+	CLAUDE_CODE_ENABLE_TELEMETRY=1 \
+	OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
+	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$(MLFLOW_PORT) \
+	OTEL_EXPORTER_OTLP_HEADERS="x-mlflow-experiment-id=2" \
 	claude -p $(AI_P_ARGS) $(if $(MODEL),--model $(MODEL),) "$(PROMPT)"
 
 # ── Public entry points ───────────────────────────────────────────────────────
