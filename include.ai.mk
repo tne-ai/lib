@@ -367,13 +367,9 @@ ai-help:
 	@echo ""
 	@echo "  ── Cloud / Subscription ─────────────────────────────────────────────────"
 	@echo "    make ai-run                               # claude Max plan (default)"
-	@printf '    make ai-run MODEL=%-32s # %s\n' \
-		kimi-k2.6   "Kimi K2 Coding Plan \$$19/mo  [PLAN]" \
-		kimi-k2.5   "Kimi K2.5 Coding Plan         [PLAN]" \
-		glm-5       "GLM-5 via Z.AI                [PAYG]" \
-		minimax-m2  "MiniMax M2                    [PAYG]" \
-		qwen-code   "Qwen DashScope Coding Plan    [PLAN]" \
-		gemini-2.5-flash "Gemini Flash             [PAYG]" 2>/dev/null || true
+	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null \
+		| grep -v '^lls/' | grep -v '^lms/' | sort \
+		| while IFS= read -r name; do printf '    make ai-run MODEL=%-36s\n' "$$name"; done
 	@echo ""
 	@echo "  ── Local GPU (llama-server) ─────────────────────────────────────────────"
 	@if nc -z localhost $(LLS_PORT) 2>/dev/null; then \
