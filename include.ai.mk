@@ -437,7 +437,7 @@ ai-warn-bridges:
 	@if ! nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
 		echo "  → gemini bridge (:$(CLIPROXYAPI_PORT)) not running — starting..."; \
 		if command -v cliproxyapi >/dev/null 2>&1; then \
-			nohup cliproxyapi start </dev/null >$(TNE_LOG_DIR)/sidecar-$(CLIPROXYAPI_PORT).log 2>&1 & \
+			nohup cliproxyapi -config "$(HOME)/.config/cliproxyapi/config.yaml" </dev/null >$(TNE_LOG_DIR)/sidecar-$(CLIPROXYAPI_PORT).log 2>&1 & \
 			sleep 2; \
 			if nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
 				echo "  ✓  gemini bridge started"; \
@@ -486,7 +486,7 @@ ai-auth:
 	fi
 	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "gemini" ]]; then \
 		echo "==> cliproxyapi -login  (Google OAuth for Gemini — stores in ~/.cli-proxy-api/)"; \
-		cliproxyapi -login 2>/dev/null || echo "  (cliproxyapi not installed — brew install cliproxyapi)"; \
+		echo "2" | cliproxyapi -login 2>/dev/null || echo "  (cliproxyapi not installed — brew install cliproxyapi)"; \
 	fi
 	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "codex" ]]; then \
 		echo "==> cliproxyapi -codex-login"; \
@@ -501,7 +501,7 @@ CLIPROXYAPI_PORT ?= 8317
 .PHONY: cliproxyapi
 cliproxyapi:
 	command -v cliproxyapi >/dev/null || { echo "cliproxyapi not installed — run: brew install cliproxyapi"; exit 1; }
-	$(call start_server_self,$(CLIPROXYAPI_PORT),cliproxyapi start)
+	$(call start_server_self,$(CLIPROXYAPI_PORT),cliproxyapi -config $(HOME)/.config/cliproxyapi/config.yaml)
 	$(call check_port,$(CLIPROXYAPI_PORT))
 
 ## routellm: RouteLLM difficulty-routing server
