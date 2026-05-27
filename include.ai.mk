@@ -528,7 +528,7 @@ ai-open:
 		nc -z localhost $(LLS_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(LLS_PORT)/" || true; \
 		open -a "Google Chrome" "https://console.anthropic.com/settings/usage" || true; \
 		open -a "Google Chrome" "https://platform.moonshot.cn/console/account" || true; \
-		open -a "Google Chrome" "https://aistudio.google.com/app/apikey" || true; \
+		open -a "Google Chrome" "https://aistudio.google.com/app/usage?timeRange=last-28-days" || true; \
 		open -a "Google Chrome" "https://z.ai/manage-apikey/billing" || true; \
 		open -a "Google Chrome" "https://platform.minimax.io/user-center/payment/token-plan" || true; \
 		touch "$(AI_OPEN_STAMP)"; \
