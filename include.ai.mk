@@ -266,7 +266,7 @@ litellm: litellm-check-version
 		DEEPSEEK_API_KEY="$${DEEPSEEK_API_KEY}" \
 		ALIBABA_API_KEY="$${ALIBABA_API_KEY}" \
 		QWEN_CODING_API_KEY="$${QWEN_CODING_API_KEY}" \
-		Z_AI_API_KEY="$${Z_AI_API_KEY}" \
+		Z_AI_PLAN_KEY="$${Z_AI_PLAN_KEY}" \
 		MINIMAX_API_KEY="$${MINIMAX_API_KEY}" \
 		OPENROUTER_API_KEY="$${OPENROUTER_API_KEY}" \
 		$$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
@@ -766,9 +766,9 @@ ai-latest-models:
 	@echo ""
 	@echo "── Z.AI / GLM ───────────────────────────────────────"
 	@curl -sf https://api.z.ai/api/anthropic/v1/models \
-		-H "x-api-key: $${Z_AI_API_KEY}" -H "anthropic-version: 2023-06-01" \
+		-H "x-api-key: $${Z_AI_PLAN_KEY}" -H "anthropic-version: 2023-06-01" \
 		| python3 -c 'import sys,json; [print(" ", m.get("id","?")) for m in json.load(sys.stdin).get("data",[])]' \
-		2>/dev/null || echo "  (skipped — Z_AI_API_KEY not set or request failed)"
+		2>/dev/null || echo "  (skipped — Z_AI_PLAN_KEY not set or request failed)"
 	@echo ""
 	@echo "── MiniMax ──────────────────────────────────────────"
 	@curl -sf https://api.minimax.io/v1/models \
