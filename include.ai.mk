@@ -529,6 +529,7 @@ ai-open:
 		open -a "Google Chrome" "https://console.anthropic.com/settings/usage" || true; \
 		open -a "Google Chrome" "https://platform.moonshot.cn/console/account" || true; \
 		open -a "Google Chrome" "https://aistudio.google.com/app/apikey" || true; \
+		open -a "Google Chrome" "https://z.ai/manage-apikey/billing" || true; \
 		touch "$(AI_OPEN_STAMP)"; \
 	fi
 
