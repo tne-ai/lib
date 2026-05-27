@@ -530,7 +530,7 @@ ai-open:
 		open -a "Google Chrome" "https://platform.moonshot.cn/console/account" || true; \
 		open -a "Google Chrome" "https://aistudio.google.com/app/apikey" || true; \
 		open -a "Google Chrome" "https://z.ai/manage-apikey/billing" || true; \
-		open -a "Google Chrome" "https://platform.minimax.io/user-center/basic-information/interface-key" || true; \
+		open -a "Google Chrome" "https://platform.minimax.io/user-center/payment/token-plan" || true; \
 		touch "$(AI_OPEN_STAMP)"; \
 	fi
 
