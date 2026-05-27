@@ -686,12 +686,23 @@ ai-test-models:
 			echo "  – $$model: skipped (Max plan OAuth — tested implicitly via Claude Code session)"; \
 			continue; \
 			;; \
+		kimi-*) \
+			result=$$(curl -sf --max-time 30 -X POST \
+				http://localhost:$(LITELLM_PORT)/v1/chat/completions \
+				-H "Content-Type: application/json" \
+				-H "Authorization: Bearer $${LITELLM_MASTER_KEY}" \
+				-d "{\"model\":\"$$model\",\"stream\":true,\"messages\":[{\"role\":\"user\",\"content\":\"reply with the single word: pong\"}],\"max_tokens\":200}" \
+				2>&1); \
+			reply=$$(echo "$$result" | grep '"content"' | grep -v '"content":""' \
+				| python3 -c 'import sys,json,re; chunks=[l for l in sys.stdin if l.startswith("data:")]; last=[c for c in chunks if "content" in c and json.loads(c[5:]).get("choices",[{}])[0].get("delta",{}).get("content","")]; print("".join(json.loads(c[5:])["choices"][0]["delta"]["content"] for c in last).strip()[:60])' \
+				2>/dev/null); \
+			;; \
 		*) \
 			result=$$(curl -sf --max-time 30 -X POST \
 				http://localhost:$(LITELLM_PORT)/v1/chat/completions \
 				-H "Content-Type: application/json" \
 				-H "Authorization: Bearer $${LITELLM_MASTER_KEY}" \
-				-d "{\"model\":\"$$model\",\"messages\":[{\"role\":\"user\",\"content\":\"reply with the single word: pong\"}],\"max_tokens\":20}" \
+				-d "{\"model\":\"$$model\",\"messages\":[{\"role\":\"user\",\"content\":\"reply with the single word: pong\"}],\"max_tokens\":200}" \
 				2>&1); \
 			reply=$$(echo "$$result" | python3 -c \
 				'import sys,json; r=json.load(sys.stdin); m=r["choices"][0]["message"]; print((m.get("content") or m.get("reasoning_content","")).strip()[:60])' \
@@ -802,6 +813,8 @@ ai-install:
 	for pkg in codex gemini-cli qwen-code kimi-cli; do \
 		command -v "$$pkg" >/dev/null 2>&1 || brew install "$$pkg" 2>/dev/null || echo "  ($$pkg not in brew — skip)"; \
 	done
+	echo "==> brew: CLIProxyAPI (wraps gemini-cli/codex as OpenAI-compatible API on :8317)"
+	command -v cliproxyapi >/dev/null 2>&1 || brew install cliproxyapi 2>/dev/null || echo "  (cliproxyapi not in brew — skip)"
 	echo "==> uv: litellm proxy + mlflow tracking"
 	uv tool install 'litellm[proxy]' 2>/dev/null || uvx litellm --version >/dev/null
 	uv tool install mlflow 2>/dev/null || uvx mlflow --version >/dev/null
