@@ -529,6 +529,7 @@ ai-open:
 		open -a "Google Chrome" "https://console.anthropic.com/settings/usage" || true; \
 		open -a "Google Chrome" "https://platform.moonshot.cn/console/account" || true; \
 		open -a "Google Chrome" "https://aistudio.google.com/app/apikey" || true; \
+		open -a "Google Chrome" "https://z.ai/manage-apikey/billing" || true; \
 		touch "$(AI_OPEN_STAMP)"; \
 	fi
 
@@ -563,12 +564,12 @@ ai-models:
 			*-free)    tag="FREE  -- provider free tier via OpenRouter" ;; \
 			claude*)   tag="PLAN  -- Anthropic Max (~\$$20-100/mo flat)" ;; \
 			kimi*)     tag="PLAN  -- Kimi Coding Plan (\$$19/mo flat)" ;; \
-			glm*)      tag="PLAN  -- ZAI Coding Plan (~\$$10/mo flat)" ;; \
-			qwen3*)    tag="PLAN  -- Qwen Coding Plan (\$$50/mo flat)" ;; \
-			minimax*)  tag="PLAN  -- MiniMax plan" ;; \
+			glm*)      tag="PLAN  -- ZAI GLM Coding Plan \$$18/mo → Z_AI_PLAN_KEY" ;; \
+			qwen3*)    tag="PLAN  -- Qwen Coding \$$50/mo → QWEN_CODING_API_KEY" ;; \
+			minimax*)  tag="PLAN  -- MiniMax Token Plan \$$10-20/mo → MINIMAX_PLAN_KEY" ;; \
 			routellm*) tag="PLAN+PLAN -- auto-routes kimi->claude by difficulty" ;; \
-			gemini*)   tag="PAYG  -- pay per token (flash: free tier available)" ;; \
-			deepseek*) tag="PAYG  -- pay per token" ;; \
+			gemini*)   tag="PLAN  -- Google CLI sub → make ai-auth PROVIDER=gemini" ;; \
+			deepseek*) tag="PAYG  -- no flat-rate plan; use sparingly" ;; \
 			*)         tag="PAYG" ;; \
 			esac; \
 			printf '  make ai MODEL=%-32s # %s\n' "$$name" "$$tag"; \
@@ -587,6 +588,31 @@ ai-models:
 	echo "  make ai-cli MODEL=codex              # PLAN  — codex login"
 	echo "  make ai-cli MODEL=gemini-proxy       # PLAN  — gemini auth login"
 	echo "  make ai-auto                         # PLAN+PLAN — kimi (easy) → claude (hard)"
+
+## ai-keys: show which env vars are required for each PLAN provider and where to get them
+## Sources:
+##   Z.AI:    https://z.ai/subscribe → account → API Keys (regular key, no special prefix)
+##   MiniMax: https://platform.minimax.io/subscribe/token-plan — Token Plan $10-20/mo
+##   Qwen:    https://help.aliyun.com/zh/model-studio/qwen-coder — coding plan key
+##   Gemini:  make ai-auth PROVIDER=gemini — Google OAuth via cliproxyapi
+##   Kimi:    claude-code-proxy handles auth — no extra key needed
+.PHONY: ai-keys
+ai-keys:
+	@echo "══ PLAN provider keys (set in .envrc or 1Password) ══════"
+	@printf "  %-28s %s\n" "Z_AI_PLAN_KEY" \
+		"$$([ -n "$$Z_AI_PLAN_KEY" ] && echo "✓ set" || echo "✗ missing — z.ai → account → API Keys")"
+	@printf "  %-28s %s\n" "MINIMAX_PLAN_KEY" \
+		"$$([ -n "$$MINIMAX_PLAN_KEY" ] && echo "✓ set" || echo "✗ missing — platform.minimax.io/subscribe/token-plan")"
+	@printf "  %-28s %s\n" "QWEN_CODING_API_KEY" \
+		"$$([ -n "$$QWEN_CODING_API_KEY" ] && echo "✓ set" || echo "✗ missing — Alibaba Cloud console → Model Studio → API Keys")"
+	@printf "  %-28s %s\n" "LITELLM_MASTER_KEY" \
+		"$$([ -n "$$LITELLM_MASTER_KEY" ] && echo "✓ set" || echo "✗ missing — generate random, set in 1Password")"
+	@echo ""
+	@echo "══ PLAN providers requiring OAuth (no API key) ══════════"
+	@printf "  %-28s %s\n" "Gemini (CLIProxyAPI)" \
+		"$$(cliproxyapi status 2>/dev/null | grep -q authenticated && echo "✓ authenticated" || echo "✗ run: make ai-auth PROVIDER=gemini")"
+	@printf "  %-28s %s\n" "Kimi (claude-code-proxy)" \
+		"$$($(call port_ready,3457) && echo "✓ running :3457" || echo "✗ run: make ai")"
 
 ## ai-logs: push Claude Code session logs to MLflow
 .PHONY: ai-logs
