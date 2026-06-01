@@ -362,7 +362,7 @@ ai-p:
 # ── Public entry points ───────────────────────────────────────────────────────
 
 ## ai: start full sidecar stack — cloud + local GPU, all models available
-## See all available models after start: make ai-help
+## See all available models (cloud + local) after start: make ai-help
 ## Sidecars: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start
 ## (ai-local was merged into ai — one stack serves all models)
 .PHONY: ai ai-local
@@ -370,40 +370,43 @@ ai ai-local: mlflow-start postgres redis mlflow litellm temporal set-gpu-max-mem
 	@$(MAKE) --no-print-directory ai-help
 	@$(MAKE) --no-print-directory ai-warn-bridges
 
-## ai-help: show available models — static cloud providers + dynamic lls/ollama from live config
+## ai-help: show available models — live cloud cache + dynamic lls/ollama
+## Cloud models come from ~/.cache/tne/model-ids.yaml (refresh: make ai-refresh-models)
 .PHONY: ai-help
 ai-help:
 	@echo ""
 	@echo "  Stack ready. Run your AI harness (MODEL= optional):"
 	@echo ""
-	@echo "  ── Cloud / Subscription ─────────────────────────────────────────────────"
+	@echo "  ── Cloud (API keys — refresh: make ai-refresh-models) ───────────────────"
 	@echo "    make ai-run                               # claude Max plan (default)"
-	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null \
-		| grep -v '^lls/' | grep -v '^lms/' | sort \
-		| while IFS= read -r name; do printf '    make ai-run MODEL=%-36s\n' "$$name"; done
+	@bash -c 'source "$(LIB_UTIL)" && source "$(LIB_AI)" && ai_resolve_model_names 2>/dev/null; \
+		env | grep "^AI_MODEL_.*_LATEST=" | sort \
+		| while IFS="=" read -r var val; do \
+			provider=$$(echo "$$var" | sed "s/^AI_MODEL_//;s/_LATEST$$//;s/_/./g" | tr "[:upper:]" "[:lower:]"); \
+			printf "    make ai-run MODEL=%-36s# %s\n" "$$val" "$$provider"; \
+		done'
 	@echo ""
 	@echo "  ── Local GPU (llama-server) ─────────────────────────────────────────────"
 	@if nc -z localhost $(LLS_PORT) 2>/dev/null; then \
 		curl -sf http://localhost:$(LLS_PORT)/v1/models 2>/dev/null \
-		| python3 -c "import sys,json; [print('    make ai-run MODEL=lls/{:<28} # FREE'.format(m['id'])) \
-		  for m in json.load(sys.stdin).get('data',[])]" 2>/dev/null \
-		|| yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lls' | sort | \
-		   while IFS= read -r name; do printf '    make ai-run MODEL=%-36s # FREE\n' "$$name"; done; \
+		| yq -p json '.data[].id' 2>/dev/null \
+		| while IFS= read -r id; do printf '    make ai-run MODEL=lls/%-28s # FREE\n' "$$id"; done \
+		|| echo "    (lls running but models unavailable)"; \
 	else \
-		yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lls' | sort | \
-		while IFS= read -r name; do printf '    make ai-run MODEL=%-36s # FREE (lls offline)\n' "$$name"; done; \
-		[ -z "$$(yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lls')" ] \
-		  && echo "    (no lls models in $(LITELLM_CFG))"; \
+		yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep '^lls' | sort \
+		| while IFS= read -r name; do printf '    make ai-run MODEL=%-36s # FREE (lls offline)\n' "$$name"; done; \
+		[ -z "$$(yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep -c '^lls')" ] \
+		  && echo "    (lls not running — start with: make lls-start)"; \
 	fi
 	@echo ""
 	@echo "  ── Ollama ───────────────────────────────────────────────────────────────"
 	@if nc -z localhost 11434 2>/dev/null; then \
 		curl -sf http://localhost:11434/api/tags 2>/dev/null \
-		| python3 -c "import sys,json; [print('    make ai-run MODEL=ollama/{:<24} # FREE'.format(m['name'])) \
-		  for m in json.load(sys.stdin).get('models',[])]" 2>/dev/null \
+		| yq -p json '.models[].name' 2>/dev/null \
+		| while IFS= read -r name; do printf '    make ai-run MODEL=ollama/%-28s # FREE\n' "$$name"; done \
 		|| echo "    (ollama running — run: ollama list)"; \
 	else \
-		echo "    (ollama not running — run: ollama serve)"; \
+		echo "    (ollama not running — start with: ollama serve)"; \
 	fi
 	@echo ""
 	@echo "  ── Batch (claude -p) ────────────────────────────────────────────────────"
