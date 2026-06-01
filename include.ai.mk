@@ -309,16 +309,31 @@ MODEL              ?=
 # tne-training = conversation traces (prompts, tool calls) — fine-tuning corpus.
 # tne-costs    = LiteLLM per-call metrics (model, tokens, spend) — cost/billing analysis.
 ## ai-run: launch interactive AI harness with LiteLLM routing
-##   make ai-run                               # claude via Max plan (default)
-##   make ai-run MODEL=kimi-k2.6              # Kimi K2 Coding Plan ($19/mo flat) [PLAN]
-##   make ai-run MODEL=kimi-k2.5              # Kimi K2.5 Coding Plan             [PLAN]
-##   make ai-run MODEL=gemini-2.5-flash       # Gemini Flash                      [PAYG]
-##   make ai-run MODEL=glm-5                  # GLM-5 via Z.AI Anthropic endpoint  [PAYG]
-##   make ai-run MODEL=minimax-m2             # MiniMax M2 Anthropic endpoint      [PAYG]
-##   make ai-run MODEL=qwen-code              # Qwen via DashScope Coding Plan     [PLAN]
-##   make ai-run MODEL=lls/qwen/qwen3.6-27b   # local GPU (llama-server router)   [FREE]
-##   make ai-run MODEL=lms/qwen/qwen3.6-27b   # local GPU (LM Studio — legacy)    [FREE]
-##   make ai-run HARNESS=aider                # swap harness, same model
+##
+## Billing legend:
+##   [PLAN] flat-rate subscription — no per-token cost once subscribed
+##   [PAYG] pay-as-you-go per token — watch spend; no flat-rate plan available
+##   [FREE] local GPU — zero cloud cost
+##
+## Provider billing model:
+##   Anthropic : PLAN  — Max plan OAuth token forwarded by LiteLLM; no api_key = no PAYG billing
+##   Kimi      : PLAN  — $19/mo Coding Plan via claude-code-proxy bridge (:3457)
+##   Gemini    : PLAN  — Google One AI Premium OAuth via cliproxyapi bridge (:8317)
+##   Z.AI/GLM  : PLAN  — same API key routes to coding plan quota via api.z.ai/api/anthropic
+##   MiniMax   : PLAN  — Token Plan ~$10/mo; MINIMAX_PLAN_KEY routes to plan quota
+##   Qwen      : PLAN  — $50/mo Alibaba bundle (when available) via coding-intl endpoint
+##   DeepSeek  : PAYG  — no flat-rate plan exists; cheap ($0.14/1M tokens for flash)
+##   OpenRouter: PAYG  — markup on underlying models; use for models with no direct plan
+##
+##   make ai-run                               # claude via Max plan (default)   [PLAN]
+##   make ai-run MODEL=kimi-k2.6              # Kimi K2.6 Coding Plan $19/mo    [PLAN]
+##   make ai-run MODEL=glm-5.1               # GLM-5.1 Z.AI coding plan         [PLAN]
+##   make ai-run MODEL=minimax-m2.7          # MiniMax M2.7 Token Plan          [PLAN]
+##   make ai-run MODEL=deepseek-v4-flash     # DeepSeek V4 Flash                [PAYG]
+##   make ai-run MODEL=deepseek-v4-pro       # DeepSeek V4 Pro                  [PAYG]
+##   make ai-run MODEL=lls/qwen/qwen3.6-27b  # local GPU (llama-server router)  [FREE]
+##   make ai-run MODEL=lms/qwen/qwen3.6-27b  # local GPU (LM Studio — legacy)   [FREE]
+##   make ai-run HARNESS=aider               # swap harness, same model
 .PHONY: ai-run
 ai-run:
 	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
