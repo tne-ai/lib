@@ -854,9 +854,13 @@ ai-install:
 	_schema=$$_venv/lib/python*/site-packages/litellm/proxy/schema.prisma; \
 	$$_venv/bin/python -m prisma generate --schema $$_schema
 	mkdir -p $$(dirname $(PRISMA_STAMP)) && touch $(PRISMA_STAMP)
-	echo "==> brew services: start redis + postgresql"
+	echo "==> brew: tne-engine-worker (persistent Temporal worker — r-cto-dev129)"
+	brew tap tne-ai/tne-tap 2>/dev/null || true
+	brew list tne-engine-worker &>/dev/null 2>&1 || brew install tne-ai/tne-tap/tne-engine-worker 2>/dev/null || echo "  (tne-engine-worker install failed — worker will start transiently at session start)"
+	echo "==> brew services: start redis + postgresql + tne-engine-worker"
 	brew services start redis 2>/dev/null || true
 	brew services start postgresql@17 2>/dev/null || brew services start postgresql 2>/dev/null || true
+	brew list tne-engine-worker &>/dev/null 2>&1 && brew services start tne-engine-worker 2>/dev/null || true
 	echo "==> creating litellm database"
 	createdb $(LITELLM_DB) 2>/dev/null || true
 	echo "==> litellm config"
@@ -989,6 +993,10 @@ temporal:
 	mkdir -p "$(dir $(TEMPORAL_DB))"
 	$(call start_server,$(TEMPORAL_PORT),temporal server start-dev --db-filename $(TEMPORAL_DB) --ui-port $(TEMPORAL_UI_PORT))
 	$(call check_port,$(TEMPORAL_PORT))
+	@# tne-engine-worker: start via brew services if formula installed (r-cto-dev129)
+	@brew list tne-engine-worker &>/dev/null 2>&1 \
+		&& { pgrep -f "engine.temporal_worker" >/dev/null 2>&1 || brew services start tne-engine-worker 2>/dev/null || true; } \
+		|| echo "  (tne-engine-worker formula not installed — run: make ai-install)"
 
 # ktap is tne-plugin-only — override in project Makefile if needed
 # ## ktap: KTAP knowledge graph viewer at http://localhost:$(KTAP_PORT)
