@@ -1,0 +1,343 @@
+# api-keys.yaml — single source of truth for all API key metadata
+# No secrets stored here — only metadata about where secrets live and how to use them.
+#
+# Fields:
+#   op_item:          1Password item title (required)
+#   op_field:         field name within item (default: "api key")
+#   op_vault:         1Password vault (default: DevOps)
+#   disabled_by:      skip loading if this env var is set + non-empty
+#   disabled:         hard-disable entry entirely (default: false)
+#   equivalent_of:    export this var equal to another env var instead of loading from op
+#
+#   models_url:       provider /v1/models endpoint (AI providers only)
+#   models_auth:      bearer (default) | query — how to pass the key
+#   models_auth_param: query param name when models_auth=query (default: key)
+#   models_pattern:   regex to filter model IDs from the response
+#   litellm_base:     API base URL for litellm model_list
+#   litellm_key_env:  env var name for api_key in litellm config (default: same as key)
+#   litellm_model_prefix: litellm model prefix e.g. "openai/" "gemini/" (default: "openai/")
+#   ccr_provider:     provider name in ~/.claude-code-router/config.json
+
+# ── Anthropic ─────────────────────────────────────────────────────────────────
+ANTHROPIC_API_KEY_REAL:
+  op_item: "Anthropic API Key Dev"
+  op_vault: DevOps
+  disabled_by: ANTHROPIC_MAX
+  models_url: https://api.anthropic.com/v1/models
+  models_pattern: "claude-"
+
+# ANTHROPIC_API_KEY is NOT loaded from 1Password directly.
+# When LiteLLM is running, make ai-run sets it to LITELLM_MASTER_KEY so Claude Code
+# passes LiteLLM's auth gate. Setting it here would bill against API quotas.
+ANTHROPIC_API_KEY:
+  disabled: true
+
+# ── AWS ───────────────────────────────────────────────────────────────────────
+AWS_ACCESS_KEY_ID:
+  op_item: "AWS Access Key"
+  op_field: "access key id"
+  op_vault: DevOps
+
+AWS_SECRET_ACCESS_KEY:
+  op_item: "AWS Access Key"
+  op_field: "secret access key"
+  op_vault: DevOps
+
+# ── AI Coding Plan providers ──────────────────────────────────────────────────
+MINIMAX_API_KEY:
+  op_item: "Minimax API Key Dev"
+  op_field: "MiniMax API Key Dev"
+  op_vault: DevOps
+  models_url: https://api.minimax.io/v1/models
+  models_pattern: "^MiniMax-M"
+  litellm_base: https://api.minimax.io/v1
+  litellm_model_prefix: "openai/"
+  ccr_provider: minimax
+
+Z_AI_API_KEY:
+  op_item: "Z.ai API Key Dev"
+  op_vault: DevOps
+  models_url: https://api.z.ai/api/v1/models
+  models_pattern: "^glm-5"
+  litellm_base: https://api.z.ai/api/anthropic/v1/messages
+  litellm_key_env: ZHIPUAI_API_KEY
+  litellm_model_prefix: "openai/"
+  ccr_provider: z.ai
+
+MOONSHOT_API_KEY:
+  op_item: "Moonshot API Key Dev"
+  op_vault: DevOps
+  disabled: true  # PAYG — use claude-code-proxy for Kimi Coding Plan
+  models_url: https://api.moonshot.cn/v1/models
+  models_pattern: "^kimi-k2"
+  litellm_base: https://api.moonshot.cn/v1
+  litellm_model_prefix: "openai/"
+  ccr_provider: kimi
+
+QWEN_CODING_API_KEY:
+  op_item: "Alibaba Dashscope API Key Dev"
+  op_vault: DevOps
+  models_url: https://coding-intl.dashscope.aliyuncs.com/compatible-mode/v1/models
+  models_pattern: "^qwen3-coder"
+  litellm_base: https://coding-intl.dashscope.aliyuncs.com/apps/anthropic
+  litellm_model_prefix: "openai/"
+  ccr_provider: dashscope
+
+ALIBABA_API_KEY:
+  op_item: "Alibaba Dashscope API Key Dev"
+  op_vault: DevOps
+
+DEEPSEEK_API_KEY:
+  op_item: "deepseek API Key Dev"
+  op_vault: DevOps
+  models_url: https://api.deepseek.com/v1/models
+  models_pattern: "^deepseek-"
+  litellm_base: https://api.deepseek.com/v1
+  litellm_model_prefix: "openai/"
+  ccr_provider: deepseek
+
+OPENROUTER_API_KEY:
+  op_item: "OpenRouter API Key Dev"
+  op_field: "key"
+  op_vault: DevOps
+  models_url: https://openrouter.ai/api/v1/models
+  models_pattern: "."
+  ccr_provider: openrouter
+
+# ── Google ────────────────────────────────────────────────────────────────────
+GEMINI_API_KEY:
+  op_item: "Google Gemini API Key Dev"
+  op_vault: DevOps
+  disabled_by: GEMINI_OAUTH  # gemini auth login overrides API key in Gemini CLI
+  models_url: https://generativelanguage.googleapis.com/v1beta/models
+  models_auth: query
+  models_auth_param: key
+  models_pattern: "^gemini-"
+  litellm_model_prefix: "gemini/"
+  ccr_provider: gemini
+
+GOOGLE_API_KEY:
+  op_item: "Google Gemini API Key Dev"
+  op_vault: DevOps
+  disabled_by: GEMINI_OAUTH
+  equivalent_of: GEMINI_API_KEY
+
+GOOGLE_MAPS_API_KEY:
+  op_item: "Google Maps API Key Dev"
+  op_vault: DevOps
+
+# ── OpenAI / Codex ────────────────────────────────────────────────────────────
+OPENAI_API_KEY:
+  op_item: "OpenAI API Key Dev"
+  op_vault: DevOps
+  disabled_by: CODEX_CHATGPT  # codex login ChatGPT OAuth overrides API key
+
+OPENCODE_API_KEY:
+  op_item: "OpenCode API Key Dev"
+  op_vault: DevOps
+
+# ── LiteLLM ───────────────────────────────────────────────────────────────────
+LITELLM_MASTER_KEY:
+  op_item: "LiteLLM Auth Token Dev"
+  op_field: "auth token"
+  op_vault: DevOps
+
+# ── Search & data providers ───────────────────────────────────────────────────
+BRAVE_SEARCH_API_KEY:
+  op_item: "Brave Search API Key Dev"
+  op_vault: DevOps
+
+EXA_API_KEY:
+  op_item: "Exa API Key Dev"
+  op_vault: DevOps
+
+KAGI_API_KEY:
+  op_item: "kagi API Key Dev"
+  op_vault: DevOps
+
+PERPLEXITY_API_KEY:
+  op_item: "Perplexity API Key Dev"
+  op_vault: DevOps
+
+SERPAPI_API_KEY:
+  op_item: "SerpApi API Key Dev"
+  op_vault: DevOps
+
+TAVILY_API_KEY:
+  op_item: "Taviliy API Key Dev"
+  op_vault: DevOps
+
+# ── AI infrastructure ─────────────────────────────────────────────────────────
+CEREBRAS_API_KEY:
+  op_item: "Cerebras API Key Dev"
+  op_vault: DevOps
+
+GROQ_API_KEY:
+  op_item: "Groq API Key Dev"
+  op_vault: DevOps
+
+MISTRAL_API_KEY:
+  op_item: "Mistral API Key Dev"
+  op_vault: DevOps
+
+SAMBANOVA_API_KEY:
+  op_item: "Sambanova API Token Dev"
+  op_field: "api token"
+  op_vault: DevOps
+
+STEPFUN_API_KEY:
+  op_item: "StepFun API Key Dev"
+  op_field: "interface key"
+  op_vault: DevOps
+
+REPLICATE_API_KEY:
+  op_item: "Replicate API Token Dev"
+  op_field: "api token"
+  op_vault: DevOps
+
+# ── Memory & tooling ──────────────────────────────────────────────────────────
+MEM0_API_KEY:
+  op_item: "Mem0 API Key Dev"
+  op_vault: DevOps
+
+QDRANT_API_KEY:
+  op_item: "Qdrant API Key Dev"
+  op_vault: DevOps
+
+SUPERMEMORY_CC_API_KEY:
+  op_item: "Supermemory API Key Dev"
+  op_vault: DevOps
+
+TINFOIL_API_KEY:
+  op_item: "Tinfoil API Key Dev"
+  op_vault: DevOps
+
+UNBOUND_API_KEY:
+  op_item: "Unbound API Key Dev"
+  op_vault: DevOps
+
+# ── Media & generation ────────────────────────────────────────────────────────
+COMFYUI_API_KEY:
+  op_item: "ComfyUI API Key Dev"
+  op_vault: DevOps
+
+DASHSCOPE_API_KEY:
+  op_item: "Alibaba Dashscope API Key Dev"
+  op_vault: DevOps
+
+ELEVENLABS_API_KEY:
+  op_item: "ElevenLabs API Key Dev"
+  op_vault: DevOps
+
+FAL_KEY:
+  op_item: "FAL API Key Dev"
+  op_vault: DevOps
+
+LAMINI_API_TOKEN:
+  op_item: "LAMINI API Token Dev"
+  op_field: "api token"
+  op_vault: DevOps
+
+PEXELS_API_KEY:
+  op_item: "Pexels API Key Dev"
+  op_vault: DevOps
+
+# ── Web & browser ─────────────────────────────────────────────────────────────
+BROWSERBASE_API_KEY:
+  op_item: "Browser Base API Key Dev"
+  op_vault: DevOps
+
+BROWSERBASE_PROJECT_ID:
+  op_item: "Browser Base API Key Dev"
+  op_field: "project id"
+  op_vault: DevOps
+
+BROWSERLESS_API_TOKEN:
+  op_item: "Browserless API Key Dev"
+  op_vault: DevOps  # field is "api key" — mulmocast names it token not key
+
+FIRECRAWL_API_KEY:
+  op_item: "firecrawl API Key Dev"
+  op_vault: DevOps
+
+MCPO_API_KEY:
+  op_item: "MCPO Server API Key Local"
+  op_vault: DevOps
+
+# ── Open WebUI ────────────────────────────────────────────────────────────────
+WEBUI_API_KEY:
+  op_item: "Open WebUI API Key Dev"
+  op_vault: DevOps
+
+WEBUI_SECRET_KEY:
+  op_item: "Open WebUI Secret Key Dev"
+  op_field: "secret key"
+  op_vault: DevOps
+
+# ── Infra & services ──────────────────────────────────────────────────────────
+SUPERSET_SECRET_KEY:
+  op_item: "Apache Superset Secret Dev"
+  op_vault: DevOps
+
+SLASHGPT_ENV_WEBPILOT_UID:
+  op_item: "Webpilot UID Dev"
+  op_field: "key"
+  op_vault: DevOps
+
+# ── Bots & messaging ──────────────────────────────────────────────────────────
+DISCORD_BOT_TOKEN:
+  op_item: "Discord Bot Token Dev"
+  op_field: "api token"
+  op_vault: Private
+
+TELEGRAM_BOT_TOKEN:
+  op_item: "Telegram Bot Token Dev"
+  op_field: "api token"
+  op_vault: Private
+
+# ── Developer tokens ──────────────────────────────────────────────────────────
+HF_TOKEN:
+  op_item: "Hugging Face API Token Dev"
+  op_field: "user access token"
+  op_vault: DevOps
+
+GITHUB_TOKEN_CLASSIC:
+  op_item: "GitHub Personal Access Token Classic"
+  op_field: "token"  # must be named 'token' for op plugin gh compatibility
+  op_vault: Private
+
+SKILL_SIGNER_KEY_ID:
+  op_item: "GPG Skill Signer"
+  op_field: "Key Id"
+  op_vault: DevOps
+
+# ── Aliases (equivalent_of — written outside op inject block) ─────────────────
+ZHIPU_API_KEY:
+  equivalent_of: Z_AI_API_KEY
+
+GOOGLE_AI_API_KEY:
+  equivalent_of: GEMINI_API_KEY
+  # used by zed; disabled by default — uncomment if needed
+  disabled: true
+
+# ── Disabled / commented out ──────────────────────────────────────────────────
+# CIVITAI_TOKEN:
+#   op_item: "Civitai API Key Dev"
+#   disabled: true
+
+# DIGITALOCEAN_ACCESS_TOKEN:
+#   op_item: "DigitalOcean Personal Access Token"
+#   op_vault: Private
+#   disabled: true
+
+# GITHUB_TOKEN:
+#   op_item: "GitHub Personal Access Token"
+#   disabled: true  # do not use — overrides gh auth login
+
+# LOCALSTACK_API_KEY:
+#   op_item: "LocalStack API Key"
+#   disabled: true
+
+# GOOGLE_AI_API_KEY:  # used by zed
+#   equivalent_of: GEMINI_API_KEY
+#   disabled: true
