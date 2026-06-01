@@ -3,7 +3,7 @@
 ##
 ## 1Password API key loading from api-keys.yaml.
 ## Generic — no AI-provider logic. Source before lib-ai.sh.
-## Requires: op CLI (1Password v2), python3
+## Requires: op CLI (1Password v2), yq v4
 
 lib_name="$(basename "${BASH_SOURCE%.*}")"
 lib_name="${lib_name//-/_}"
@@ -15,72 +15,30 @@ if eval "[[ -z \${$lib_name+x} ]]"; then
 	# ── YAML parser ───────────────────────────────────────────────────────────────
 	# Parses api-keys.yaml; prints TSV rows to stdout.
 	# Columns: env_var op_item op_field op_vault disabled_by equivalent_of
-	# Uses PyYAML when available; falls back to a line-by-line state machine.
 	# Args: [yaml_file] [env_var_filter...]
 	_secrets_parse_yaml() {
 		local yaml_file="${1:-$_SECRETS_YAML}"
 		shift
 		local -a filter=("$@")
 
-		python3 - "$yaml_file" "${filter[@]}" <<'PYEOF'
-import sys
+		local key_filter=""
+		if [[ ${#filter[@]} -gt 0 ]]; then
+			local conditions
+			conditions=$(printf ' or .key == "%s"' "${filter[@]}")
+			key_filter="| select(${conditions# or })"
+		fi
 
-yaml_file = sys.argv[1]
-filter_vars = set(sys.argv[2:]) if len(sys.argv) > 2 else set()
-
-def parse_with_pyyaml(path):
-    import yaml
-    with open(path) as f:
-        return yaml.safe_load(f) or {}
-
-def parse_fallback(path):
-    data = {}
-    current_key = None
-    with open(path) as f:
-        for line in f:
-            stripped = line.rstrip()
-            if not stripped or stripped.lstrip().startswith('#'):
-                continue
-            if stripped[0] not in (' ', '\t') and stripped.endswith(':'):
-                current_key = stripped[:-1].strip()
-                data[current_key] = {}
-            elif current_key and stripped.startswith((' ', '\t')):
-                content = stripped.strip()
-                if ':' in content:
-                    k, _, v = content.partition(':')
-                    k = k.strip()
-                    v = v.strip().strip('"').strip("'")
-                    if '  #' in v:
-                        v = v[:v.index('  #')].strip()
-                    if v.lower() == 'true':
-                        v = True
-                    elif v.lower() == 'false':
-                        v = False
-                    data[current_key][k] = v
-    return data
-
-try:
-    data = parse_with_pyyaml(yaml_file)
-except ImportError:
-    data = parse_fallback(yaml_file)
-
-for env_var, cfg in data.items():
-    if not isinstance(cfg, dict):
-        continue
-    if cfg.get('disabled', False) is True:
-        continue
-    if filter_vars and env_var not in filter_vars:
-        continue
-    op_item     = cfg.get('op_item', '')
-    op_field    = cfg.get('op_field', 'api key')
-    op_vault    = cfg.get('op_vault', 'DevOps')
-    disabled_by = cfg.get('disabled_by', '')
-    equivalent  = cfg.get('equivalent_of', '')
-    # skip bare stubs with neither op_item nor equivalent
-    if not op_item and not equivalent:
-        continue
-    print('\t'.join([env_var, op_item, op_field, op_vault, str(disabled_by or ''), str(equivalent or '')]))
-PYEOF
+		yq e "to_entries | .[] ${key_filter}
+			| select(.value | type == \"!!map\")
+			| select(.value.disabled != true)
+			| select((.value.op_item != null) or (.value.equivalent_of != null))
+			| [.key,
+			   (.value.op_item // \"\"),
+			   (.value.op_field // \"api key\"),
+			   (.value.op_vault // \"DevOps\"),
+			   (.value.disabled_by // \"\"),
+			   (.value.equivalent_of // \"\")]
+			| @tsv" "$yaml_file"
 	}
 
 	# ── op_load_api_keys ──────────────────────────────────────────────────────────

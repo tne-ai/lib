@@ -4,7 +4,7 @@
 ## AI provider utilities: API key freshness checks, model name resolution,
 ## and config patching for CCR + LiteLLM.
 ## Reads provider metadata from api-keys.yaml — never calls op or 1Password.
-## Requires: python3, curl. Source lib-secrets.sh first to populate env vars.
+## Requires: yq v4, curl. Source lib-secrets.sh first to populate env vars.
 
 lib_name="$(basename "${BASH_SOURCE%.*}")"
 lib_name="${lib_name//-/_}"
@@ -24,70 +24,27 @@ if eval "[[ -z \${$lib_name+x} ]]"; then
 		shift
 		local -a filter=("$@")
 
-		python3 - "$yaml_file" "${filter[@]}" <<'PYEOF'
-import sys
+		local key_filter=""
+		if [[ ${#filter[@]} -gt 0 ]]; then
+			local conditions
+			conditions=$(printf ' or .key == "%s"' "${filter[@]}")
+			key_filter="| select(${conditions# or })"
+		fi
 
-yaml_file = sys.argv[1]
-filter_vars = set(sys.argv[2:]) if len(sys.argv) > 2 else set()
-
-def parse_with_pyyaml(path):
-    import yaml
-    with open(path) as f:
-        return yaml.safe_load(f) or {}
-
-def parse_fallback(path):
-    data = {}
-    current_key = None
-    with open(path) as f:
-        for line in f:
-            stripped = line.rstrip()
-            if not stripped or stripped.lstrip().startswith('#'):
-                continue
-            if stripped and stripped[0] not in (' ', '\t') and stripped.endswith(':'):
-                current_key = stripped[:-1].strip()
-                data[current_key] = {}
-            elif current_key and stripped.startswith((' ', '\t')):
-                content = stripped.strip()
-                if ':' in content:
-                    k, _, v = content.partition(':')
-                    k = k.strip()
-                    v = v.strip().strip('"').strip("'")
-                    if '  #' in v:
-                        v = v[:v.index('  #')].strip()
-                    if v.lower() == 'true':
-                        v = True
-                    elif v.lower() == 'false':
-                        v = False
-                    data[current_key][k] = v
-    return data
-
-try:
-    data = parse_with_pyyaml(yaml_file)
-except ImportError:
-    data = parse_fallback(yaml_file)
-
-for env_var, cfg in data.items():
-    if not isinstance(cfg, dict):
-        continue
-    if cfg.get('disabled', False) is True:
-        continue
-    if filter_vars and env_var not in filter_vars:
-        continue
-    models_url = cfg.get('models_url', '')
-    if not models_url:
-        continue  # not an AI provider
-    print('\t'.join([
-        env_var,
-        models_url,
-        cfg.get('models_auth', 'bearer'),
-        cfg.get('models_auth_param', 'key'),
-        cfg.get('models_pattern', ''),
-        cfg.get('litellm_base', ''),
-        cfg.get('litellm_key_env', env_var),
-        cfg.get('litellm_model_prefix', 'openai/'),
-        cfg.get('ccr_provider', ''),
-    ]))
-PYEOF
+		yq e "to_entries | .[] ${key_filter}
+			| select(.value | type == \"!!map\")
+			| select(.value.disabled != true)
+			| select(.value.models_url != null)
+			| [.key,
+			   .value.models_url,
+			   (.value.models_auth // \"bearer\"),
+			   (.value.models_auth_param // \"key\"),
+			   (.value.models_pattern // \"\"),
+			   (.value.litellm_base // \"\"),
+			   (.value.litellm_key_env // .key),
+			   (.value.litellm_model_prefix // \"openai/\"),
+			   (.value.ccr_provider // \"\")]
+			| @tsv" "$yaml_file"
 	}
 
 	# ── ai_check_api_keys ─────────────────────────────────────────────────────────
@@ -164,7 +121,6 @@ PYEOF
 		local ttl="$_AI_MODEL_CACHE_TTL_DAYS"
 		local cache_fresh=false
 
-		# Check cache freshness
 		if [[ -f "$cache" ]]; then
 			local cache_age_days
 			cache_age_days=$(python3 -c "
@@ -176,12 +132,10 @@ print(int(age / 86400))
 		fi
 
 		if $cache_fresh; then
-			# Load from cache
 			_ai_load_model_cache "$cache"
 			return 0
 		fi
 
-		# Fetch live and build new cache
 		mkdir -p "$(dirname "$cache")"
 		local -a cache_lines=()
 		local _providers
@@ -225,14 +179,12 @@ except Exception:
 			local provider_key
 			provider_key=$(echo "${ccr_provider:-$env_var}" | tr '[:lower:].' '[:upper:]_' | tr -c 'A-Z0-9_' '_')
 
-			# Set vars in current shell
 			export "AI_MODEL_${provider_key}_LATEST=$latest"
 			export "AI_MODEL_${provider_key}_IDS=$(tr '\n' ':' <<<"$ids" | sed 's/:$//')"
 
 			cache_lines+=("${provider_key}:${latest}:$(tr '\n' ',' <<<"$ids" | sed 's/,$//')")
 		done <<<"$_providers"
 
-		# Write cache
 		printf '%s\n' "${cache_lines[@]}" >"$cache"
 	}
 
@@ -260,7 +212,6 @@ except Exception:
 		local _providers
 		_providers=$(_ai_parse_providers "$_SECRETS_YAML") || return 1
 
-		# Build provider→ids map from resolved vars
 		local patch_json="{}"
 		while IFS=$'\t' read -r env_var _url _auth _param _pattern \
 			_base _key _prefix ccr_provider; do
@@ -282,7 +233,6 @@ a.update(b); print(json.dumps(a))
 " "$patch_json" "$ids_json" 2>/dev/null) || continue
 		done <<<"$_providers"
 
-		# Apply patch to CCR config
 		cp "$cfg" "${cfg}.bak.$(date +%Y%m%d)"
 		python3 - "$cfg" "$patch_json" <<'PYEOF'
 import sys, json
@@ -326,7 +276,7 @@ PYEOF
 			[[ -z "${!latest_var:-}" ]] && continue
 
 			local model_id="${litellm_prefix}${!latest_var}"
-			local model_name="${!latest_var,,}" # lowercase for model_name
+			local model_name="${!latest_var,,}"
 
 			python3 - "$cfg" "$model_name" "$model_id" "$litellm_base" "$litellm_key_env" <<'PYEOF'
 import sys, re
@@ -336,7 +286,6 @@ cfg_path, model_name, model_id, api_base, key_env = sys.argv[1:6]
 with open(cfg_path) as f:
     content = f.read()
 
-# Build replacement entry
 entry = (
     f"  - model_name: {model_name}\n"
     f"    litellm_params:\n"
@@ -345,12 +294,10 @@ entry = (
     f"      api_key: os.environ/{key_env}\n"
 )
 
-# Replace existing entry for this model_name, or append
 pattern = rf"  - model_name: {re.escape(model_name)}\n(?:    [^\n]+\n)*"
 if re.search(pattern, content):
     content = re.sub(pattern, entry, content)
 else:
-    # Append before end of model_list or at end of file
     if 'model_list:' in content:
         content = content.rstrip() + '\n' + entry
     else:
