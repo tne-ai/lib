@@ -902,8 +902,13 @@ lls-start: lls-sync
 			--models-max 1 \
 			--port 8081 \
 			--log-disable & \
-		sleep 3 && curl -s http://localhost:8081/v1/models | \
-			python3 -c "import json,sys; d=json.load(sys.stdin); print('llama-server ready —', len(d[\"data\"]), 'models available')")
+		for i in $$(seq 1 20); do \
+			sleep 1; \
+			out=$$(curl -sf http://localhost:8081/v1/models 2>/dev/null) && \
+			echo "$$out" | yq -p json '.data | length | "llama-server ready — " + tostring + " models available"' 2>/dev/null && \
+			break; \
+			[ "$$i" = "20" ] && echo "⚠️  llama-server did not start within 20s" && exit 1; \
+		done)
 
 ## lls-stop: stop llama-server router
 .PHONY: lls-stop
