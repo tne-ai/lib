@@ -102,14 +102,23 @@ port_ready = nc -z localhost $(1) 2>/dev/null
 	if ! pgrep -fl $*; then echo "$* not running"; fi
 
 ## [service].stop: graceful stop — SIGTERM first, SIGKILL fallback after 5s
-# kill is last resort only; this target implements the normal stop lifecycle term.
-# run in background (&) as the sleep makes this slow
+# Belts-and-suspenders: name-based stop also kills the associated port so
+# double-forked processes (PPID=1) that survive pkill are caught by lsof.
 %.stop:
 	@for signal in "" "-9"; do \
 		if echo "$*" | grep -qE '^[0-9]+$$'; then \
 			lsof -ti :$* -sTCP:LISTEN 2>/dev/null | xargs -r kill $$signal 2>/dev/null || true; \
 		else \
 			pgrep -fl "$*" | grep -vE '^[0-9]+ make|pgrep' | awk '{print $$1}' | xargs -r kill $$signal 2>/dev/null || true; \
+			case "$*" in \
+				litellm)  lsof -ti :$(LITELLM_PORT)   -sTCP:LISTEN 2>/dev/null | xargs -r kill $$signal 2>/dev/null || true ;; \
+				mlflow)   lsof -ti :$(MLFLOW_PORT)    -sTCP:LISTEN 2>/dev/null | xargs -r kill $$signal 2>/dev/null || true ;; \
+				temporal) lsof -ti :$(TEMPORAL_PORT)  -sTCP:LISTEN 2>/dev/null | xargs -r kill $$signal 2>/dev/null || true ;; \
+				redis)    lsof -ti :$(REDIS_PORT)     -sTCP:LISTEN 2>/dev/null | xargs -r kill $$signal 2>/dev/null || true ;; \
+				postgres) lsof -ti :$(POSTGRES_PORT)  -sTCP:LISTEN 2>/dev/null | xargs -r kill $$signal 2>/dev/null || true ;; \
+				ccr)      lsof -ti :$(CCR_PORT)       -sTCP:LISTEN 2>/dev/null | xargs -r kill $$signal 2>/dev/null || true ;; \
+				ktap)     lsof -ti :$(KTAP_PORT)      -sTCP:LISTEN 2>/dev/null | xargs -r kill $$signal 2>/dev/null || true ;; \
+			esac; \
 		fi; \
 		sleep 3; \
 	done
