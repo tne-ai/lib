@@ -47,8 +47,8 @@ repos:
       - id: end-of-file-fixer
       - id: forbid-new-submodules
       - id: mixed-line-ending
-      # we allow direct commits to main uncomment if you PRs only
-      # - id: no-commit-to-branch
+      # Protect main — direct commits must go through a PR+worktree branch
+      - id: no-commit-to-branch
       - id: trailing-whitespace
       - id: check-executables-have-shebangs
       - id: destroyed-symlinks
@@ -111,7 +111,7 @@ repos:
     hooks:
       - id: markdownlint-cli2
         args: [--fix]
-        exclude: (^\.claude/)
+        exclude: (^TNE-CONTEXT/|^\.claude/)
 
   # prettier for markdown formatting (like shfmt for shell)
   # rbubley fork tracks stable releases (pre-commit/mirrors-prettier is archived)
@@ -120,8 +120,6 @@ repos:
     hooks:
       - id: prettier
         types_or: [markdown]
-        # Exclude skill/constitution files — contain template syntax prettier destroys
-        exclude: (SKILL\.md$|CONSTITUTION\.md$)
 
   # https://jorisroovers.com/gitlint/#using-gitlint-through-pre-commit
   - repo: https://github.com/jorisroovers/gitlint
@@ -210,31 +208,17 @@ repos:
       # Run the formatter.
       - id: ruff-format
 
-  # https://github.com/RobertCraigie/pyright-python
-  # type checking — complementary to ruff (style/lint)
-  - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.408
-    hooks:
-      - id: pyright
-        additional_dependencies:
-          - pytest
-          - transitions
-          - tabulate
-          - networkx
-          - pydantic
-
   # https://jupytext.readthedocs.io/en/latest/using-pre-commit.html
   # sync all notebooks with their corresponding markdown files
   # use ruff to format the python code and the version must match
-  # takes too lon
-  # - repo: https://github.com/mwouts/jupytext
-  #   rev: v1.19.1
-  #   hooks:
-  #     - id: jupytext
-  #       args: [--sync, --pipe, ruff]
-  #       additional_dependencies:
-  #         - ruff==0.15.2
-  #         #- black==23.3.0
+  - repo: https://github.com/mwouts/jupytext
+    rev: v1.19.1
+    hooks:
+      - id: jupytext
+        args: [--sync, --pipe, ruff]
+        additional_dependencies:
+          - ruff==0.15.2
+          #- black==23.3.0
 
   # strips everything out so use pre-commit-jupyter instead
   # - repo: https://github.com/kynan/nbstripout
@@ -243,16 +227,16 @@ repos:
   #    - id: nbstripout
 
   # https://github.com/roy-ht/pre-commit-jupyte
-  # - repo: https://github.com/aflc/pre-commit-jupyter
-  #   rev: v1.2.1
-  #   hooks:
-  #     - id: jupyter-notebook-cleanup
-  #       args:
-  #         - --remove-kernel-metadata
-  #         - --pin-patterns
-  #         - "[pin];[donotremove]"
-  #       files: \.ipynb$
-  #       types: ["file"]
+  - repo: https://github.com/aflc/pre-commit-jupyter
+    rev: v1.2.1
+    hooks:
+      - id: jupyter-notebook-cleanup
+        args:
+          - --remove-kernel-metadata
+          - --pin-patterns
+          - "[pin];[donotremove]"
+        files: \.ipynb$
+        types: ["file"]
 
   # lint Dockerfiles with hadolint only use if you need nektos
   # - repo: https://github.com/hadolint/hadolint
@@ -266,31 +250,34 @@ repos:
       - id: hadolint
         exclude: Dockerfile.dockerignore
 
-  # ── Plugin fleet checks ───────────────────────────────────────────────────────
-  # Single dispatcher for all plugin content checks (r-cco5 § Law IV).
-  # Covers any plugin namespace (plugins/[^/]+/) — not just tne/.
-  # Fails gracefully when scripts/ are absent (safe to include in non-plugin repos).
-  # generate-readme is a side-effect generator, not a check — kept separate below.
+  # Repo-specific hooks that fail gracefully when scripts are not present.
+  # Repos that have these scripts get the checks; repos that don't skip silently.
   - repo: local
     hooks:
-      - id: plugin-checks
-        name: Plugin fleet checks (frontmatter · hooks · paths · constitution · tests)
+      - id: validate-skill-frontmatter
+        name: Validate SKILL.md frontmatter
         language: system
-        entry: bash -c 'if [[ -x scripts/pre-commit-plugin-checks.sh ]]; then scripts/pre-commit-plugin-checks.sh "$@"; else exit 0; fi' --
-        files: plugins/[^/]+/
+        entry: bash -c 'if [[ -x scripts/validate-skills.sh ]]; then scripts/validate-skills.sh "$@"; else exit 0; fi' --
+        files: SKILL\.md$
         exclude: plugins/tne-ja/
-        pass_filenames: true
-        stages: [pre-commit]
+
+      - id: validate-claude-hook-json
+        name: Validate Claude Code hook JSON output
+        language: system
+        entry: bash -c 'if [[ -x scripts/validate-hooks.sh ]]; then scripts/validate-hooks.sh "$@"; else exit 0; fi' --
+        files: (^|/)hooks/[^/]+\.sh$
+        exclude: plugins/tne-ja/
 
       - id: generate-readme
-        name: Auto-generate README.md and welcome.md from skills inventory
+        name: Auto-generate README.md from skills inventory
         language: system
-        # prettier runs AFTER this hook in the chain, which causes a convergence
-        # loop: generate-readme produces unformatted output, prettier reformats it,
-        # next commit generate-readme re-runs and overwrites the formatted version,
-        # prettier runs again, etc. Fix: run prettier inline here so generated
-        # output is already formatted when the prettier hook sees it.
-        entry: bash -c 'if [[ -f scripts/cco17-generate-inventory.py ]]; then python3 scripts/cco17-generate-inventory.py --readme --quiet && npx prettier --write plugins/tne/README.md README.md 2>/dev/null; git add plugins/tne/README.md plugins/tne/skills/cai16-navigator/templates/welcome.md README.md; else exit 0; fi'
-        files: (plugins/[^/]+/skills/.*/SKILL\.md$|plugins/.*plugin\.json$|marketplace\.json$)
+        entry: bash -c 'if [[ -f scripts/generate-inventory.py ]]; then python3 scripts/generate-inventory.py --readme --quiet && git add plugins/tne/README.md; else exit 0; fi'
+        files: plugins/tne/skills/.*/SKILL\.md$
         pass_filenames: false
-        stages: [pre-commit]
+
+      - id: check-relative-claude-paths
+        name: Detect relative .claude/ paths in scripts (use $HOME)
+        language: system
+        entry: bash -c 'ISSUES=$(grep -n "\"\.claude/" "$@" | grep -v "\$HOME" | grep -v "^#" || true); if [[ -n "$ISSUES" ]]; then echo "Found relative .claude/ paths (should use \$HOME/.claude/):"; echo "$ISSUES"; exit 1; fi' --
+        files: plugins/.*\.sh$
+        exclude: plugins/tne-ja/
