@@ -394,12 +394,23 @@ ai-help:
 	@echo ""
 	@echo "  ── Cloud (API keys — refresh: make ai-refresh-models) ───────────────────"
 	@echo "    make ai-run                               # claude Max plan (default)"
-	@bash -c 'source "$(LIB_UTIL)" && source "$(LIB_AI)" && ai_resolve_model_names 2>/dev/null; \
-		env | grep "^AI_MODEL_.*_LATEST=" | sort \
-		| while IFS="=" read -r var val; do \
-			provider=$$(echo "$$var" | sed "s/^AI_MODEL_//;s/_LATEST$$//;s/_/./g" | tr "[:upper:]" "[:lower:]"); \
-			printf "    make ai-run MODEL=%-36s# %s\n" "$$val" "$$provider"; \
-		done'
+	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null \
+		| grep -v '^lms/\|^lls/' | sort -u \
+		| while IFS= read -r name; do \
+			case "$$name" in \
+			claude*)   tag="PLAN -- Anthropic Max" ;; \
+			kimi*)     tag="PLAN -- Kimi Coding Plan" ;; \
+			glm*)      tag="PLAN -- Z.AI coding plan" ;; \
+			qwen*)     tag="PLAN -- Qwen coding plan" ;; \
+			minimax*)  tag="PLAN -- MiniMax token plan" ;; \
+			gemini*)   tag="PLAN -- Google CLI sub" ;; \
+			deepseek*) tag="PAYG -- no flat-rate plan" ;; \
+			routellm*) tag="PLAN+PLAN -- auto-router" ;; \
+			*)         tag="PAYG" ;; \
+			esac; \
+			printf "    make ai-run MODEL=%-36s# %s\n" "$$name" "$$tag"; \
+		done \
+		|| echo "    (litellm config not found — run make ai-install)"
 	@echo ""
 	@echo "  ── Local GPU (llama-server) ─────────────────────────────────────────────"
 	@if nc -z localhost $(LLS_PORT) 2>/dev/null; then \

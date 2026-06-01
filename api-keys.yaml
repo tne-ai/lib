@@ -50,8 +50,8 @@ MINIMAX_API_KEY:
   op_vault: DevOps
   models_url: https://api.minimax.io/v1/models
   models_pattern: "^MiniMax-M"
-  litellm_base: https://api.minimax.io/v1
-  litellm_model_prefix: "openai/"
+  litellm_base: https://api.minimax.io/anthropic
+  litellm_model_prefix: "anthropic/"
   ccr_provider: minimax
 
 MINIMAX_PLAN_KEY:
@@ -96,8 +96,8 @@ DEEPSEEK_API_KEY:
   op_vault: DevOps
   models_url: https://api.deepseek.com/v1/models
   models_pattern: "^deepseek-"
-  litellm_base: https://api.deepseek.com/v1
-  litellm_model_prefix: "openai/"
+  litellm_base: https://api.deepseek.com/anthropic
+  litellm_model_prefix: "anthropic/"
   ccr_provider: deepseek
 
 OPENROUTER_API_KEY:
