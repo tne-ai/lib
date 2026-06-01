@@ -274,6 +274,7 @@ litellm: litellm-check-version
 		QWEN_CODING_API_KEY="$${QWEN_CODING_API_KEY}" \
 		Z_AI_PLAN_KEY="$${Z_AI_PLAN_KEY}" \
 		MINIMAX_API_KEY="$${MINIMAX_API_KEY}" \
+		MINIMAX_PLAN_KEY="$${MINIMAX_PLAN_KEY}" \
 		OPENROUTER_API_KEY="$${OPENROUTER_API_KEY}" \
 		$$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
 	$(call check_port,$(LITELLM_PORT))
@@ -352,13 +353,14 @@ ai-run:
 		|| echo "⚠️  lms load failed — model may already be loaded",)
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
+	ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" \
 	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
 	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
 	CLAUDE_CODE_ENABLE_TELEMETRY=1 \
 	OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$(MLFLOW_PORT) \
 	OTEL_EXPORTER_OTLP_HEADERS="x-mlflow-experiment-id=2" \
-	env -u CLAUDECODE $(HARNESS) $(if $(MODEL),--model $(MODEL),) $(HARNESS_ARGS)
+	env -u CLAUDECODE -u ANTHROPIC_MAX $(HARNESS) $(if $(MODEL),--model $(MODEL),) $(HARNESS_ARGS)
 
 ## ai-p: run a single claude -p batch invocation via LiteLLM routing
 ## Same env as ai-run — engine invoker.py inherits ANTHROPIC_BASE_URL via os.environ.
@@ -372,13 +374,14 @@ ai-p:
 		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
+	ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" \
 	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
 	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
 	CLAUDE_CODE_ENABLE_TELEMETRY=1 \
 	OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$(MLFLOW_PORT) \
 	OTEL_EXPORTER_OTLP_HEADERS="x-mlflow-experiment-id=2" \
-	claude -p $(AI_P_ARGS) $(if $(MODEL),--model $(MODEL),) "$(PROMPT)"
+	env -u ANTHROPIC_MAX claude -p $(AI_P_ARGS) $(if $(MODEL),--model $(MODEL),) "$(PROMPT)"
 
 # ── Public entry points ───────────────────────────────────────────────────────
 
