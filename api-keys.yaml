@@ -100,9 +100,7 @@ OPENROUTER_API_KEY:
   op_item: "OpenRouter API Key Dev"
   op_field: "key"
   op_vault: DevOps
-  models_url: https://openrouter.ai/api/v1/models
-  models_pattern: "."
-  ccr_provider: openrouter
+  disabled_by: CODEX_CHATGPT  # openrouter interferes with codex OAuth
 
 # ── Google ────────────────────────────────────────────────────────────────────
 GEMINI_API_KEY:
