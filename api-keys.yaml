@@ -54,8 +54,8 @@ MINIMAX_API_KEY:
   litellm_model_prefix: "openai/"
   ccr_provider: minimax
 
-Z_AI_API_KEY:
-  op_item: "Z.ai API Key Dev"
+Z_AI_PLAN_KEY:
+  op_item: "Z.ai Plan Key Dev"
   op_vault: DevOps
   models_url: https://api.z.ai/api/v1/models
   models_pattern: "^glm-5"
@@ -75,7 +75,7 @@ MOONSHOT_API_KEY:
   ccr_provider: kimi
 
 QWEN_CODING_API_KEY:
-  op_item: "Alibaba Dashscope API Key Dev"
+  op_item: "Alibaba Model Studio Coding Plan Dev"
   op_vault: DevOps
   models_url: https://coding-intl.dashscope.aliyuncs.com/compatible-mode/v1/models
   models_pattern: "^qwen3-coder"
@@ -311,7 +311,7 @@ SKILL_SIGNER_KEY_ID:
 
 # ── Aliases (equivalent_of — written outside op inject block) ─────────────────
 ZHIPU_API_KEY:
-  equivalent_of: Z_AI_API_KEY
+  equivalent_of: Z_AI_PLAN_KEY
 
 GOOGLE_AI_API_KEY:
   equivalent_of: GEMINI_API_KEY
