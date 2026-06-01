@@ -1,0 +1,79 @@
+---
+# Homebrew formula auto-bump template
+# Triggered by repository_dispatch from a source repo (or workflow_dispatch for manual runs).
+# Downloads the source repo's main.tar.gz, computes sha256, updates the formula, and commits.
+#
+# Required repo vars/secrets:
+#   SOURCE_REPO   — e.g. "tne-ai/tne-plugins"
+#   FORMULA_NAME  — e.g. "tne-engine-worker"
+#   FORMULA_PATH  — e.g. "Formula/tne-engine-worker.rb"
+#   VERSION_PREFIX — e.g. "0.1" (patch = YYYYMMDD)
+#
+# Required secrets: GITHUB_TOKEN (default) with contents:write on this repo.
+name: Bump Homebrew Formula
+
+# yamllint disable-line rule:truthy
+on:
+  repository_dispatch:
+    types: [bump-formula]
+  workflow_dispatch:
+    inputs:
+      source_repo:
+        description: "Source repo slug (owner/repo)"
+        required: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout tap repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute sha256 of source archive
+        id: sha
+        env:
+          SOURCE_REPO: ${{ vars.SOURCE_REPO || github.event.client_payload.source_repo }}
+        run: |
+          URL="https://github.com/${SOURCE_REPO}/archive/refs/heads/main.tar.gz"
+          SHA=$(curl -fsSL "$URL" | sha256sum | awk '{print $1}')
+          DATE=$(date +%Y%m%d)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "version=${{ vars.VERSION_PREFIX || '0.1' }}.${DATE}" >> "$GITHUB_OUTPUT"
+
+      - name: Update formula
+        env:
+          FORMULA_PATH: ${{ vars.FORMULA_PATH }}
+          NEW_URL: ${{ steps.sha.outputs.url }}
+          NEW_SHA: ${{ steps.sha.outputs.sha256 }}
+          NEW_VERSION: ${{ steps.sha.outputs.version }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, re, pathlib
+          path = pathlib.Path(os.environ["FORMULA_PATH"])
+          text = path.read_text()
+          # Replace url line
+          text = re.sub(r'url ".*?"', f'url "{os.environ["NEW_URL"]}"', text)
+          # Replace sha256 line
+          text = re.sub(r'sha256 ".*?"', f'sha256 "{os.environ["NEW_SHA"]}"', text)
+          # Replace version line
+          text = re.sub(r'version ".*?"', f'version "{os.environ["NEW_VERSION"]}"', text)
+          path.write_text(text)
+          print(f"Updated {path}: version={os.environ['NEW_VERSION']} sha256={os.environ['NEW_SHA'][:16]}...")
+          PYEOF
+
+      - name: Commit and push
+        env:
+          FORMULA_NAME: ${{ vars.FORMULA_NAME }}
+          NEW_VERSION: ${{ steps.sha.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git diff --quiet && echo "No changes to formula" && exit 0
+          git add "${{ vars.FORMULA_PATH }}"
+          git commit -m "chore(formula): bump ${FORMULA_NAME} to ${NEW_VERSION} [skip ci]"
+          git push

@@ -45,14 +45,19 @@ AWS_SECRET_ACCESS_KEY:
 
 # ── AI Coding Plan providers ──────────────────────────────────────────────────
 MINIMAX_API_KEY:
-  op_item: "Minimax API Key Dev"
-  op_field: "MiniMax API Key Dev"
+  op_item: "MiniMax API Key Dev"
+  op_field: "api key"
   op_vault: DevOps
   models_url: https://api.minimax.io/v1/models
   models_pattern: "^MiniMax-M"
   litellm_base: https://api.minimax.io/v1
   litellm_model_prefix: "openai/"
   ccr_provider: minimax
+
+MINIMAX_PLAN_KEY:
+  op_item: "MiniMax API Key Dev"
+  op_field: "coding plan key"
+  op_vault: DevOps
 
 Z_AI_PLAN_KEY:
   op_item: "Z.ai Plan Key Dev"

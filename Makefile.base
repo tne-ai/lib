@@ -44,6 +44,7 @@ clean:
 -include $(INCLUDE_DIRS)/include.mk
 # -include $(INCLUDE_DIRS)/include.knowledge-tapestry.mk
 # -include $(INCLUDE_DIRS)/include.ai.mk
+-include $(INCLUDE_DIRS)/include.sys.mk
 # -include $(INCLUDE_DIRS)/include.airflow.mk
 # -include $(INCLUDE_DIRS)/include.docker.mk
 # -include $(INCLUDE_DIRS)/include.gcp.base.mk
