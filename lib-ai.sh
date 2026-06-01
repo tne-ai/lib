@@ -278,34 +278,18 @@ PYEOF
 			local model_id="${litellm_prefix}${!latest_var}"
 			local model_name="${!latest_var,,}"
 
-			python3 - "$cfg" "$model_name" "$model_id" "$litellm_base" "$litellm_key_env" <<'PYEOF'
-import sys, re
-
-cfg_path, model_name, model_id, api_base, key_env = sys.argv[1:6]
-
-with open(cfg_path) as f:
-    content = f.read()
-
-entry = (
-    f"  - model_name: {model_name}\n"
-    f"    litellm_params:\n"
-    f"      model: {model_id}\n"
-    f"      api_base: {api_base}\n"
-    f"      api_key: os.environ/{key_env}\n"
-)
-
-pattern = rf"  - model_name: {re.escape(model_name)}\n(?:    [^\n]+\n)*"
-if re.search(pattern, content):
-    content = re.sub(pattern, entry, content)
-else:
-    if 'model_list:' in content:
-        content = content.rstrip() + '\n' + entry
-    else:
-        content += f"\nmodel_list:\n{entry}"
-
-with open(cfg_path, 'w') as f:
-    f.write(content)
-PYEOF
+			# Use yq to safely modify model_list[] — avoids corrupting unrelated YAML sections
+			local idx
+			idx=$(yq '.model_list | to_entries | .[] | select(.value.model_name == "'"$model_name"'") | .key' "$cfg" 2>/dev/null | head -1)
+			if [[ -n "$idx" ]]; then
+				# Update existing entry in-place
+				yq -i ".model_list[$idx].litellm_params.model = \"$model_id\" | \
+				        .model_list[$idx].litellm_params.api_base = \"$litellm_base\" | \
+				        .model_list[$idx].litellm_params.api_key = \"os.environ/$litellm_key_env\"" "$cfg"
+			else
+				# Append new entry to model_list
+				yq -i ".model_list += [{\"model_name\": \"$model_name\", \"litellm_params\": {\"model\": \"$model_id\", \"api_base\": \"$litellm_base\", \"api_key\": \"os.environ/$litellm_key_env\"}}]" "$cfg"
+			fi
 		done <<<"$_providers"
 		echo "ai_patch_litellm_config: patched $cfg"
 	}
