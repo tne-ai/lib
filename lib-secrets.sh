@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+# vim: ai:sw=4:ts=4:noet
+##
+## 1Password API key loading from api-keys.yaml.
+## Generic — no AI-provider logic. Source before lib-ai.sh.
+## Requires: op CLI (1Password v2), python3
+
+lib_name="$(basename "${BASH_SOURCE%.*}")"
+lib_name="${lib_name//-/_}"
+if eval "[[ -z \${$lib_name+x} ]]"; then
+	eval "$lib_name=true"
+
+	_SECRETS_YAML="${SECRETS_YAML:-$(dirname "${BASH_SOURCE[0]}")/api-keys.yaml}"
+
+	# ── YAML parser ───────────────────────────────────────────────────────────────
+	# Parses api-keys.yaml; prints TSV rows to stdout.
+	# Columns: env_var op_item op_field op_vault disabled_by equivalent_of
+	# Uses PyYAML when available; falls back to a line-by-line state machine.
+	# Args: [yaml_file] [env_var_filter...]
+	_secrets_parse_yaml() {
+		local yaml_file="${1:-$_SECRETS_YAML}"
+		shift
+		local -a filter=("$@")
+
+		python3 - "$yaml_file" "${filter[@]}" <<'PYEOF'
+import sys
+
+yaml_file = sys.argv[1]
+filter_vars = set(sys.argv[2:]) if len(sys.argv) > 2 else set()
+
+def parse_with_pyyaml(path):
+    import yaml
+    with open(path) as f:
+        return yaml.safe_load(f) or {}
+
+def parse_fallback(path):
+    data = {}
+    current_key = None
+    with open(path) as f:
+        for line in f:
+            stripped = line.rstrip()
+            if not stripped or stripped.lstrip().startswith('#'):
+                continue
+            if stripped[0] not in (' ', '\t') and stripped.endswith(':'):
+                current_key = stripped[:-1].strip()
+                data[current_key] = {}
+            elif current_key and stripped.startswith((' ', '\t')):
+                content = stripped.strip()
+                if ':' in content:
+                    k, _, v = content.partition(':')
+                    k = k.strip()
+                    v = v.strip().strip('"').strip("'")
+                    if '  #' in v:
+                        v = v[:v.index('  #')].strip()
+                    if v.lower() == 'true':
+                        v = True
+                    elif v.lower() == 'false':
+                        v = False
+                    data[current_key][k] = v
+    return data
+
+try:
+    data = parse_with_pyyaml(yaml_file)
+except ImportError:
+    data = parse_fallback(yaml_file)
+
+for env_var, cfg in data.items():
+    if not isinstance(cfg, dict):
+        continue
+    if cfg.get('disabled', False) is True:
+        continue
+    if filter_vars and env_var not in filter_vars:
+        continue
+    op_item     = cfg.get('op_item', '')
+    op_field    = cfg.get('op_field', 'api key')
+    op_vault    = cfg.get('op_vault', 'DevOps')
+    disabled_by = cfg.get('disabled_by', '')
+    equivalent  = cfg.get('equivalent_of', '')
+    # skip bare stubs with neither op_item nor equivalent
+    if not op_item and not equivalent:
+        continue
+    print('\t'.join([env_var, op_item, op_field, op_vault, str(disabled_by or ''), str(equivalent or '')]))
+PYEOF
+	}
+
+	# ── op_load_api_keys ──────────────────────────────────────────────────────────
+	# Write op:// references for each key into a shell profile, or export directly.
+	# Skips entries with equivalent_of — use op_write_equivalents for those.
+	#
+	# Usage: op_load_api_keys [profile_file] [env_var...]
+	#   profile_file  — path containing / ; file to append lines to (default: stdout)
+	#   env_var...    — optional filter; loads all non-disabled keys if omitted
+	#
+	# SECRETS_EXPORT_DIRECT=true: calls `op item get` and exports to current shell.
+	# Default: writes `export VAR=op://Vault/Item/Field` for use inside op inject.
+	op_load_api_keys() {
+		local profile_file=""
+		local -a filter_vars=()
+
+		if [[ $# -gt 0 && "$1" == */* ]]; then
+			profile_file="$1"
+			shift
+		fi
+		filter_vars=("$@")
+
+		local _out
+		_out=$(_secrets_parse_yaml "$_SECRETS_YAML" "${filter_vars[@]}") || {
+			echo "op_load_api_keys: failed to parse $_SECRETS_YAML" >&2
+			return 1
+		}
+
+		while IFS=$'\t' read -r env_var op_item op_field op_vault disabled_by equivalent; do
+			[[ -z "$env_var" ]] && continue
+			# equivalents go in op_write_equivalents, not here
+			[[ -n "$equivalent" ]] && continue
+			[[ -z "$op_item" ]] && continue
+
+			local op_ref="op://${op_vault}/${op_item}/${op_field}"
+
+			if [[ "${SECRETS_EXPORT_DIRECT:-false}" == "true" ]]; then
+				[[ -v "$env_var" ]] && continue
+				[[ -n "$disabled_by" && -n "${!disabled_by:-}" ]] && continue
+				local val
+				val=$(op item get "$op_item" --fields "label=$op_field" \
+					--vault "$op_vault" --reveal 2>/dev/null) || {
+					echo "op_load_api_keys: warning — could not get $env_var" >&2
+					continue
+				}
+				export "$env_var=$val"
+			else
+				# Profile injection — write op:// reference
+				local line="[[ -v ${env_var} ]] || export ${env_var}=${op_ref}"
+				if [[ -n "$disabled_by" ]]; then
+					line="if [[ ! -v ${disabled_by} ]]; then ${line}; fi"
+				fi
+				if [[ -n "$profile_file" ]]; then
+					printf '%s\n' "$line" >>"$profile_file"
+				else
+					printf '%s\n' "$line"
+				fi
+			fi
+		done <<<"$_out"
+	}
+
+	# ── op_write_equivalents ──────────────────────────────────────────────────────
+	# Write VAR="$OTHER_VAR" lines for entries with equivalent_of set.
+	# These go OUTSIDE the op inject block in the shell profile.
+	# Args: [profile_file]
+	op_write_equivalents() {
+		local profile_file="${1:-}"
+		local _out
+		_out=$(_secrets_parse_yaml "$_SECRETS_YAML") || return 1
+
+		while IFS=$'\t' read -r env_var _item _field _vault _disabled_by equivalent; do
+			[[ -z "$equivalent" ]] && continue
+			local line="${env_var}=\"\$${equivalent}\""
+			if [[ -n "$profile_file" ]]; then
+				printf '%s\n' "$line" >>"$profile_file"
+			else
+				printf '%s\n' "$line"
+			fi
+		done <<<"$_out"
+	}
+
+	# ── op_check_key_set ──────────────────────────────────────────────────────────
+	# Warn for each env var that is unset or empty.
+	# Args: env var names to check (checks all with op_item if omitted)
+	# Returns 1 if any are missing, 0 if all set.
+	op_check_key_set() {
+		local -a vars=("$@")
+		local missing=0
+
+		if [[ ${#vars[@]} -eq 0 ]]; then
+			local _out
+			_out=$(_secrets_parse_yaml "$_SECRETS_YAML") || return 1
+			while IFS=$'\t' read -r env_var _rest; do
+				[[ -z "$env_var" ]] && continue
+				vars+=("$env_var")
+			done <<<"$_out"
+		fi
+
+		for v in "${vars[@]}"; do
+			if [[ -z "${!v:-}" ]]; then
+				echo "op_check_key_set: $v is not set" >&2
+				missing=1
+			fi
+		done
+		return "$missing"
+	}
+
+fi

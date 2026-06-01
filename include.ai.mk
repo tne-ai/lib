@@ -1095,6 +1095,23 @@ tika:
 comfy:
 	open -a "ComfyUI.app"
 
+LIB_AI      ?= $(WS_DIR)/git/src/lib/lib-ai.sh
+LIB_SECRETS ?= $(WS_DIR)/git/src/lib/lib-secrets.sh
+LIB_UTIL    ?= $(WS_DIR)/git/src/lib/lib-util.sh
+
+## ai-check-keys: curl each AI provider's /v1/models — reports valid/expired/unreachable
+.PHONY: ai-check-keys
+ai-check-keys:
+	@bash -c 'source "$(LIB_UTIL)" && source "$(LIB_AI)" && ai_check_api_keys'
+
+## ai-refresh-models: query providers for latest model IDs, patch CCR + LiteLLM configs
+## Uses 7-day cache (~/.cache/tne/model-ids.yaml). Force refresh: make ai-refresh-models AI_MODEL_CACHE_TTL_DAYS=0
+.PHONY: ai-refresh-models
+ai-refresh-models:
+	@bash -c 'source "$(LIB_UTIL)" && source "$(LIB_AI)" && \
+		ai_resolve_model_names && ai_patch_ccr_config && ai_patch_litellm_config && \
+		echo "Done — restart ccr and litellm to pick up changes"'
+
 # ## mcpo: MCP → OpenAPI adapter (exposes MCP servers as REST endpoints)
 # MCPO_PORT    ?= 8001
 # MCPO_CONFIG  ?= $(HOME)/.config/mcp/claude-desktop.json
