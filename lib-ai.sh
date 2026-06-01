@@ -177,7 +177,7 @@ except Exception:
 			local latest
 			latest=$(tail -1 <<<"$ids")
 			local provider_key
-			provider_key=$(echo "${ccr_provider:-$env_var}" | tr '[:lower:].' '[:upper:]_' | tr -c 'A-Z0-9_' '_')
+			provider_key=$(echo "${ccr_provider:-$env_var}" | tr '[:lower:].' '[:upper:]_' | tr -cd 'A-Z0-9_')
 
 			export "AI_MODEL_${provider_key}_LATEST=$latest"
 			export "AI_MODEL_${provider_key}_IDS=$(tr '\n' ':' <<<"$ids" | sed 's/:$//')"
@@ -217,7 +217,7 @@ except Exception:
 			_base _key _prefix ccr_provider; do
 			[[ -z "$ccr_provider" ]] && continue
 			local provider_key
-			provider_key=$(echo "$ccr_provider" | tr '[:lower:].' '[:upper:]_' | tr -c 'A-Z0-9_' '_')
+			provider_key=$(echo "$ccr_provider" | tr '[:lower:].' '[:upper:]_' | tr -cd 'A-Z0-9_')
 			local ids_var="AI_MODEL_${provider_key}_IDS"
 			[[ -z "${!ids_var:-}" ]] && continue
 			local ids_json
@@ -271,7 +271,7 @@ PYEOF
 			litellm_base litellm_key_env litellm_prefix ccr_provider; do
 			[[ -z "$litellm_base" ]] && continue
 			local provider_key
-			provider_key=$(echo "${ccr_provider:-$env_var}" | tr '[:lower:].' '[:upper:]_' | tr -c 'A-Z0-9_' '_')
+			provider_key=$(echo "${ccr_provider:-$env_var}" | tr '[:lower:].' '[:upper:]_' | tr -cd 'A-Z0-9_')
 			local latest_var="AI_MODEL_${provider_key}_LATEST"
 			[[ -z "${!latest_var:-}" ]] && continue
 
