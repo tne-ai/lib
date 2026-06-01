@@ -99,7 +99,6 @@ OPENROUTER_API_KEY:
   op_item: "OpenRouter API Key Dev"
   op_field: "key"
   op_vault: DevOps
-  disabled_by: CODEX_CHATGPT  # skip when codex OAuth is active
   models_url: https://openrouter.ai/api/v1/models
   models_pattern: "nvidia/nemotron"
   ccr_provider: openrouter
