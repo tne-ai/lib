@@ -270,6 +270,7 @@ litellm: litellm-check-version
 		mkdir -p $$(dirname $(PRISMA_STAMP)) && echo "$$_schema_hash" > $(PRISMA_STAMP); \
 	fi; \
 	$(call start_server_double_fork,$(LITELLM_PORT),\
+		LITELLM_LOG=DEBUG \
 		ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" \
 		DATABASE_URL=postgresql://$$USER@localhost/litellm \
 		LM_STUDIO_API_TOKEN="$${LM_STUDIO_API_TOKEN}" \
