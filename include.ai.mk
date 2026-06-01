@@ -347,6 +347,17 @@ MODEL              ?=
 ##   make ai-run MODEL=lls/qwen/qwen3.6-27b  # local GPU (llama-server router)  [FREE]
 ##   make ai-run MODEL=lms/qwen/qwen3.6-27b  # local GPU (LM Studio — legacy)   [FREE]
 ##   make ai-run HARNESS=aider               # swap harness, same model
+# Auth modes (MODEL gates everything):
+#   MODEL=<empty>    → default Claude Max path. No ANTHROPIC_API_KEY; OAuth keychain
+#                      is read by claude and LiteLLM forwards the Bearer to Anthropic
+#                      via model_group_settings.forward_client_headers_to_llm_api.
+#   MODEL=<provider> → alt-provider via LiteLLM. ANTHROPIC_API_KEY=LITELLM_MASTER_KEY
+#                      is the proxy auth; --bare tells claude to never read OAuth
+#                      keychain. Without --bare claude still sends its saved OAuth
+#                      Bearer, which LiteLLM then forwards to MiniMax/DeepSeek/GLM
+#                      and they 401 (they expect x-api-key, not Authorization: Bearer).
+#                      --bare also disables hooks/LSP/auto-memory — acceptable for
+#                      provider smoke tests; use the default path for full Claude UX.
 .PHONY: ai-run
 ai-run:
 	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
@@ -359,14 +370,14 @@ ai-run:
 		|| echo "⚠️  lms load failed — model may already be loaded",)
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" \
-	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
+	$(if $(MODEL),ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}",) \
+	$(if $(MODEL),ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}",) \
 	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
 	CLAUDE_CODE_ENABLE_TELEMETRY=1 \
 	OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$(MLFLOW_PORT) \
 	OTEL_EXPORTER_OTLP_HEADERS="x-mlflow-experiment-id=2" \
-	env -u CLAUDECODE -u ANTHROPIC_MAX $(HARNESS) $(if $(MODEL),--model $(MODEL),) $(HARNESS_ARGS)
+	env -u CLAUDECODE -u ANTHROPIC_MAX $(HARNESS) $(if $(MODEL),--bare --model $(MODEL),) $(HARNESS_ARGS)
 
 ## ai-p: run a single claude -p batch invocation via LiteLLM routing
 ## Same env as ai-run — engine invoker.py inherits ANTHROPIC_BASE_URL via os.environ.
@@ -380,14 +391,14 @@ ai-p:
 		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
 	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
 	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" \
-	ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}" \
+	$(if $(MODEL),ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}",) \
+	$(if $(MODEL),ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}",) \
 	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
 	CLAUDE_CODE_ENABLE_TELEMETRY=1 \
 	OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$(MLFLOW_PORT) \
 	OTEL_EXPORTER_OTLP_HEADERS="x-mlflow-experiment-id=2" \
-	env -u ANTHROPIC_MAX claude -p $(AI_P_ARGS) $(if $(MODEL),--model $(MODEL),) "$(PROMPT)"
+	env -u ANTHROPIC_MAX claude -p $(AI_P_ARGS) $(if $(MODEL),--bare --model $(MODEL),) "$(PROMPT)"
 
 # ── Public entry points ───────────────────────────────────────────────────────
 
