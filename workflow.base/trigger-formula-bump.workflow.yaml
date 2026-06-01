@@ -1,0 +1,57 @@
+---
+# Trigger Homebrew formula bump in a tap repo when source files change.
+# Add this to the source repo (e.g. tne-plugins). Configure the tap repo
+# and paths to watch via repo vars.
+#
+# Required repo vars:
+#   HOMEBREW_TAP_REPO  — e.g. "tne-ai/homebrew-tne-tap"
+#   FORMULA_WATCH_PATHS — space-separated globs, e.g. "plugins/tne/engine/**"
+#
+# Required secrets:
+#   TAP_DISPATCH_TOKEN — PAT with repo:write on the tap repo (repo scoped)
+name: Trigger Formula Bump
+
+# yamllint disable-line rule:truthy
+on:
+  push:
+    branches: [main]
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    # Only run when watched paths changed
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if watched paths changed
+        id: check
+        env:
+          WATCH_PATHS: ${{ vars.FORMULA_WATCH_PATHS || 'plugins/tne/engine' }}
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          TRIGGERED=false
+          for pattern in $WATCH_PATHS; do
+            if echo "$CHANGED" | grep -qE "^${pattern}"; then
+              TRIGGERED=true
+              break
+            fi
+          done
+          echo "triggered=$TRIGGERED" >> "$GITHUB_OUTPUT"
+          echo "changed_files=$(echo "$CHANGED" | head -5 | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch bump to tap repo
+        if: steps.check.outputs.triggered == 'true'
+        env:
+          TAP_REPO: ${{ vars.HOMEBREW_TAP_REPO }}
+          SOURCE_REPO: ${{ github.repository }}
+        run: |
+          echo "Dispatching formula bump to ${TAP_REPO} (changed: ${{ steps.check.outputs.changed_files }})"
+          curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${{ secrets.TAP_DISPATCH_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${TAP_REPO}/dispatches" \
+            -d "{\"event_type\":\"bump-formula\",\"client_payload\":{\"source_repo\":\"${SOURCE_REPO}\",\"ref\":\"${{ github.sha }}\"}}"
