@@ -57,8 +57,7 @@ MINIMAX_API_KEY:
 Z_AI_PLAN_KEY:
   op_item: "Z.ai Plan Key Dev"
   op_vault: DevOps
-  models_url: https://api.z.ai/api/v1/models
-  models_pattern: "^glm-5"
+  # models_url returns HTTP 200 but body is {code:500,"msg":"404 NOT_FOUND"} — no model list API
   litellm_base: https://api.z.ai/api/anthropic/v1/messages
   litellm_key_env: ZHIPUAI_API_KEY
   litellm_model_prefix: "openai/"
@@ -100,7 +99,10 @@ OPENROUTER_API_KEY:
   op_item: "OpenRouter API Key Dev"
   op_field: "key"
   op_vault: DevOps
-  disabled_by: CODEX_CHATGPT  # openrouter interferes with codex OAuth
+  disabled_by: CODEX_CHATGPT  # skip when codex OAuth is active
+  models_url: https://openrouter.ai/api/v1/models
+  models_pattern: "nvidia/nemotron"
+  ccr_provider: openrouter
 
 # ── Google ────────────────────────────────────────────────────────────────────
 GEMINI_API_KEY:
