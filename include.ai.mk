@@ -208,12 +208,17 @@ litellm-check-version:
 	fi
 
 ## litellm.stop / 4000.stop: kill ALL litellm processes (port kill + pkill sweep for zombies)
+## WHY bin/litellm not litellm: postgres names its worker processes after the database.
+## Since the litellm database is named "litellm", pkill -f "litellm" matches and tries
+## to kill postgres workers — those kills fail (permission or zombie), pkill exits non-zero,
+## the || true masks it, and the actual Python process may survive if the port kill also
+## missed. Matching "bin/litellm" targets only the Python CLI binary, not postgres.
 .PHONY: litellm.stop 4000.stop
 litellm.stop 4000.stop:
 	@-lsof -ti :$(LITELLM_PORT) -sTCP:LISTEN | xargs kill 2>/dev/null || true
-	@pkill -f "litellm" 2>/dev/null || true
+	@pkill -f "bin/litellm" 2>/dev/null || true
 	@sleep 1
-	@pkill -9 -f "litellm" 2>/dev/null || true
+	@pkill -9 -f "bin/litellm" 2>/dev/null || true
 	@echo "litellm stopped"
 
 ## litellm: start LiteLLM proxy with automatic Prisma client regeneration
