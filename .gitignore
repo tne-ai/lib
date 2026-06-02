@@ -166,3 +166,4 @@ site/
 
 # Nodes folders
 node_modules
+.worktree/
