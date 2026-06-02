@@ -281,6 +281,8 @@ litellm: litellm-check-version
 		MINIMAX_API_KEY="$${MINIMAX_API_KEY}" \
 		MINIMAX_PLAN_KEY="$${MINIMAX_PLAN_KEY}" \
 		OPENROUTER_API_KEY="$${OPENROUTER_API_KEY}" \
+		MLFLOW_TRACKING_URI="http://localhost:$(MLFLOW_PORT)" \
+		MLFLOW_EXPERIMENT_NAME="tne-costs" \
 		$$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
 	$(call check_port,$(LITELLM_PORT))
 
@@ -757,6 +759,30 @@ ai-test:
 	@$(call port_ready,$(ROUTELLM_PORT)) \
 		&& echo "  ✓ routellm :$(ROUTELLM_PORT)" \
 		|| echo "  ✗ routellm :$(ROUTELLM_PORT) stopped  → make routellm"
+	@echo ""
+	@echo "══ command smoke tests ════════════════════════════════"
+	@$(MAKE) --no-print-directory ai-help >/dev/null 2>&1 \
+		&& echo "✓ ai-help" || echo "✗ ai-help"
+	@$(MAKE) --no-print-directory ai-status >/dev/null 2>&1 \
+		&& echo "✓ ai-status" || echo "✗ ai-status"
+	@yq e '.' "$(LITELLM_CFG)" >/dev/null 2>&1 \
+		&& echo "✓ litellm config is valid YAML" \
+		|| echo "✗ litellm config is invalid YAML — check $(LITELLM_CFG)"
+	@if $(call port_ready,$(CLIPROXYAPI_PORT)); then \
+		if [[ -n "${CLIPROXYAPI_KEY}" ]]; then \
+			echo "✓ ai-sync ready (cliproxyapi + CLIPROXYAPI_KEY set)"; \
+		else \
+			echo "⚠ ai-sync: CLIPROXYAPI_KEY missing — export it to enable sync"; \
+		fi; \
+	else \
+		echo "⚠ ai-sync: cliproxyapi not running — run: make cliproxyapi"; \
+	fi
+	@echo ""
+	@echo "══ quick health ═══════════════════════════════════════"
+	@$(call port_ready,$(LITELLM_PORT)) \
+		&& curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
+		&& echo "✓ LiteLLM /health/readiness" \
+		|| echo "✗ LiteLLM /health/readiness failed"
 test-ai: ai-test
 
 ## ai-test-models: live round-trip — sends 'pong' prompt to every cloud model via LiteLLM
@@ -822,10 +848,21 @@ ai-sync: ai-sync-cliproxyapi
 ai-sync-cliproxyapi:
 	@$(call port_ready,$(CLIPROXYAPI_PORT)) \
 		|| { echo "✗ cliproxyapi not running — run: make cliproxyapi"; exit 1; }
+	@if [[ -z "${CLIPROXYAPI_KEY}" ]]; then \
+		echo "✗ CLIPROXYAPI_KEY not set — export it or add to ~/.config/cliproxyapi/config.yaml"; \
+		exit 1; \
+	fi
 	@echo "==> syncing CLIProxyAPI :$(CLIPROXYAPI_PORT) → $(LITELLM_CFG)"
-	@curl -sf "http://localhost:$(CLIPROXYAPI_PORT)/v1/models" \
-		-H "Authorization: Bearer $${CLIPROXYAPI_KEY}" \
-	| python3 -c "import sys,json,subprocess; data=json.load(sys.stdin); cfg='$(LITELLM_CFG)'; port='$(CLIPROXYAPI_PORT)'; existing=set(subprocess.check_output(['yq','.model_list[].model_name',cfg],text=True).split()); new=[m['id'] for m in sorted(data['data'],key=lambda x:x['id']) if m['id'] not in existing]; [subprocess.run(['yq','-i','.model_list+=['+json.dumps({'model_name':mid,'litellm_params':{'model':'openai/'+mid,'api_base':'http://localhost:'+port,'api_key':'os.environ/CLIPROXYAPI_KEY'}})+']',cfg]) for mid in new]; print('  ✓ added: '+', '.join(new) if new else '  ✓ already in sync — no new models')"
+	@_resp=$$(curl -s -w "\n%{http_code}" "http://localhost:$(CLIPROXYAPI_PORT)/v1/models" \
+		-H "Authorization: Bearer $${CLIPROXYAPI_KEY}"); \
+	_code=$$(echo "$$_resp" | tail -1); \
+	_body=$$(echo "$$_resp" | sed '$$d'); \
+	if [[ "$$_code" != "200" ]]; then \
+		echo "✗ CLIProxyAPI returned HTTP $$_code (expected 200)"; \
+		echo "  body: $$_body"; \
+		exit 1; \
+	fi; \
+	echo "$$_body" | python3 -c "import sys,json,subprocess; data=json.load(sys.stdin); cfg='$(LITELLM_CFG)'; port='$(CLIPROXYAPI_PORT)'; existing=set(subprocess.check_output(['yq','.model_list[].model_name',cfg],text=True).split()); new=[m['id'] for m in sorted(data['data'],key=lambda x:x['id']) if m['id'] not in existing]; [subprocess.run(['yq','-i','.model_list+=['+json.dumps({'model_name':mid,'litellm_params':{'model':'openai/'+mid,'api_base':'http://localhost:'+port,'api_key':'os.environ/CLIPROXYAPI_KEY'}})+']',cfg]) for mid in new]; print('  ✓ added: '+', '.join(new) if new else '  ✓ already in sync — no new models')"
 
 ## ai-latest-models: query each provider API for their current model list; diff against config
 ##   Requires: provider API keys in env. Reports new models not yet in LITELLM_CFG.
