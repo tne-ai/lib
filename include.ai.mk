@@ -806,6 +806,43 @@ ai-test-models:
 	done; \
 	echo ""; echo "==> $$pass passed / $$fail failed"
 
+## ai-sync: write-back sync — upsert new models from live provider catalogs into LITELLM_CFG
+##   Currently syncs CLIProxyAPI :$(CLIPROXYAPI_PORT) (gemini + codex/gpt-5 subscriptions).
+##   Add-only: existing entries are preserved; nothing is removed.
+##   After sync: restart LiteLLM to activate new entries (make litellm).
+##   Extend: add ai-sync-<provider> targets and list them as prerequisites here.
+.PHONY: ai-sync ai-sync-cliproxyapi
+ai-sync: ai-sync-cliproxyapi
+	@echo "  restart LiteLLM to activate: make litellm"
+
+ai-sync-cliproxyapi:
+	@$(call port_ready,$(CLIPROXYAPI_PORT)) \
+		|| { echo "✗ cliproxyapi not running — run: make cliproxyapi"; exit 1; }
+	@echo "==> syncing CLIProxyAPI :$(CLIPROXYAPI_PORT) → $(LITELLM_CFG)"
+	@curl -sf "http://localhost:$(CLIPROXYAPI_PORT)/v1/models" \
+		-H "Authorization: Bearer $${CLIPROXYAPI_KEY}" \
+	| python3 -c "
+import sys, json, subprocess
+data = json.load(sys.stdin)
+cfg = '$(LITELLM_CFG)'
+port = '$(CLIPROXYAPI_PORT)'
+existing = set(subprocess.check_output(['yq', '.model_list[].model_name', cfg], text=True).split())
+added = []
+for m in sorted(data['data'], key=lambda x: x['id']):
+    mid = m['id']
+    if mid not in existing:
+        entry = json.dumps({'model_name': mid, 'litellm_params': {
+            'model': 'openai/' + mid,
+            'api_base': 'http://localhost:' + port,
+            'api_key': 'os.environ/CLIPROXYAPI_KEY'}})
+        subprocess.run(['yq', '-i', '.model_list += [' + entry + ']', cfg])
+        added.append(mid)
+if added:
+    print('  ✓ added: ' + ', '.join(added))
+else:
+    print('  ✓ already in sync — no new models')
+"
+
 ## ai-latest-models: query each provider API for their current model list; diff against config
 ##   Requires: provider API keys in env. Reports new models not yet in LITELLM_CFG.
 .PHONY: ai-latest-models
