@@ -91,6 +91,15 @@ ALIBABA_API_KEY:
   op_item: "Alibaba Dashscope API Key Dev"
   op_vault: DevOps
 
+ALIBABA_PLAN_KEY:
+  op_item: "Alibaba Cloud Plan Key Dev"
+  op_field: "api key"
+  op_vault: DevOps
+  models_url: https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models
+  models_pattern: "^(qwen|wanx)"
+  litellm_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+  litellm_model_prefix: "openai/"
+
 DEEPSEEK_API_KEY:
   op_item: "deepseek API Key Dev"
   op_vault: DevOps
@@ -313,6 +322,11 @@ GITHUB_TOKEN_CLASSIC:
 SKILL_SIGNER_KEY_ID:
   op_item: "GPG Skill Signer"
   op_field: "Key Id"
+  op_vault: DevOps
+
+CLIPROXYAPI_KEY:
+  op_item: "CLIProxyAPI Key Dev"
+  op_field: "api key"
   op_vault: DevOps
 
 # ── Aliases (equivalent_of — written outside op inject block) ─────────────────
