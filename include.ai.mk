@@ -343,6 +343,8 @@ MODEL              ?=
 ##   make ai-run MODEL=kimi-k2.6              # Kimi K2.6 Coding Plan $19/mo    [PLAN]
 ##   make ai-run MODEL=glm-5.1               # GLM-5.1 Z.AI coding plan         [PLAN]
 ##   make ai-run MODEL=minimax-m2.7          # MiniMax M2.7 Token Plan          [PLAN]
+##   make ai-run MODEL=gpt-5.5               # ChatGPT/Codex plan (auth: make ai-auth PROVIDER=codex) [PLAN]
+##   make ai-run MODEL=gpt-5.4-mini          # ChatGPT/Codex plan — mini (auth: make ai-auth PROVIDER=codex) [PLAN]
 ##   make ai-run MODEL=deepseek-v4-flash     # DeepSeek V4 Flash                [PAYG]
 ##   make ai-run MODEL=deepseek-v4-pro       # DeepSeek V4 Pro                  [PAYG]
 ##   make ai-run MODEL=lls/qwen/qwen3.6-27b  # local GPU (llama-server router)  [FREE]
@@ -374,6 +376,7 @@ ai-run:
 	$(if $(MODEL),ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}",) \
 	$(if $(MODEL),ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}",) \
 	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
+	TNE_SESSION_MODEL="$(MODEL)" \
 	CLAUDE_CODE_ENABLE_TELEMETRY=1 \
 	OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$(MLFLOW_PORT) \
@@ -395,6 +398,7 @@ ai-p:
 	$(if $(MODEL),ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}",) \
 	$(if $(MODEL),ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: $${LITELLM_MASTER_KEY}",) \
 	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
+	TNE_SESSION_MODEL="$(MODEL)" \
 	CLAUDE_CODE_ENABLE_TELEMETRY=1 \
 	OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$(MLFLOW_PORT) \
@@ -469,9 +473,9 @@ ai-help:
 
 ## ai-warn-bridges: start subscription bridges if not running; warn to auth if they stay down
 ## Called automatically by make ai. Non-interactive — never prompts for credentials.
-## If a bridge needs first-time auth, run: make ai-auth PROVIDER=kimi|gemini
-##   kimi   — claude-code-proxy  :3457  starts automatically if already authenticated
-##   gemini — CLIProxyAPI        :8317  starts automatically if already authenticated
+## If a bridge needs first-time auth, run: make ai-auth PROVIDER=kimi|gemini|codex
+##   kimi         — claude-code-proxy  :3457  starts automatically if already authenticated
+##   gemini/codex — CLIProxyAPI        :8317  starts automatically if already authenticated
 .PHONY: ai-warn-bridges
 ai-warn-bridges:
 	@if ! nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null; then \
@@ -491,16 +495,16 @@ ai-warn-bridges:
 		fi; \
 	fi
 	@if ! nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
-		echo "  → gemini bridge (:$(CLIPROXYAPI_PORT)) not running — starting..."; \
+		echo "  → gemini/codex bridge (:$(CLIPROXYAPI_PORT)) not running — starting..."; \
 		if command -v cliproxyapi >/dev/null 2>&1; then \
 			nohup cliproxyapi -config "$(HOME)/.config/cliproxyapi/config.yaml" </dev/null >$(TNE_LOG_DIR)/sidecar-$(CLIPROXYAPI_PORT).log 2>&1 & \
 			sleep 2; \
 			if nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
-				echo "  ✓  gemini bridge started"; \
+				echo "  ✓  gemini/codex bridge started"; \
 			else \
-				echo "  ⚠️  gemini bridge not up — last log lines:"; \
+				echo "  ⚠️  gemini/codex bridge not up — last log lines:"; \
 				tail -5 $(TNE_LOG_DIR)/sidecar-$(CLIPROXYAPI_PORT).log 2>/dev/null | sed 's/^/       /'; \
-				echo "       Fix: make ai-auth PROVIDER=gemini   (authenticate first, then retry)"; \
+				echo "       Fix: make ai-auth PROVIDER=gemini|codex   (authenticate first, then retry)"; \
 			fi; \
 		else \
 			echo "  ⚠️  cliproxyapi not installed — brew install cliproxyapi"; \
@@ -508,7 +512,7 @@ ai-warn-bridges:
 	fi
 	@nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null \
 		&& nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null \
-		&& echo "  ✓  Subscription bridges: kimi :$(KIMI_CLAUDE_PROXY_PORT) gemini :$(CLIPROXYAPI_PORT)" || true
+		&& echo "  ✓  Subscription bridges: kimi :$(KIMI_CLAUDE_PROXY_PORT) gemini/codex :$(CLIPROXYAPI_PORT)" || true
 
 ## ai-cli: CLI-auth providers via CLIProxyAPI adapter  [PLAN — flat-rate subscriptions]
 ## Authenticates via provider CLI login, not per-token API key.
@@ -844,6 +848,15 @@ ai-latest-models:
 		-H "Authorization: Bearer $${ALIBABA_API_KEY}" \
 		| python3 -c 'import sys,json; [print(" ", m["id"]) for m in json.load(sys.stdin).get("data",[])]' \
 		2>/dev/null || echo "  (skipped — ALIBABA_API_KEY not set or request failed)"
+	@echo ""
+	@echo "── CLIProxyAPI :$(CLIPROXYAPI_PORT) (gemini/codex/gpt-5 subscription) ──"
+	@$(call port_ready,$(CLIPROXYAPI_PORT)) \
+		&& curl -sf http://localhost:$(CLIPROXYAPI_PORT)/v1/models \
+			-H "Authorization: Bearer $${CLIPROXYAPI_KEY}" \
+			| python3 -c \
+				'import sys,json; ids=sorted(m["id"] for m in json.load(sys.stdin)["data"]); [print("  ",i) for i in ids]' \
+			2>/dev/null \
+		|| echo "  (skipped — cliproxyapi not running on :$(CLIPROXYAPI_PORT))"
 	@echo ""
 	@echo "── In $(LITELLM_CFG) ────────────────────────────────"
 	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null \
