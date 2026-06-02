@@ -345,6 +345,13 @@ MODEL              ?=
 ##   make ai-run MODEL=gpt-5.4-mini          # ChatGPT/Codex plan — mini (auth: make ai-auth PROVIDER=codex) [PLAN]
 ##   make ai-run MODEL=deepseek-v4-flash     # DeepSeek V4 Flash                [PAYG]
 ##   make ai-run MODEL=deepseek-v4-pro       # DeepSeek V4 Pro                  [PAYG]
+##   make ai-run MODEL=or-nemotron-nano-30b         # Nemotron 30B via OpenRouter       [FREE]
+##   make ai-run MODEL=or-nemotron-nano-30b-reasoning # Nemotron 30B reasoning          [FREE]
+##   make ai-run MODEL=or-nemotron-super-120b       # Nemotron 120B 1M ctx             [FREE]
+##   make ai-run MODEL=or-qwen3-coder               # Qwen3 Coder 1M ctx               [FREE]
+##   make ai-run MODEL=or-qwen3-coder-30b           # Qwen3 Coder 30B                  [PAYG]
+##   make ai-run MODEL=or-qwen3-235b                # Qwen3 235B (cheap)               [PAYG]
+##   make ai-run MODEL=or-qwen3.6-35b               # Qwen3.6 35B MoE                  [PAYG]
 ##   make ai-run MODEL=lls/qwen/qwen3.6-27b  # local GPU (llama-server router)  [FREE]
 ##   make ai-run MODEL=lms/qwen/qwen3.6-27b  # local GPU (LM Studio — legacy)   [FREE]
 ##   make ai-run HARNESS=aider               # swap harness, same model
@@ -623,6 +630,10 @@ ai-models:
 			routellm*) tag="PLAN+PLAN -- auto-routes kimi->claude by difficulty" ;; \
 			gemini*)   tag="PLAN  -- Google CLI sub → make ai-auth PROVIDER=gemini" ;; \
 			deepseek*) tag="PAYG  -- no flat-rate plan; use sparingly" ;; \
+			or-*nemotron*free*)  tag="FREE  -- NVIDIA Nemotron via OpenRouter (rate-limited) → OPENROUTER_API_KEY" ;; \
+			or-*nemotron*)       tag="PAYG  -- NVIDIA Nemotron via OpenRouter → OPENROUTER_API_KEY" ;; \
+			or-*qwen*coder*free*)tag="FREE  -- Qwen3 Coder via OpenRouter (rate-limited) → OPENROUTER_API_KEY" ;; \
+			or-*)                tag="PAYG  -- OpenRouter bridge → OPENROUTER_API_KEY" ;; \
 			*)         tag="PAYG" ;; \
 			esac; \
 			printf '  make ai MODEL=%-32s # %s\n' "$$name" "$$tag"; \
@@ -814,27 +825,7 @@ ai-sync-cliproxyapi:
 	@echo "==> syncing CLIProxyAPI :$(CLIPROXYAPI_PORT) → $(LITELLM_CFG)"
 	@curl -sf "http://localhost:$(CLIPROXYAPI_PORT)/v1/models" \
 		-H "Authorization: Bearer $${CLIPROXYAPI_KEY}" \
-	| python3 -c "
-import sys, json, subprocess
-data = json.load(sys.stdin)
-cfg = '$(LITELLM_CFG)'
-port = '$(CLIPROXYAPI_PORT)'
-existing = set(subprocess.check_output(['yq', '.model_list[].model_name', cfg], text=True).split())
-added = []
-for m in sorted(data['data'], key=lambda x: x['id']):
-    mid = m['id']
-    if mid not in existing:
-        entry = json.dumps({'model_name': mid, 'litellm_params': {
-            'model': 'openai/' + mid,
-            'api_base': 'http://localhost:' + port,
-            'api_key': 'os.environ/CLIPROXYAPI_KEY'}})
-        subprocess.run(['yq', '-i', '.model_list += [' + entry + ']', cfg])
-        added.append(mid)
-if added:
-    print('  ✓ added: ' + ', '.join(added))
-else:
-    print('  ✓ already in sync — no new models')
-"
+	| python3 -c "import sys,json,subprocess; data=json.load(sys.stdin); cfg='$(LITELLM_CFG)'; port='$(CLIPROXYAPI_PORT)'; existing=set(subprocess.check_output(['yq','.model_list[].model_name',cfg],text=True).split()); new=[m['id'] for m in sorted(data['data'],key=lambda x:x['id']) if m['id'] not in existing]; [subprocess.run(['yq','-i','.model_list+=['+json.dumps({'model_name':mid,'litellm_params':{'model':'openai/'+mid,'api_base':'http://localhost:'+port,'api_key':'os.environ/CLIPROXYAPI_KEY'}})+']',cfg]) for mid in new]; print('  ✓ added: '+', '.join(new) if new else '  ✓ already in sync — no new models')"
 
 ## ai-latest-models: query each provider API for their current model list; diff against config
 ##   Requires: provider API keys in env. Reports new models not yet in LITELLM_CFG.
