@@ -197,6 +197,7 @@ litellm-fix-ui:
 		echo "⚠  litellm UI patch: paths not found — skipping"; \
 	fi
 
+
 ## litellm-check-version: verify installed litellm matches LITELLM_VERSION; fix if not
 ## Called automatically by make litellm before startup.
 .PHONY: litellm-check-version
@@ -276,7 +277,7 @@ litellm: litellm-check-version
 		GEMINI_API_KEY="$${GEMINI_API_KEY}" \
 		DEEPSEEK_API_KEY="$${DEEPSEEK_API_KEY}" \
 		ALIBABA_API_KEY="$${ALIBABA_API_KEY}" \
-		QWEN_CODING_API_KEY="$${QWEN_CODING_API_KEY}" \
+		ALIBABA_PLAN_KEY="$${ALIBABA_PLAN_KEY}" \
 		Z_AI_PLAN_KEY="$${Z_AI_PLAN_KEY}" \
 		MINIMAX_API_KEY="$${MINIMAX_API_KEY}" \
 		MINIMAX_PLAN_KEY="$${MINIMAX_PLAN_KEY}" \
@@ -335,7 +336,7 @@ MODEL              ?=
 ##   Gemini    : PLAN  — Google One AI Premium OAuth via cliproxyapi bridge (:8317)
 ##   Z.AI/GLM  : PLAN  — same API key routes to coding plan quota via api.z.ai/api/anthropic
 ##   MiniMax   : PLAN  — Token Plan ~$10/mo; MINIMAX_PLAN_KEY routes to plan quota
-##   Qwen      : PLAN  — $50/mo Alibaba bundle (when available) via coding-intl endpoint
+##   Qwen      : PLAN  — Alibaba Plan key (ALIBABA_PLAN_KEY) via dashscope-intl endpoint
 ##   DeepSeek  : PAYG  — no flat-rate plan exists; cheap ($0.14/1M tokens for flash)
 ##   OpenRouter: PAYG  — markup on underlying models; use for models with no direct plan
 ##
@@ -369,7 +370,10 @@ MODEL              ?=
 .PHONY: ai-run
 ai-run:
 	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
-		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
+		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — auto-restarting..."; \
+			$(MAKE) --no-print-directory litellm; } \
+		&& curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
+		|| { echo "LiteLLM still not ready — check: make ai-log"; exit 1; }
 	@$(if $(filter lls/%,$(MODEL)), \
 		$(call port_ready,8081) \
 		|| { echo "llama-server not running on :8081 — run: make lls-start"; exit 1; },)
@@ -433,7 +437,7 @@ ai-help:
 			claude*)   tag="PLAN -- Anthropic Max" ;; \
 			kimi*)     tag="PLAN -- Kimi Coding Plan" ;; \
 			glm*)      tag="PLAN -- Z.AI coding plan" ;; \
-			qwen*)     tag="PLAN -- Qwen coding plan" ;; \
+			qwen*)     tag="PLAN -- Alibaba plan (ALIBABA_PLAN_KEY)" ;; \
 			minimax*)  tag="PLAN -- MiniMax token plan" ;; \
 			gemini*)   tag="PLAN -- Google CLI sub" ;; \
 			deepseek*) tag="PAYG -- no flat-rate plan" ;; \
@@ -558,6 +562,8 @@ ai-auth:
 
 ## cliproxyapi: CLIProxyAPI — wraps codex/gemini CLI auth as OpenAI-compatible API
 ## Install: brew install cliproxyapi  Login: codex login  or  gemini auth login
+## Config is managed by chezmoi (~/.local/share/chezmoi/dot_config/cliproxyapi/config.yaml.tmpl)
+## which resolves the API key from 1Password at apply time (r-cto-dev105 Law IV Pattern B).
 CLIPROXYAPI_PORT ?= 8317
 .PHONY: cliproxyapi
 cliproxyapi:
@@ -588,10 +594,16 @@ ai-open:
 		nc -z localhost $(KTAP_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(KTAP_PORT)" || true; \
 		nc -z localhost $(LLS_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(LLS_PORT)/" || true; \
 		open -a "Google Chrome" "https://console.anthropic.com/settings/usage" || true; \
+		open -a "Google Chrome" "https://platform.openai.com/usage" || true; \
 		open -a "Google Chrome" "https://platform.moonshot.cn/console/account" || true; \
 		open -a "Google Chrome" "https://aistudio.google.com/app/usage?timeRange=last-28-days" || true; \
 		open -a "Google Chrome" "https://z.ai/manage-apikey/billing" || true; \
 		open -a "Google Chrome" "https://platform.minimax.io/user-center/payment/token-plan" || true; \
+		open -a "Google Chrome" "https://platform.deepseek.com/usage" || true; \
+		open -a "Google Chrome" "https://openrouter.ai/activity" || true; \
+		open -a "Google Chrome" "https://console.groq.com/settings/usage" || true; \
+		open -a "Google Chrome" "https://cloud.cerebras.ai/platform/usage" || true; \
+		open -a "Google Chrome" "https://dashscope.console.aliyun.com/billing" || true; \
 		touch "$(AI_OPEN_STAMP)"; \
 	fi
 
@@ -599,7 +611,7 @@ ai-open:
 .PHONY: ai-open-force
 ai-open-force:
 	@rm -f "$(AI_OPEN_STAMP)"
-	@$(MAKE) -f $(lastword $(MAKEFILE_LIST)) ai-open
+	@$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-open
 
 ## ai-status: health check for all sidecars
 .PHONY: ai-status
@@ -627,7 +639,7 @@ ai-models:
 			claude*)   tag="PLAN  -- Anthropic Max (~\$$20-100/mo flat)" ;; \
 			kimi*)     tag="PLAN  -- Kimi Coding Plan (\$$19/mo flat)" ;; \
 			glm*)      tag="PLAN  -- ZAI GLM Coding Plan \$$18/mo → Z_AI_PLAN_KEY" ;; \
-			qwen3*)    tag="PLAN  -- Qwen Coding \$$50/mo → QWEN_CODING_API_KEY" ;; \
+			qwen*)     tag="PLAN  -- Alibaba Plan → ALIBABA_PLAN_KEY" ;; \
 			minimax*)  tag="PLAN  -- MiniMax Token Plan \$$10-20/mo → MINIMAX_PLAN_KEY" ;; \
 			routellm*) tag="PLAN+PLAN -- auto-routes kimi->claude by difficulty" ;; \
 			gemini*)   tag="PLAN  -- Google CLI sub → make ai-auth PROVIDER=gemini" ;; \
@@ -659,7 +671,7 @@ ai-models:
 ## Sources:
 ##   Z.AI:    https://z.ai/subscribe → account → API Keys (regular key, no special prefix)
 ##   MiniMax: https://platform.minimax.io/subscribe/token-plan — Token Plan $10-20/mo
-##   Qwen:    https://help.aliyun.com/zh/model-studio/qwen-coder — coding plan key
+##   Alibaba: https://bailian.console.aliyun.com/ → API Keys → ALIBABA_PLAN_KEY
 ##   Gemini:  make ai-auth PROVIDER=gemini — Google OAuth via cliproxyapi
 ##   Kimi:    claude-code-proxy handles auth — no extra key needed
 .PHONY: ai-keys
@@ -669,8 +681,8 @@ ai-keys:
 		"$$([ -n "$$Z_AI_PLAN_KEY" ] && echo "✓ set" || echo "✗ missing — z.ai → account → API Keys")"
 	@printf "  %-28s %s\n" "MINIMAX_PLAN_KEY" \
 		"$$([ -n "$$MINIMAX_PLAN_KEY" ] && echo "✓ set" || echo "✗ missing — platform.minimax.io/subscribe/token-plan")"
-	@printf "  %-28s %s\n" "QWEN_CODING_API_KEY" \
-		"$$([ -n "$$QWEN_CODING_API_KEY" ] && echo "✓ set" || echo "✗ missing — Alibaba Cloud console → Model Studio → API Keys")"
+	@printf "  %-28s %s\n" "ALIBABA_PLAN_KEY" \
+		"$$([ -n "$$ALIBABA_PLAN_KEY" ] && echo "✓ set" || echo "✗ missing — bailian.console.aliyun.com → API Keys")"
 	@printf "  %-28s %s\n" "LITELLM_MASTER_KEY" \
 		"$$([ -n "$$LITELLM_MASTER_KEY" ] && echo "✓ set" || echo "✗ missing — generate random, set in 1Password")"
 	@echo ""
@@ -770,7 +782,15 @@ ai-test:
 		|| echo "✗ litellm config is invalid YAML — check $(LITELLM_CFG)"
 	@if $(call port_ready,$(CLIPROXYAPI_PORT)); then \
 		if [[ -n "${CLIPROXYAPI_KEY}" ]]; then \
-			echo "✓ ai-sync ready (cliproxyapi + CLIPROXYAPI_KEY set)"; \
+			_resp=$$(curl -sf -w "\n%{http_code}" "http://localhost:$(CLIPROXYAPI_PORT)/v1/models" \
+				-H "Authorization: Bearer $${CLIPROXYAPI_KEY}"); \
+			_code=$$(echo "$$_resp" | tail -1); \
+			if [[ "$$_code" == "200" ]]; then \
+				_count=$$(echo "$$_resp" | sed '$$d' | jq '.data | length'); \
+				echo "✓ cliproxyapi auth OK ($$_count models)"; \
+			else \
+				echo "⚠ cliproxyapi auth failed HTTP $$_code — key may be stale"; \
+			fi; \
 		else \
 			echo "⚠ ai-sync: CLIPROXYAPI_KEY missing — export it to enable sync"; \
 		fi; \
@@ -783,7 +803,91 @@ ai-test:
 		&& curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
 		&& echo "✓ LiteLLM /health/readiness" \
 		|| echo "✗ LiteLLM /health/readiness failed"
+	@echo ""
+	@echo "══ MLflow callback wiring ════════════════════════════"
+	@ps ewww $$(pgrep -f "litellm --config" | head -1) 2>/dev/null | tr ' ' '\n' | grep -q "^MLFLOW_TRACKING_URI=" \
+		&& echo "✓ LiteLLM process has MLFLOW_TRACKING_URI" \
+		|| echo "✗ LiteLLM missing MLFLOW_TRACKING_URI — run: make litellm.stop litellm"
+	@ps ewww $$(pgrep -f "litellm --config" | head -1) 2>/dev/null | tr ' ' '\n' | grep -q "^MLFLOW_EXPERIMENT_NAME=" \
+		&& echo "✓ LiteLLM process has MLFLOW_EXPERIMENT_NAME=tne-costs" \
+		|| echo "✗ LiteLLM missing MLFLOW_EXPERIMENT_NAME — run: make litellm.stop litellm"
+	@$(call port_ready,$(MLFLOW_PORT)) \
+		&& { _exps=$$(curl -sf -X POST "http://localhost:$(MLFLOW_PORT)/api/2.0/mlflow/experiments/search" \
+				-H "Content-Type: application/json" \
+				-d '{"max_results":10}' \
+				| jq -r '[.experiments[].name] | join(", ")' 2>/dev/null); \
+			echo "✓ MLflow experiments: $$_exps"; } \
+		|| echo "✗ MLflow API unreachable at :$(MLFLOW_PORT)"
+	@echo ""
+	@echo "══ E2E: LiteLLM → MLflow trace round-trip ════════════"
+	@$(MAKE) --no-print-directory litellm-test-trace 2>&1 | sed 's/^/  /'
 test-ai: ai-test
+
+## litellm-test-trace: E2E round-trip — sends a real prompt directly to LiteLLM via curl,
+##   waits up to 10s, then checks MLflow tne-costs for a new run created after the call.
+##   Verifies: LiteLLM routes the call AND fires the MLflow success_callback.
+##   Uses deepseek-v4-flash (cheap PAYG) by default; override with TRACE_TEST_MODEL=.
+##   Auth: uses LITELLM_MASTER_KEY (resolved from 1Password if needed).
+TRACE_TEST_MODEL ?= deepseek-v4-flash
+.PHONY: litellm-test-trace
+litellm-test-trace:
+	@$(call port_ready,$(LITELLM_PORT)) || { echo "✗ LiteLLM not running — run: make ai"; exit 1; }
+	@$(call port_ready,$(MLFLOW_PORT)) || { echo "✗ MLflow not running — run: make mlflow"; exit 1; }
+	@_key=$${LITELLM_MASTER_KEY}; \
+	[[ "$$_key" == op://* ]] && _key=$$(op read "$$_key" 2>/dev/null) || true; \
+	[ -n "$$_key" ] || { echo "✗ LITELLM_MASTER_KEY not set — source .envrc or run op signin"; exit 1; }; \
+	_before=$$(curl -sf -X POST "http://localhost:$(MLFLOW_PORT)/api/2.0/mlflow/runs/search" \
+		-H "Content-Type: application/json" \
+		-d '{"experiment_ids":["1"],"max_results":1,"order_by":["start_time DESC"]}' \
+		| jq -r '.runs[0].info.run_id // "none"'); \
+	echo "  baseline run_id: $$_before"; \
+	echo "  sending prompt via LiteLLM curl ($(TRACE_TEST_MODEL))..."; \
+	_resp=$$(curl -sf -X POST "http://localhost:$(LITELLM_PORT)/v1/chat/completions" \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $$_key" \
+		-d "{\"model\":\"$(TRACE_TEST_MODEL)\",\"messages\":[{\"role\":\"user\",\"content\":\"Say: pong\"}],\"max_tokens\":5}" 2>&1); \
+	echo "$$_resp" | jq -r '.choices[0].message.content // empty' 2>/dev/null \
+		|| { echo "✗ LiteLLM call failed: $$(echo $$_resp | head -c 200)"; exit 1; }; \
+	echo "  call succeeded, waiting 10s for MLflow callback..."; \
+	sleep 10; \
+	_after=$$(curl -sf -X POST "http://localhost:$(MLFLOW_PORT)/api/2.0/mlflow/runs/search" \
+		-H "Content-Type: application/json" \
+		-d '{"experiment_ids":["1"],"max_results":1,"order_by":["start_time DESC"]}' \
+		| jq -r '.runs[0].info.run_id // "none"'); \
+	if [ "$$_after" != "$$_before" ] && [ "$$_after" != "none" ]; then \
+		echo "✓ MLflow trace created: run_id=$${_after:0:8}"; \
+		echo "  → http://localhost:$(MLFLOW_PORT)/#/experiments/1/runs/$$_after"; \
+	else \
+		echo "✗ No new trace in MLflow tne-costs after call — check LiteLLM mlflow callback"; \
+		echo "  run: make ai-log  to inspect sidecar-$(LITELLM_PORT).log"; \
+	fi
+
+## litellm-test-mlflow: live end-to-end check — writes a test run to MLflow tne-costs experiment.
+##   Requires: make litellm mlflow (both running). Confirms MLFLOW_TRACKING_URI is wired correctly.
+.PHONY: litellm-test-mlflow
+litellm-test-mlflow:
+	@echo "==> testing LiteLLM → MLflow trace pipeline"
+	@$(call port_ready,$(MLFLOW_PORT)) || { echo "✗ MLflow not running on :$(MLFLOW_PORT) — run: make mlflow"; exit 1; }
+	@$(call port_ready,$(LITELLM_PORT)) || { echo "✗ LiteLLM not running on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
+	@ps ewww $$(pgrep -f "litellm --config" | head -1) 2>/dev/null | tr ' ' '\n' | grep -q "^MLFLOW_TRACKING_URI=" \
+		|| { echo "✗ LiteLLM missing MLFLOW_TRACKING_URI — run: make litellm.stop litellm"; exit 1; }
+	@_uri=http://localhost:$(MLFLOW_PORT); \
+	_exp_id=$$(curl -sf "$$_uri/api/2.0/mlflow/experiments/get-by-name?experiment_name=tne-costs" \
+		| jq -r '.experiment.experiment_id // empty'); \
+	[ -n "$$_exp_id" ] || { echo "✗ tne-costs experiment not found in MLflow"; exit 1; }; \
+	_run_id=$$(curl -sf -X POST "$$_uri/api/2.0/mlflow/runs/create" \
+		-H "Content-Type: application/json" \
+		-d "{\"experiment_id\":\"$$_exp_id\",\"run_name\":\"litellm-test-mlflow-$$(date +%Y-%m-%d)\",\"tags\":[{\"key\":\"source\",\"value\":\"make litellm-test-mlflow\"}]}" \
+		| jq -r '.run.info.run_id // empty'); \
+	[ -n "$$_run_id" ] || { echo "✗ Failed to create MLflow run"; exit 1; }; \
+	curl -sf -X POST "$$_uri/api/2.0/mlflow/runs/log-metric" \
+		-H "Content-Type: application/json" \
+		-d "{\"run_id\":\"$$_run_id\",\"key\":\"latency_ms\",\"value\":42,\"timestamp\":$$(date +%s000),\"step\":0}" >/dev/null; \
+	curl -sf -X POST "$$_uri/api/2.0/mlflow/runs/update" \
+		-H "Content-Type: application/json" \
+		-d "{\"run_id\":\"$$_run_id\",\"status\":\"FINISHED\",\"end_time\":$$(date +%s000)}" >/dev/null; \
+	echo "✓ MLflow run written: run_id=$${_run_id:0:8}"; \
+	echo "  → $$_uri/#/experiments/$$_exp_id/runs/$$_run_id"
 
 ## ai-test-models: live round-trip — sends 'pong' prompt to every cloud model via LiteLLM
 ##   Requires: make ai (sidecars up). Skips local (lms/*, lls/*) models.
@@ -848,13 +952,14 @@ ai-sync: ai-sync-cliproxyapi
 ai-sync-cliproxyapi:
 	@$(call port_ready,$(CLIPROXYAPI_PORT)) \
 		|| { echo "✗ cliproxyapi not running — run: make cliproxyapi"; exit 1; }
-	@if [[ -z "${CLIPROXYAPI_KEY}" ]]; then \
-		echo "✗ CLIPROXYAPI_KEY not set — export it or add to ~/.config/cliproxyapi/config.yaml"; \
+	@_key="${CLIPROXYAPI_KEY}"; \
+	if [[ -z "$$_key" ]]; then \
+		echo "✗ CLIPROXYAPI_KEY not set — run a new shell after install-1password.sh loads it via op inject"; \
 		exit 1; \
-	fi
-	@echo "==> syncing CLIProxyAPI :$(CLIPROXYAPI_PORT) → $(LITELLM_CFG)"
-	@_resp=$$(curl -s -w "\n%{http_code}" "http://localhost:$(CLIPROXYAPI_PORT)/v1/models" \
-		-H "Authorization: Bearer $${CLIPROXYAPI_KEY}"); \
+	fi; \
+	echo "==> syncing CLIProxyAPI :$(CLIPROXYAPI_PORT) → $(LITELLM_CFG)"; \
+	_resp=$$(curl -s -w "\n%{http_code}" "http://localhost:$(CLIPROXYAPI_PORT)/v1/models" \
+		-H "Authorization: Bearer $$_key"); \
 	_code=$$(echo "$$_resp" | tail -1); \
 	_body=$$(echo "$$_resp" | sed '$$d'); \
 	if [[ "$$_code" != "200" ]]; then \

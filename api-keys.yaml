@@ -81,11 +81,7 @@ MOONSHOT_API_KEY:
 QWEN_CODING_API_KEY:
   op_item: "Alibaba Model Studio Coding Plan Dev"
   op_vault: DevOps
-  models_url: https://coding-intl.dashscope.aliyuncs.com/compatible-mode/v1/models
-  models_pattern: "^qwen3-coder"
-  litellm_base: https://coding-intl.dashscope.aliyuncs.com/apps/anthropic
-  litellm_model_prefix: "openai/"
-  ccr_provider: dashscope
+  disabled: true  # obsolete — coding-intl endpoint retired; use ALIBABA_PLAN_KEY instead
 
 ALIBABA_API_KEY:
   op_item: "Alibaba Dashscope API Key Dev"
