@@ -268,6 +268,9 @@ litellm: litellm-check-version
 			PATH="$$_venv/bin:$$PATH" $$_venv/bin/prisma db push --schema "$$_schema" --accept-data-loss; \
 		mkdir -p $$(dirname $(PRISMA_STAMP)) && echo "$$_schema_hash" > $(PRISMA_STAMP); \
 	fi; \
+	lsof -ti :$(LITELLM_PORT) -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true; \
+	pkill -f "bin/litellm" 2>/dev/null || true; \
+	sleep 1; \
 	$(call start_server_double_fork,$(LITELLM_PORT),\
 		LITELLM_LOG=DEBUG \
 		ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" \
@@ -282,6 +285,7 @@ litellm: litellm-check-version
 		MINIMAX_API_KEY="$${MINIMAX_API_KEY}" \
 		MINIMAX_PLAN_KEY="$${MINIMAX_PLAN_KEY}" \
 		OPENROUTER_API_KEY="$${OPENROUTER_API_KEY}" \
+		CLIPROXYAPI_KEY="$${CLIPROXYAPI_KEY}" \
 		MLFLOW_TRACKING_URI="http://localhost:$(MLFLOW_PORT)" \
 		MLFLOW_EXPERIMENT_NAME="tne-costs" \
 		$$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
@@ -710,9 +714,10 @@ ai-log:
 		"$(TNE_LOG_DIR)/tne-engine.log" \
 		2>/dev/null || echo "(no log files yet — start services with make ai-local)"
 
-## ai-test: validate tools, config, and running sidecars for all ai-* stack variants
+## ai-test: Tier 1 — validate tools, config, and running sidecars for all ai-* stack variants
 ##   Checks installs, litellm config routing, and port health — reports ✓/✗ without failing.
-##   For live model round-trips run: make ai-test-models
+##   Tier 2 (live model round-trips): make ai-test-models
+##   Tier 3 (quality gate, CI-safe):  make ai-test-full
 .PHONY: ai-test test-ai
 ai-test:
 	@echo "══ make ai (base stack) ══════════════════════════════"
@@ -757,9 +762,12 @@ ai-test:
 	@command -v claude-code-proxy >/dev/null 2>&1 \
 		&& echo "✓ claude-code-proxy installed" \
 		|| echo "✗ claude-code-proxy missing — run: brew install raine/claude-code-proxy/claude-code-proxy"
+	@grep -q "token-plan.*maas.aliyuncs.com" "$(LITELLM_CFG)" 2>/dev/null \
+		&& echo "✓ litellm kimi-k2.6 → Alibaba MaaS (PLAN)" \
+		|| echo "✗ litellm config: kimi-k2.6 not on MaaS plan"
 	@grep -q "localhost:$(KIMI_CLAUDE_PROXY_PORT)" "$(LITELLM_CFG)" 2>/dev/null \
-		&& echo "✓ litellm kimi → localhost:$(KIMI_CLAUDE_PROXY_PORT) (PLAN)" \
-		|| echo "✗ litellm config: kimi still PAYG (expected localhost:$(KIMI_CLAUDE_PROXY_PORT))"
+		&& echo "✓ litellm kimi-k2.6-proxy → localhost:$(KIMI_CLAUDE_PROXY_PORT) (PLAN fallback)" \
+		|| echo "⚠ litellm config: kimi-k2.6-proxy not wired to claude-code-proxy"
 	@grep -q "localhost:$(CLIPROXYAPI_PORT)" "$(LITELLM_CFG)" 2>/dev/null \
 		&& echo "✓ litellm gemini → localhost:$(CLIPROXYAPI_PORT) (PLAN)" \
 		|| echo "✗ litellm config: gemini still PAYG (expected localhost:$(CLIPROXYAPI_PORT))"
@@ -906,15 +914,15 @@ ai-test-models:
 			echo "  – $$model: skipped (Max plan OAuth — tested implicitly via Claude Code session)"; \
 			continue; \
 			;; \
-		kimi-*) \
+		*-proxy) \
 			result=$$(curl -sf --max-time 30 -X POST \
 				http://localhost:$(LITELLM_PORT)/v1/chat/completions \
 				-H "Content-Type: application/json" \
 				-H "Authorization: Bearer $${LITELLM_MASTER_KEY}" \
 				-d "{\"model\":\"$$model\",\"stream\":true,\"messages\":[{\"role\":\"user\",\"content\":\"reply with the single word: pong\"}],\"max_tokens\":200}" \
 				2>&1); \
-			reply=$$(echo "$$result" | grep '"content"' | grep -v '"content":""' \
-				| python3 -c 'import sys,json,re; chunks=[l for l in sys.stdin if l.startswith("data:")]; last=[c for c in chunks if "content" in c and json.loads(c[5:]).get("choices",[{}])[0].get("delta",{}).get("content","")]; print("".join(json.loads(c[5:])["choices"][0]["delta"]["content"] for c in last).strip()[:60])' \
+			reply=$$(echo "$$result" \
+				| python3 -c 'import sys,json; chunks=[l for l in sys.stdin if l.startswith("data:") and l.strip()!="data: [DONE]"]; print("".join(json.loads(c[5:])["choices"][0]["delta"].get("content","") for c in chunks if json.loads(c[5:]).get("choices",[{}])[0].get("delta",{}).get("content")).strip()[:60])' \
 				2>/dev/null); \
 			;; \
 		*) \
@@ -939,6 +947,38 @@ ai-test-models:
 		fi; \
 	done; \
 	echo ""; echo "==> $$pass passed / $$fail failed"
+
+## ai-test-full: Tier 1+2+3 — adds quality gate on top of ai-test-models
+##   Tier 3: sends specific prompts and checks output matches expected patterns.
+##   Uses a representative subset of providers (one per backend).
+##   Fails hard if any quality gate misses — suitable for CI pre-flight.
+AI_QUALITY_MODELS ?= qwen-max gpt-5.4-mini gemini-2.5-flash deepseek-v4-pro kimi-k2.6 minimax-m2.7 glm-4.7-flash or-nemotron-super-120b
+.PHONY: ai-test-full
+ai-test-full: ai-test ai-test-models
+	@$(call port_ready,$(LITELLM_PORT)) || { echo "✗ LiteLLM not running — run: make ai"; exit 1; }
+	@echo ""
+	@echo "══ Tier 3: quality gate ══════════════════════════════"
+	@_key=$${LITELLM_MASTER_KEY}; \
+	[[ "$$_key" == op://* ]] && _key=$$(op read "$$_key" 2>/dev/null) || true; \
+	pass=0; fail=0; \
+	for model in $(AI_QUALITY_MODELS); do \
+		result=$$(curl -sf --max-time 45 -X POST \
+			http://localhost:$(LITELLM_PORT)/v1/chat/completions \
+			-H "Content-Type: application/json" \
+			-H "Authorization: Bearer $$_key" \
+			-d "{\"model\":\"$$model\",\"messages\":[{\"role\":\"user\",\"content\":\"What is 2+2? Reply with just the digit.\"}],\"max_tokens\":10}" \
+			2>/dev/null); \
+		reply=$$(echo "$$result" | python3 -c \
+			'import sys; raw=sys.stdin.buffer.read().decode("utf-8","replace"); import json; d=json.loads(raw); m=d["choices"][0]["message"]; print((m.get("content") or m.get("reasoning_content","")).strip()[:20])' \
+			2>/dev/null); \
+		if echo "$$reply" | grep -q "4"; then \
+			echo "  ✓ $$model: '$$reply'"; pass=$$((pass+1)); \
+		else \
+			echo "  ✗ $$model: expected '4', got '$$reply'"; fail=$$((fail+1)); \
+		fi; \
+	done; \
+	echo ""; echo "==> quality gate: $$pass passed / $$fail failed"; \
+	[ "$$fail" -eq 0 ] || exit 1
 
 ## ai-sync: write-back sync — upsert new models from live provider catalogs into LITELLM_CFG
 ##   Currently syncs CLIProxyAPI :$(CLIPROXYAPI_PORT) (gemini + codex/gpt-5 subscriptions).
