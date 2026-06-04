@@ -785,12 +785,14 @@ ai-test-infra:
 	@command -v claude-code-proxy >/dev/null 2>&1 \
 		&& echo "✓ claude-code-proxy installed" \
 		|| echo "✗ claude-code-proxy missing — run: brew install raine/claude-code-proxy/claude-code-proxy"
-	@grep -q "token-plan.*maas.aliyuncs.com" "$(LITELLM_CFG)" 2>/dev/null \
-		&& echo "✓ litellm kimi-k2.6 → Alibaba MaaS (PLAN)" \
-		|| echo "✗ litellm config: kimi-k2.6 not on MaaS plan"
-	@grep -q "localhost:$(KIMI_CLAUDE_PROXY_PORT)" "$(LITELLM_CFG)" 2>/dev/null \
-		&& echo "✓ litellm kimi-k2.6-proxy → localhost:$(KIMI_CLAUDE_PROXY_PORT) (PLAN fallback)" \
-		|| echo "⚠ litellm config: kimi-k2.6-proxy not wired to claude-code-proxy"
+	@yq e '.model_list[] | select(.model_name=="kimi-k2.6") | .litellm_params.api_base' "$(LITELLM_CFG)" 2>/dev/null \
+		| grep -q "localhost:$(KIMI_CLAUDE_PROXY_PORT)" \
+		&& echo "✓ litellm kimi-k2.6 → claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT) (PLAN, Anthropic-native)" \
+		|| echo "⚠ litellm kimi-k2.6 not on claude-code-proxy — make ai-run will fail (MaaS /responses rejects kimi)"
+	@yq e '.model_list[] | select(.model_name=="kimi-k2.6-maas") | .litellm_params.api_base' "$(LITELLM_CFG)" 2>/dev/null \
+		| grep -q "maas.aliyuncs.com" \
+		&& echo "✓ litellm kimi-k2.6-maas → Alibaba MaaS (PLAN, OpenAI for non-streaming clients)" \
+		|| echo "⚠ litellm kimi-k2.6-maas alias missing"
 	@grep -q "localhost:$(CLIPROXYAPI_PORT)" "$(LITELLM_CFG)" 2>/dev/null \
 		&& echo "✓ litellm gemini → localhost:$(CLIPROXYAPI_PORT) (PLAN)" \
 		|| echo "✗ litellm config: gemini still PAYG (expected localhost:$(CLIPROXYAPI_PORT))"
@@ -811,22 +813,40 @@ ai-test-infra:
 	@yq e '.' "$(LITELLM_CFG)" >/dev/null 2>&1 \
 		&& echo "✓ litellm config is valid YAML" \
 		|| echo "✗ litellm config is invalid YAML — check $(LITELLM_CFG)"
-	@if $(call port_ready,$(CLIPROXYAPI_PORT)); then \
-		if [[ -n "${CLIPROXYAPI_KEY}" ]]; then \
-			_resp=$$(curl -sf -w "\n%{http_code}" "http://localhost:$(CLIPROXYAPI_PORT)/v1/models" \
-				-H "Authorization: Bearer $${CLIPROXYAPI_KEY}"); \
-			_code=$$(echo "$$_resp" | tail -1); \
-			if [[ "$$_code" == "200" ]]; then \
-				_count=$$(echo "$$_resp" | sed '$$d' | jq '.data | length'); \
-				echo "✓ cliproxyapi auth OK ($$_count models)"; \
-			else \
-				echo "⚠ cliproxyapi auth failed HTTP $$_code — key may be stale"; \
-			fi; \
-		else \
-			echo "⚠ ai-sync: CLIPROXYAPI_KEY missing — export it to enable sync"; \
-		fi; \
+	@echo ""
+	@echo "══ AI auth status (subscription bridges) ═════════════"
+	@# claude /login: token lives in macOS keychain — no reliable local probe.
+	@# Validated implicitly by Claude Code running (this make target was invoked).
+	@command -v claude >/dev/null 2>&1 \
+		&& echo "  ✓ claude CLI present (Max plan token in keychain)" \
+		|| echo "  ✗ claude CLI missing — run: make ai-install"
+	@# claude-code-proxy: no /v1/models endpoint; port-ready + actual kimi-k2.6
+	@#   call in `make ai-test-models` validates auth end-to-end.
+	@$(call port_ready,$(KIMI_CLAUDE_PROXY_PORT)) \
+		&& echo "  ✓ claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT) up (auth verified by ai-test-models kimi-k2.6)" \
+		|| echo "  ⚠ claude-code-proxy not running — run: make kimi-claude-proxy && make ai-auth PROVIDER=kimi"
+	@# cliproxyapi: /v1/models probe covers gemini + codex/gpt-5 token health
+	@if $(call port_ready,$(CLIPROXYAPI_PORT)) && [[ -n "${CLIPROXYAPI_KEY}" ]]; then \
+		_resp=$$(curl -sf -w "\n%{http_code}" --max-time 5 \
+			"http://localhost:$(CLIPROXYAPI_PORT)/v1/models" \
+			-H "Authorization: Bearer $${CLIPROXYAPI_KEY}" 2>/dev/null || echo "000"); \
+		_code=$$(echo "$$_resp" | tail -1); \
+		case "$$_code" in \
+			200) \
+				_body=$$(echo "$$_resp" | sed '$$d'); \
+				_gemini=$$(echo "$$_body" | jq '[.data[] | select(.id | startswith("gemini"))] | length' 2>/dev/null); \
+				_codex=$$(echo "$$_body" | jq '[.data[] | select(.id | startswith("gpt-") or startswith("codex-"))] | length' 2>/dev/null); \
+				echo "  ✓ cliproxyapi auth OK ($${_gemini:-?} gemini, $${_codex:-?} codex/gpt-5 models)"; \
+				[ "$${_gemini:-0}" -eq 0 ] && echo "    ⚠ no gemini models — run: make ai-auth PROVIDER=gemini"; \
+				[ "$${_codex:-0}" -eq 0 ]  && echo "    ⚠ no codex models — run: make ai-auth PROVIDER=codex"; \
+				;; \
+			401|403) echo "  ✗ cliproxyapi auth EXPIRED — run: make ai-auth";; \
+			*) echo "  ⚠ cliproxyapi probe HTTP $$_code"; \
+		esac; \
+	elif ! $(call port_ready,$(CLIPROXYAPI_PORT)); then \
+		echo "  ⚠ cliproxyapi not running — run: make cliproxyapi"; \
 	else \
-		echo "⚠ ai-sync: cliproxyapi not running — run: make cliproxyapi"; \
+		echo "  ⚠ CLIPROXYAPI_KEY missing in env"; \
 	fi
 	@echo ""
 	@echo "══ quick health ═══════════════════════════════════════"
