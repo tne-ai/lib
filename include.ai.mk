@@ -546,20 +546,26 @@ ai-auto: postgres redis mlflow litellm routellm
 PROVIDER ?=
 .PHONY: ai-auth
 ai-auth:
-	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "claude" ]]; then \
+	@if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "claude" ]]; then \
 		echo "==> claude /login"; claude /login; \
 	fi
-	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "kimi" ]]; then \
+	@if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "kimi" ]]; then \
 		echo "==> claude-code-proxy kimi auth login"; \
-		claude-code-proxy kimi auth login 2>/dev/null || echo "  (claude-code-proxy not installed — brew install raine/claude-code-proxy/claude-code-proxy)"; \
+		command -v claude-code-proxy >/dev/null \
+			&& claude-code-proxy kimi auth login \
+			|| echo "  (claude-code-proxy not installed — brew install raine/claude-code-proxy/claude-code-proxy)"; \
 	fi
-	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "gemini" ]]; then \
+	@if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "gemini" ]]; then \
 		echo "==> cliproxyapi -login  (Google OAuth for Gemini — stores in ~/.cli-proxy-api/)"; \
-		echo "2" | cliproxyapi -login 2>/dev/null || echo "  (cliproxyapi not installed — brew install cliproxyapi)"; \
+		command -v cliproxyapi >/dev/null \
+			&& echo "2" | cliproxyapi -login \
+			|| echo "  (cliproxyapi not installed — brew install cliproxyapi)"; \
 	fi
-	if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "codex" ]]; then \
+	@if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "codex" ]]; then \
 		echo "==> cliproxyapi -codex-login"; \
-		cliproxyapi -codex-login 2>/dev/null || echo "  (cliproxyapi not installed — brew install cliproxyapi)"; \
+		command -v cliproxyapi >/dev/null \
+			&& cliproxyapi -codex-login \
+			|| echo "  (cliproxyapi not installed — brew install cliproxyapi)"; \
 	fi
 
 # ── Supporting sidecars ───────────────────────────────────────────────────────
