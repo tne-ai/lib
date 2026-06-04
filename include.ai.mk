@@ -714,12 +714,20 @@ ai-log:
 		"$(TNE_LOG_DIR)/tne-engine.log" \
 		2>/dev/null || echo "(no log files yet — start services with make ai-local)"
 
-## ai-test: Tier 1 — validate tools, config, and running sidecars for all ai-* stack variants
-##   Checks installs, litellm config routing, and port health — reports ✓/✗ without failing.
-##   Tier 2 (live model round-trips): make ai-test-models
-##   Tier 3 (quality gate, CI-safe):  make ai-test-full
+## ai-test: canonical end-to-end check for the ai-* stack
+##   Runs all three phases unconditionally — bias toward complete since ai-test
+##   is invoked rarely (after `make ai` startup, not on every change):
+##     Phase 1: tools, config, sidecars (no model calls) — ai-test-infra
+##     Phase 2: live round-trip to every cloud model     — ai-test-models
+##     Phase 3: quality probe ("2+2") on one per backend  — ai-test-quality
+##   Reports ✓/✗ per check; exits 1 if Phase 3 quality probe regresses.
+##   Sub-targets above are runnable individually for debugging.
 .PHONY: ai-test test-ai
-ai-test:
+ai-test: ai-test-infra ai-test-models ai-test-quality
+test-ai: ai-test
+
+.PHONY: ai-test-infra
+ai-test-infra:
 	@echo "══ make ai (base stack) ══════════════════════════════"
 	@command -v litellm >/dev/null 2>&1 || uvx litellm --version >/dev/null 2>&1 \
 		&& echo "✓ litellm installed" \
@@ -829,7 +837,6 @@ ai-test:
 	@echo ""
 	@echo "══ E2E: LiteLLM → MLflow trace round-trip ════════════"
 	@$(MAKE) --no-print-directory litellm-test-trace 2>&1 | sed 's/^/  /'
-test-ai: ai-test
 
 ## litellm-test-trace: E2E round-trip — sends a real prompt directly to LiteLLM via curl,
 ##   waits up to 10s, then checks MLflow tne-costs for a new run created after the call.
@@ -897,8 +904,8 @@ litellm-test-mlflow:
 	echo "✓ MLflow run written: run_id=$${_run_id:0:8}"; \
 	echo "  → $$_uri/#/experiments/$$_exp_id/runs/$$_run_id"
 
-## ai-test-models: live round-trip — sends 'pong' prompt to every cloud model via LiteLLM
-##   Requires: make ai (sidecars up). Skips local (lms/*, lls/*) models.
+## ai-test-models: Phase 2 of `make ai-test` — live round-trip per cloud model
+##   Sends 'pong' prompt to every model in LITELLM_CFG. Skips local (lms/*, lls/*).
 ##   claude-* models tested via `claude -p` (OAuth token flow, not curl).
 ##   Thinking models (deepseek-reasoner, minimax-*): checks reasoning_content fallback.
 ##   Reports ✓/✗ per model with response preview and final pass/fail count.
@@ -948,13 +955,13 @@ ai-test-models:
 	done; \
 	echo ""; echo "==> $$pass passed / $$fail failed"
 
-## ai-test-full: Tier 1+2+3 — adds quality gate on top of ai-test-models
-##   Tier 3: sends specific prompts and checks output matches expected patterns.
-##   Uses a representative subset of providers (one per backend).
-##   Fails hard if any quality gate misses — suitable for CI pre-flight.
+## ai-test-quality: Phase 3 of `make ai-test` — quality probe per backend
+##   Sends a specific prompt ("2+2") and checks output matches expected pattern.
+##   Uses one representative model per backend (override via AI_QUALITY_MODELS).
+##   Exits 1 if any model misses — turns ai-test into a real CI pre-flight.
 AI_QUALITY_MODELS ?= qwen-max gpt-5.4-mini gemini-2.5-flash deepseek-v4-pro kimi-k2.6 minimax-m2.7 glm-4.7-flash or-nemotron-super-120b
-.PHONY: ai-test-full
-ai-test-full: ai-test ai-test-models
+.PHONY: ai-test-quality
+ai-test-quality:
 	@$(call port_ready,$(LITELLM_PORT)) || { echo "✗ LiteLLM not running — run: make ai"; exit 1; }
 	@echo ""
 	@echo "══ Tier 3: quality gate ══════════════════════════════"
