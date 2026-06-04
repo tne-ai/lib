@@ -750,6 +750,15 @@ ai-test-infra:
 	@$(call port_ready,$(MLFLOW_PORT))   && echo "  ✓ mlflow   :$(MLFLOW_PORT)"   || echo "  ✗ mlflow   :$(MLFLOW_PORT) stopped"
 	@$(call port_ready,$(LITELLM_PORT))  && echo "  ✓ litellm  :$(LITELLM_PORT)"  || echo "  ✗ litellm  :$(LITELLM_PORT) stopped  → make litellm"
 	@$(call port_ready,$(TEMPORAL_PORT)) && echo "  ✓ temporal :$(TEMPORAL_PORT)" || echo "  ✗ temporal :$(TEMPORAL_PORT) stopped  → make temporal"
+	@# Verify temporal is using the persistent DB (not in-memory mode — workflows lost on restart)
+	@if $(call port_ready,$(TEMPORAL_PORT)); then \
+		_tpid=$$(pgrep -f "temporal server start-dev" | head -1); \
+		if [ -n "$$_tpid" ] && lsof -p "$$_tpid" 2>/dev/null | grep -q "$(TEMPORAL_DB)"; then \
+			echo "  ✓ temporal DB: $(TEMPORAL_DB) (persistent)"; \
+		else \
+			echo "  ✗ temporal DB: in-memory mode (workflows lost on restart) — run: make ai-stop && make temporal"; \
+		fi; \
+	fi
 	@$(call port_ready,$(CCR_PORT))      && echo "  ✓ ccr      :$(CCR_PORT)"      || echo "  ✗ ccr      :$(CCR_PORT) stopped      → make ccr"
 	@echo ""
 	@echo "══ make ai-local (+ LM Studio local inference) ═══════"
@@ -1096,6 +1105,7 @@ ai-ps: mlflow.ps litellm.ps temporal.ps ccr.ps
 ## ai-stop: stop all sidecars (brew services stop for postgres/redis, SIGTERM for others)
 .PHONY: ai-stop
 ai-stop: $(MLFLOW_PORT).stop litellm.stop $(TEMPORAL_PORT).stop $(CCR_PORT).stop
+	brew services stop temporal 2>/dev/null || true
 	brew services stop redis 2>/dev/null || true
 	brew services stop postgresql@17 2>/dev/null || brew services stop postgresql 2>/dev/null || true
 
@@ -1268,10 +1278,41 @@ lms-sync:
 # ── Commented-out stacks ──────────────────────────────────────────────────────
 
 ## temporal: Temporal workflow server at http://localhost:$(TEMPORAL_PORT)
+##   Uses a custom brew services plist so --db-filename + --ui-port are honored
+##   across reboots and brew lifecycle (vanilla brew plist has no flags →
+##   in-memory mode, workflows lost on restart).
+TEMPORAL_PLIST ?= $(TNE_DB_DIR)/temporal/homebrew.mxcl.temporal-tne.plist
 .PHONY: temporal
 temporal:
 	mkdir -p "$(dir $(TEMPORAL_DB))"
-	$(call start_server,$(TEMPORAL_PORT),temporal server start-dev --db-filename $(TEMPORAL_DB) --ui-port $(TEMPORAL_UI_PORT))
+	@# Regenerate plist each run — pulls in current $(TEMPORAL_DB) / $(TEMPORAL_UI_PORT) paths
+	@printf '%s\n' \
+		'<?xml version="1.0" encoding="UTF-8"?>' \
+		'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+		'<plist version="1.0">' \
+		'<dict>' \
+		'  <key>KeepAlive</key><true/>' \
+		'  <key>Label</key><string>homebrew.mxcl.temporal</string>' \
+		'  <key>RunAtLoad</key><true/>' \
+		'  <key>ProgramArguments</key>' \
+		'  <array>' \
+		'    <string>/opt/homebrew/opt/temporal/bin/temporal</string>' \
+		'    <string>server</string><string>start-dev</string>' \
+		'    <string>--db-filename</string><string>$(TEMPORAL_DB)</string>' \
+		'    <string>--ui-port</string><string>$(TEMPORAL_UI_PORT)</string>' \
+		'  </array>' \
+		'  <key>StandardErrorPath</key><string>$(TNE_LOG_DIR)/temporal.log</string>' \
+		'  <key>StandardOutPath</key><string>$(TNE_LOG_DIR)/temporal.log</string>' \
+		'  <key>WorkingDirectory</key><string>$(TNE_DB_DIR)/temporal</string>' \
+		'</dict></plist>' \
+		> "$(TEMPORAL_PLIST)"
+	@# Restart brew service with our plist if not already running with correct DB
+	@if ! lsof -p "$$(pgrep -f 'temporal server start-dev' | head -1)" 2>/dev/null | grep -q "$(TEMPORAL_DB)"; then \
+		brew services stop temporal >/dev/null 2>&1 || true; \
+		brew services start temporal --file="$(TEMPORAL_PLIST)" >/dev/null 2>&1 \
+			|| { echo "⚠ brew services failed — falling back to nohup direct start"; \
+				 $(call start_server,$(TEMPORAL_PORT),temporal server start-dev --db-filename $(TEMPORAL_DB) --ui-port $(TEMPORAL_UI_PORT)); }; \
+	fi
 	$(call check_port,$(TEMPORAL_PORT))
 	@# tne-engine-worker: start via brew services if formula installed (r-cto-dev129)
 	@brew list tne-engine-worker &>/dev/null 2>&1 \
