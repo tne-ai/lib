@@ -264,7 +264,7 @@ litellm: litellm-check-version
 		echo "==> prisma generate (schema changed or first run)"; \
 		PATH="$$_venv/bin:$$PATH" $$_venv/bin/prisma generate --schema "$$_schema"; \
 		echo "==> prisma db push (applying schema changes to database)"; \
-		DATABASE_URL=postgresql://$$USER@localhost/litellm \
+		DATABASE_URL=$${DATABASE_URL:-postgresql://$$USER@localhost/litellm} \
 			PATH="$$_venv/bin:$$PATH" $$_venv/bin/prisma db push --schema "$$_schema" --accept-data-loss; \
 		mkdir -p $$(dirname $(PRISMA_STAMP)) && echo "$$_schema_hash" > $(PRISMA_STAMP); \
 	fi; \
@@ -274,7 +274,7 @@ litellm: litellm-check-version
 	$(call start_server_double_fork,$(LITELLM_PORT),\
 		LITELLM_LOG=DEBUG \
 		ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" \
-		DATABASE_URL=postgresql://$$USER@localhost/litellm \
+		DATABASE_URL=$${DATABASE_URL:-postgresql://$$USER@localhost/litellm} \
 		LM_STUDIO_API_TOKEN="$${LM_STUDIO_API_TOKEN}" \
 		MOONSHOT_API_KEY="" \
 		GEMINI_API_KEY="$${GEMINI_API_KEY}" \
