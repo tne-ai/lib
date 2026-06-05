@@ -177,3 +177,8 @@ venv/
 wheels/
 yarn-debug.log*
 yarn-error.log*
+
+# MLflow — local fallback artifacts created when MLFLOW_TRACKING_URI is not set.
+# Should live in ~/ws/db/ (server mode). Never commit.
+mlruns/
+mlflow.db

@@ -743,17 +743,55 @@ config_replace() {
 # used config_replace but adds a line only if not present
 # usage: config_add_once [file| ""] line-to-add
 # null first parameter means take the default
+# config_replace_once: idempotently add or upgrade a line in a config file.
+#
+# usage:  config_replace_once file pattern line
+#   file    — target config file (default: config_profile)
+#   pattern — regex to match the existing (possibly stale) line
+#   line    — the canonical line that must end up in the file
+#
+# Behaviour:
+#   - LINE already present verbatim → no-op
+#   - PATTERN found (old/stale form) → replace first match with LINE in-place
+#   - Neither found → append LINE
+#
+# Use when the canonical form of a line changes over time (e.g. adding a flag)
+# so re-running upgrades old installs rather than leaving stale duplicates.
+#
+# example:
+#   config_replace_once ~/.zshrc "compinit" \
+#       "fpath+=~/.zfunc; autoload -Uz compinit; compinit -d ~/.zcompdump"
+config_replace_once() {
+	if (($# < 3)); then return 1; fi
+	local file="${1:-"$(config_profile)"}"
+	local pattern="$2"
+	local line="$3"
+	config_touch "$file"
+	if grep -qF "$line" "$file"; then
+		return 0
+	fi
+	if grep -q "$pattern" "$file"; then
+		echo "replacing '$pattern' with canonical line in $file"
+		local tmp
+		tmp="$(mktemp "${file}.XXXX")"
+		awk -v pat="$pattern" -v rep="$line" -v done=0 \
+			'!done && $0 ~ pat { print rep; done=1; next } { print }' \
+			"$file" >"$tmp" && $(config_sudo "$file") mv "$tmp" "$file" || rm -f "$tmp"
+	else
+		echo "adding line to $file"
+		$(config_sudo "$file") tee -a "$file" <<<"$line" >/dev/null
+	fi
+}
+
+# config_add_once: idempotently append a line if not already present.
+# Thin wrapper around config_replace_once for backward compatibility.
+# Prefer config_replace_once when the line may evolve over time.
 config_add_once() {
 	if (($# < 2)); then return 1; fi
 	local file="${1:-"$(config_profile)"}"
 	shift
 	local line="$*"
-	if ! grep -q "$line" "$file"; then
-		echo "adding line $line to $file"
-		$(config_sudo "$file") tee -a "$file" <<<"$line" >/dev/null
-	fi
-	# do not use config replace much simpler to do the check here
-	# config_replace "$file" "$lines" "$lines"
+	config_replace_once "$file" "$line" "$line"
 }
 
 # for bash_profile, sources .profile and .bashrc. For zsh source .profile as
