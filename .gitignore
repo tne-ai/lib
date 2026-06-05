@@ -167,7 +167,3 @@ site/
 # Nodes folders
 node_modules
 .worktree/
-
-# MLflow local fallback artifacts — belong in ~/ws/db/ for server mode
-mlruns/
-mlflow.db
