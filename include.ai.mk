@@ -837,8 +837,8 @@ ai-test-infra:
 				_gemini=$$(echo "$$_body" | jq '[.data[] | select(.id | startswith("gemini"))] | length' 2>/dev/null); \
 				_codex=$$(echo "$$_body" | jq '[.data[] | select(.id | startswith("gpt-") or startswith("codex-"))] | length' 2>/dev/null); \
 				echo "  ✓ cliproxyapi auth OK ($${_gemini:-?} gemini, $${_codex:-?} codex/gpt-5 models)"; \
-				[ "$${_gemini:-0}" -eq 0 ] && echo "    ⚠ no gemini models — run: make ai-auth PROVIDER=gemini"; \
-				[ "$${_codex:-0}" -eq 0 ]  && echo "    ⚠ no codex models — run: make ai-auth PROVIDER=codex"; \
+				[ "$${_gemini:-0}" -eq 0 ] && echo "    ⚠ no gemini models — run: make ai-auth PROVIDER=gemini" || true; \
+				[ "$${_codex:-0}" -eq 0 ]  && echo "    ⚠ no codex models — run: make ai-auth PROVIDER=codex" || true; \
 				;; \
 			401|403) echo "  ✗ cliproxyapi auth EXPIRED — run: make ai-auth";; \
 			*) echo "  ⚠ cliproxyapi probe HTTP $$_code"; \
