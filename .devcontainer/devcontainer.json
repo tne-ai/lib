@@ -1,0 +1,26 @@
+{
+  "name": "TNE AI",
+  "dockerComposeFile": "compose.yaml",
+  "service": "workspace",
+  "workspaceFolder": "/workspaces",
+  // Canonical make-ai ports — same numbers locally and (Phase 2) in the cloud
+  // IDE: litellm, mlflow, temporal, temporal-ui, postgres, redis, ktap.
+  "forwardPorts": [4000, 5001, 7233, 8233, 5432, 6379, 8630],
+  "postCreateCommand": ".devcontainer/post-create.sh",
+  "remoteUser": "dev",
+  "features": {
+    // Lets the agent/terminal run docker + compose from inside (build images,
+    // run jobs). Safe in the cloud workspace pod; on by default for parity.
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "github.vscode-github-actions"
+      ]
+    }
+  }
+}

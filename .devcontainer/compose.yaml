@@ -1,0 +1,81 @@
+# The AI environment as ONE definition — local dev and (Phase 2) the cloud IDE
+# both run this. Sidecars use the canonical `make ai` ports so anything that
+# targets localhost:<port> works identically inside the container.
+#
+# NOTE: postgres + redis are exact and runnable today. litellm + temporal are
+# scaffolded with standard images; their tags and (for litellm) the routing
+# config MUST be aligned to the cloud images defined in troopship's build
+# configs + the shared LiteLLM config (see troopship check_litellm_config_parity)
+# — tracked as the Phase-1 follow-up. They are commented until that alignment so
+# the devcontainer comes up clean on first run.
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        UID: "${UID:-1000}"
+        GID: "${GID:-1000}"
+    # Mount the umbrella checkout (ws/git/src/...) so all repos are available,
+    # matching the make-ai WS_DIR layout.
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    working_dir: /workspaces
+    environment:
+      DATABASE_URL: postgresql://tne:tne@postgres:5432/tne
+      REDIS_URL: redis://redis:6379
+      LITELLM_URL: http://litellm:4000
+      TEMPORAL_ADDRESS: temporal:7233
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: tne
+      POSTGRES_PASSWORD: tne
+      POSTGRES_DB: tne
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+  # --- ALIGN-WITH-CLOUD (Phase-1 follow-up): match tags + config to troopship ---
+  # litellm:
+  #   image: ghcr.io/berriai/litellm:main-stable   # TODO: pin to the cloud's tag
+  #   command: ["--config", "/app/config.yaml", "--port", "4000"]
+  #   volumes:
+  #     - ${LITELLM_CFG:-~/.config/litellm/config.yaml}:/app/config.yaml:ro  # same file as cloud
+  #   environment:
+  #     DATABASE_URL: postgresql://tne:tne@postgres:5432/litellm
+  #   ports: ["4000:4000"]
+  #   depends_on: [postgres]
+  #
+  # temporal:
+  #   image: temporalio/auto-setup:1.25      # TODO: match cloud temporal-server version
+  #   environment:
+  #     DB: postgres12
+  #     POSTGRES_SEEDS: postgres
+  #     POSTGRES_USER: tne
+  #     POSTGRES_PWD: tne
+  #   ports: ["7233:7233"]
+  #   depends_on: [postgres]
+  # temporal-ui:
+  #   image: temporalio/ui:2.34.0
+  #   environment:
+  #     TEMPORAL_ADDRESS: temporal:7233
+  #   ports: ["8233:8080"]
+  #   depends_on: [temporal]
+
+volumes:
+  pgdata:
+  redisdata:
