@@ -1141,44 +1141,12 @@ ai-local-stop: ai-stop
 	lms server stop
 	sudo sysctl iogpu.wired_limit_mb=0
 
-## ai-install: install AI CLI tools via brew + uv (run once per machine, no external scripts)
-##   Installs: litellm mlflow redis postgresql@17 codex gemini-cli kimi-cli qwen-code lm-studio
-##   Then runs: make ai-server  to start sidecars
+## ai-install: install AI stack (brew + uv + services) via bin/install-ai.sh
+## Delegates to bin/install-ai.sh — single source of truth (r-cto-dev98, r-cto-dev109)
+## After install: make ai-status to verify | make ai to launch
 .PHONY: ai-install
 ai-install:
-	echo "==> brew: core AI infrastructure"
-	for pkg in redis postgresql@17 yq; do \
-		command -v "$$pkg" >/dev/null 2>&1 || brew install "$$pkg"; \
-	done
-	echo "==> brew: AI CLI coding plan providers"
-	for pkg in codex gemini-cli qwen-code kimi-cli; do \
-		command -v "$$pkg" >/dev/null 2>&1 || brew install "$$pkg" 2>/dev/null || echo "  ($$pkg not in brew — skip)"; \
-	done
-	echo "==> brew: CLIProxyAPI (wraps gemini-cli/codex as OpenAI-compatible API on :8317)"
-	command -v cliproxyapi >/dev/null 2>&1 || brew install cliproxyapi 2>/dev/null || echo "  (cliproxyapi not in brew — skip)"
-	echo "==> uv: litellm proxy + mlflow tracking"
-	uv tool install 'litellm[proxy]' 2>/dev/null || uvx litellm --version >/dev/null
-	uv tool install mlflow 2>/dev/null || uvx mlflow --version >/dev/null
-	uv tool install prisma 2>/dev/null || command -v prisma >/dev/null
-	echo "==> prisma: generate client for LiteLLM spend tracking"
-	_venv=$$(pipx environment --value PIPX_LOCAL_VENVS 2>/dev/null)/litellm; \
-	_schema=$$_venv/lib/python*/site-packages/litellm/proxy/schema.prisma; \
-	$$_venv/bin/python -m prisma generate --schema $$_schema
-	mkdir -p $$(dirname $(PRISMA_STAMP)) && touch $(PRISMA_STAMP)
-	echo "==> brew: tne-engine-worker (persistent Temporal worker — r-cto-dev129)"
-	brew tap tne-ai/tne-tap 2>/dev/null || true
-	brew list tne-engine-worker &>/dev/null 2>&1 || brew install tne-ai/tne-tap/tne-engine-worker 2>/dev/null || echo "  (tne-engine-worker install failed — worker will start transiently at session start)"
-	echo "==> brew services: start redis + postgresql + tne-engine-worker"
-	brew services start redis 2>/dev/null || true
-	brew services start postgresql@17 2>/dev/null || brew services start postgresql 2>/dev/null || true
-	brew list tne-engine-worker &>/dev/null 2>&1 && brew services start tne-engine-worker 2>/dev/null || true
-	echo "==> creating litellm database"
-	createdb $(LITELLM_DB) 2>/dev/null || true
-	echo "==> litellm config"
-	mkdir -p "$(HOME)/.config/litellm"
-	[[ -f "$(LITELLM_CFG)" ]] && echo "  config exists: $(LITELLM_CFG)" || echo "  WARNING: $(LITELLM_CFG) missing — copy from tne-plugins or install-ai.sh"
-	echo "==> Done. Run: make ai-status  to verify  |  make ai  to launch"
-
+	$(BIN_DIR)/install-ai.sh -v
 ## ai-server: start all background sidecars without launching the AI harness
 ## Use this to pre-warm sidecars before a session (postgres redis mlflow litellm)
 .PHONY: ai-server
