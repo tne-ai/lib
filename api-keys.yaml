@@ -173,8 +173,9 @@ SERPAPI_API_KEY:
   op_vault: DevOps
 
 TAVILY_API_KEY:
-  op_item: "Taviliy API Key Dev"
+  op_item: "Tavily API Key Dev"
   op_vault: DevOps
+  disabled: true  # not in use
 
 # ── AI infrastructure ─────────────────────────────────────────────────────────
 CEREBRAS_API_KEY:
@@ -287,6 +288,7 @@ WEBUI_SECRET_KEY:
 SUPERSET_SECRET_KEY:
   op_item: "Apache Superset Secret Dev"
   op_vault: DevOps
+  disabled: true  # not in use
 
 SLASHGPT_ENV_WEBPILOT_UID:
   op_item: "Webpilot UID Dev"
