@@ -5,6 +5,7 @@ FLAGS ?=
 SHELL := /usr/bin/env bash
 WS_DIR ?= $(HOME)/ws
 BIN_DIR ?= $(WS_DIR)/git/src/bin
+LIB_DIR ?= $(WS_DIR)/git/src/lib
 TNE_DB_DIR  ?= $(WS_DIR)/db
 TNE_LOG_DIR ?= $(WS_DIR)/logs
 TNE_DATA    ?= $(WS_DIR)/data
@@ -476,41 +477,8 @@ ai-help:
 ##   gemini/codex — CLIProxyAPI        :8317  starts automatically if already authenticated
 .PHONY: ai-warn-bridges
 ai-warn-bridges:
-	@if ! nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null; then \
-		echo "  → kimi bridge (:$(KIMI_CLAUDE_PROXY_PORT)) not running — starting..."; \
-		if command -v claude-code-proxy >/dev/null 2>&1; then \
-			PORT=$(KIMI_CLAUDE_PROXY_PORT) nohup claude-code-proxy serve </dev/null >$(TNE_LOG_DIR)/kimi-proxy.log 2>&1 & \
-			sleep 2; \
-			if nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null; then \
-				echo "  ✓  kimi bridge started"; \
-			else \
-				echo "  ⚠️  kimi bridge not up — last log lines:"; \
-				tail -5 $(TNE_LOG_DIR)/kimi-proxy.log 2>/dev/null | sed 's/^/       /'; \
-				echo "       Fix: make ai-auth PROVIDER=kimi   (authenticate first, then retry)"; \
-			fi; \
-		else \
-			echo "  ⚠️  claude-code-proxy not installed — brew install raine/claude-code-proxy/claude-code-proxy"; \
-		fi; \
-	fi
-	@if ! nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
-		echo "  → gemini/codex bridge (:$(CLIPROXYAPI_PORT)) not running — starting..."; \
-		if command -v cliproxyapi >/dev/null 2>&1; then \
-			nohup cliproxyapi -config "$(HOME)/.config/cliproxyapi/config.yaml" </dev/null >$(TNE_LOG_DIR)/sidecar-$(CLIPROXYAPI_PORT).log 2>&1 & \
-			sleep 2; \
-			if nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null; then \
-				echo "  ✓  gemini/codex bridge started"; \
-			else \
-				echo "  ⚠️  gemini/codex bridge not up — last log lines:"; \
-				tail -5 $(TNE_LOG_DIR)/sidecar-$(CLIPROXYAPI_PORT).log 2>/dev/null | sed 's/^/       /'; \
-				echo "       Fix: make ai-auth PROVIDER=gemini|codex   (authenticate first, then retry)"; \
-			fi; \
-		else \
-			echo "  ⚠️  cliproxyapi not installed — brew install cliproxyapi"; \
-		fi; \
-	fi
-	@nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null \
-		&& nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null \
-		&& echo "  ✓  Subscription bridges: kimi :$(KIMI_CLAUDE_PROXY_PORT) gemini/codex :$(CLIPROXYAPI_PORT)" || true
+	@$(LIB_DIR)/scripts/ai-warn-bridges.sh
+
 
 ## ai-auth: log in to all AI providers (run once per machine or after token expiry)
 ##   make ai-auth              # all providers
@@ -521,27 +489,8 @@ ai-warn-bridges:
 PROVIDER ?=
 .PHONY: ai-auth
 ai-auth:
-	@if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "claude" ]]; then \
-		echo "==> claude /login"; claude /login; \
-	fi
-	@if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "kimi" ]]; then \
-		echo "==> claude-code-proxy kimi auth login"; \
-		command -v claude-code-proxy >/dev/null \
-			&& claude-code-proxy kimi auth login \
-			|| echo "  (claude-code-proxy not installed — brew install raine/claude-code-proxy/claude-code-proxy)"; \
-	fi
-	@if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "gemini" ]]; then \
-		echo "==> cliproxyapi -login  (Google OAuth for Gemini — stores in ~/.cli-proxy-api/)"; \
-		command -v cliproxyapi >/dev/null \
-			&& echo "2" | cliproxyapi -login \
-			|| echo "  (cliproxyapi not installed — brew install cliproxyapi)"; \
-	fi
-	@if [[ -z "$(PROVIDER)" || "$(PROVIDER)" == "codex" ]]; then \
-		echo "==> cliproxyapi -codex-login"; \
-		command -v cliproxyapi >/dev/null \
-			&& cliproxyapi -codex-login \
-			|| echo "  (cliproxyapi not installed — brew install cliproxyapi)"; \
-	fi
+	@$(BIN_DIR)/install-ai-auth.sh $(if $(PROVIDER),-p $(PROVIDER))
+
 
 # ── Supporting sidecars ───────────────────────────────────────────────────────
 
@@ -706,252 +655,11 @@ ai-test: ai-test-infra ai-test-models ai-test-quality
 
 .PHONY: ai-test-infra
 ai-test-infra:
-	@echo "══ make ai (base stack) ══════════════════════════════"
-	@command -v litellm >/dev/null 2>&1 || uvx litellm --version >/dev/null 2>&1 \
-		&& echo "✓ litellm installed" \
-		|| echo "✗ litellm missing — run: make ai-install"
-	@command -v mlflow >/dev/null 2>&1 || uvx mlflow --version >/dev/null 2>&1 \
-		&& echo "✓ mlflow installed" \
-		|| echo "✗ mlflow missing — run: make ai-install"
-	@command -v temporal >/dev/null 2>&1 \
-		&& echo "✓ temporal installed" \
-		|| echo "✗ temporal missing — run: brew install temporal"
-	@command -v ccr >/dev/null 2>&1 \
-		&& echo "✓ ccr (claude-code-router) installed" \
-		|| echo "✗ ccr missing — run: npm install -g @anthropic-ai/claude-code-router"
-	@test -f "$(LITELLM_CFG)" \
-		&& echo "✓ litellm config found: $(LITELLM_CFG)" \
-		|| echo "✗ litellm config missing at $(LITELLM_CFG) — run: make ai-install"
-	@echo "  ports:"
-	@$(call port_ready,5432) && echo "  ✓ postgres :5432" || echo "  ✗ postgres :5432 stopped"
-	@$(call port_ready,6379) && echo "  ✓ redis    :6379" || echo "  ✗ redis    :6379 stopped"
-	@$(call port_ready,$(MLFLOW_PORT))   && echo "  ✓ mlflow   :$(MLFLOW_PORT)"   || echo "  ✗ mlflow   :$(MLFLOW_PORT) stopped"
-	@$(call port_ready,$(LITELLM_PORT))  && echo "  ✓ litellm  :$(LITELLM_PORT)"  || echo "  ✗ litellm  :$(LITELLM_PORT) stopped  → make litellm"
-	@$(call port_ready,$(TEMPORAL_PORT)) && echo "  ✓ temporal :$(TEMPORAL_PORT)" || echo "  ✗ temporal :$(TEMPORAL_PORT) stopped  → make temporal"
-	@# Verify temporal is using the persistent DB (not in-memory mode — workflows lost on restart)
-	@if $(call port_ready,$(TEMPORAL_PORT)); then \
-		_tpid=$$(pgrep -f "temporal server start-dev" | head -1); \
-		if [ -n "$$_tpid" ] && lsof -p "$$_tpid" 2>/dev/null | grep -q "$(TEMPORAL_DB)"; then \
-			echo "  ✓ temporal DB: $(TEMPORAL_DB) (persistent)"; \
-		else \
-			echo "  ✗ temporal DB: in-memory mode (workflows lost on restart) — run: make ai-stop && make temporal"; \
-		fi; \
-	fi
-	@$(call port_ready,$(CCR_PORT))      && echo "  ✓ ccr      :$(CCR_PORT)"      || echo "  ✗ ccr      :$(CCR_PORT) stopped      → make ccr"
-	@echo ""
-	@echo "══ local GPU (make ai-run MODEL=lms/...) ══════════════"
-	@command -v lms >/dev/null 2>&1 \
-		&& echo "✓ lms (LM Studio CLI) installed" \
-		|| echo "✗ lms missing — install LM Studio from lmstudio.ai"
-	@$(call port_ready,1234) && echo "  ✓ lms-server :1234" || echo "  ✗ lms-server :1234 stopped  → make lms-server"
-	@echo ""
-	@echo "══ subscription bridges (started by make ai) ══════════"
-	@command -v claude-code-proxy >/dev/null 2>&1 \
-		&& echo "✓ claude-code-proxy installed" \
-		|| echo "✗ claude-code-proxy missing — run: brew install raine/claude-code-proxy/claude-code-proxy"
-	@yq e '.model_list[] | select(.model_name=="kimi-k2.6") | .litellm_params.api_base' "$(LITELLM_CFG)" 2>/dev/null \
-		| grep -q "localhost:$(KIMI_CLAUDE_PROXY_PORT)" \
-		&& echo "✓ litellm kimi-k2.6 → claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT) (PLAN)" \
-		|| echo "⚠ litellm kimi-k2.6 not on claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT)"
-	@$(call port_ready,$(KIMI_CLAUDE_PROXY_PORT)) \
-		&& echo "  ✓ claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT)" \
-		|| echo "  ✗ claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT) stopped  → make ai (auto-starts)"
-	@command -v cliproxyapi >/dev/null 2>&1 \
-		&& echo "✓ cliproxyapi installed" \
-		|| echo "✗ cliproxyapi missing — run: brew install cliproxyapi"
-	@$(call port_ready,$(CLIPROXYAPI_PORT)) \
-		&& echo "  ✓ cliproxyapi :$(CLIPROXYAPI_PORT)" \
-		|| echo "  ✗ cliproxyapi :$(CLIPROXYAPI_PORT) stopped  → make ai (auto-starts)"
-	@echo ""
-	@echo "══ RouteLLM difficulty router (make ai-run MODEL=routellm*) ═"
-	@$(call port_ready,$(ROUTELLM_PORT)) \
-		&& echo "  ✓ routellm :$(ROUTELLM_PORT)" \
-		|| echo "  ✗ routellm :$(ROUTELLM_PORT) stopped  → make routellm"
-	@echo ""
-	@echo "══ command smoke tests ════════════════════════════════"
-	@$(MAKE) --no-print-directory ai-help >/dev/null 2>&1 \
-		&& echo "✓ ai-help" || echo "✗ ai-help"
-	@$(MAKE) --no-print-directory ai-status >/dev/null 2>&1 \
-		&& echo "✓ ai-status" || echo "✗ ai-status"
-	@yq e '.' "$(LITELLM_CFG)" >/dev/null 2>&1 \
-		&& echo "✓ litellm config is valid YAML" \
-		|| echo "✗ litellm config is invalid YAML — check $(LITELLM_CFG)"
-	@echo ""
-	@echo "══ AI auth status (subscription bridges) ═════════════"
-	@# claude /login: token lives in macOS keychain — no reliable local probe.
-	@# Validated implicitly by Claude Code running (this make target was invoked).
-	@command -v claude >/dev/null 2>&1 \
-		&& echo "  ✓ claude CLI present (Max plan token in keychain)" \
-		|| echo "  ✗ claude CLI missing — run: make ai-install"
-	@# claude-code-proxy: no /v1/models endpoint; port-ready + actual kimi-k2.6
-	@#   call in `make ai-test-models` validates auth end-to-end.
-	@$(call port_ready,$(KIMI_CLAUDE_PROXY_PORT)) \
-		&& echo "  ✓ claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT) up (auth verified by ai-test-models kimi-k2.6)" \
-		|| echo "  ⚠ claude-code-proxy not running — run: make ai (auto-starts) or: make ai-auth PROVIDER=kimi"
-	@# cliproxyapi: /v1/models probe covers gemini + codex/gpt-5 token health
-	@if $(call port_ready,$(CLIPROXYAPI_PORT)) && [[ -n "${CLIPROXYAPI_KEY}" ]]; then \
-		_resp=$$(curl -sf -w "\n%{http_code}" --max-time 5 \
-			"http://localhost:$(CLIPROXYAPI_PORT)/v1/models" \
-			-H "Authorization: Bearer $${CLIPROXYAPI_KEY}" 2>/dev/null || echo "000"); \
-		_code=$$(echo "$$_resp" | tail -1); \
-		case "$$_code" in \
-			200) \
-				_body=$$(echo "$$_resp" | sed '$$d'); \
-				_gemini=$$(echo "$$_body" | jq '[.data[] | select(.id | startswith("gemini"))] | length' 2>/dev/null); \
-				_codex=$$(echo "$$_body" | jq '[.data[] | select(.id | startswith("gpt-") or startswith("codex-"))] | length' 2>/dev/null); \
-				echo "  ✓ cliproxyapi auth OK ($${_gemini:-?} gemini, $${_codex:-?} codex/gpt-5 models)"; \
-				[ "$${_gemini:-0}" -eq 0 ] && echo "    ⚠ no gemini models — run: make ai-auth PROVIDER=gemini"; \
-				[ "$${_codex:-0}" -eq 0 ]  && echo "    ⚠ no codex models — run: make ai-auth PROVIDER=codex"; \
-				;; \
-			401|403) echo "  ✗ cliproxyapi auth EXPIRED — run: make ai-auth";; \
-			*) echo "  ⚠ cliproxyapi probe HTTP $$_code"; \
-		esac; \
-	elif ! $(call port_ready,$(CLIPROXYAPI_PORT)); then \
-		echo "  ⚠ cliproxyapi not running — run: make cliproxyapi"; \
-	else \
-		echo "  ⚠ CLIPROXYAPI_KEY missing in env"; \
-	fi
-	@echo ""
-	@echo "══ quick health ═══════════════════════════════════════"
-	@$(call port_ready,$(LITELLM_PORT)) \
-		&& curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
-		&& echo "✓ LiteLLM /health/readiness" \
-		|| echo "✗ LiteLLM /health/readiness failed"
-	@echo ""
-	@echo "══ MLflow callback wiring ════════════════════════════"
-	@ps ewww $$(pgrep -f "litellm --config" | head -1) 2>/dev/null | tr ' ' '\n' | grep -q "^MLFLOW_TRACKING_URI=" \
-		&& echo "✓ LiteLLM process has MLFLOW_TRACKING_URI" \
-		|| echo "✗ LiteLLM missing MLFLOW_TRACKING_URI — run: make litellm.stop litellm"
-	@ps ewww $$(pgrep -f "litellm --config" | head -1) 2>/dev/null | tr ' ' '\n' | grep -q "^MLFLOW_EXPERIMENT_NAME=" \
-		&& echo "✓ LiteLLM process has MLFLOW_EXPERIMENT_NAME=tne-costs" \
-		|| echo "✗ LiteLLM missing MLFLOW_EXPERIMENT_NAME — run: make litellm.stop litellm"
-	@$(call port_ready,$(MLFLOW_PORT)) \
-		&& { _exps=$$(curl -sf -X POST "http://localhost:$(MLFLOW_PORT)/api/2.0/mlflow/experiments/search" \
-				-H "Content-Type: application/json" \
-				-d '{"max_results":10}' \
-				| jq -r '[.experiments[].name] | join(", ")' 2>/dev/null); \
-			echo "✓ MLflow experiments: $$_exps"; } \
-		|| echo "✗ MLflow API unreachable at :$(MLFLOW_PORT)"
-	@echo ""
-	@echo "══ E2E: LiteLLM → MLflow trace round-trip ════════════"
-	@$(MAKE) --no-print-directory litellm-test-trace 2>&1 | sed 's/^/  /'
+	@$(LIB_DIR)/scripts/ai-test.sh infra
 
-## litellm-test-trace: E2E round-trip — sends a real prompt directly to LiteLLM via curl,
-##   waits up to 10s, then checks MLflow tne-costs for a new run created after the call.
-##   Verifies: LiteLLM routes the call AND fires the MLflow success_callback.
-##   Uses deepseek-v4-flash (cheap PAYG) by default; override with TRACE_TEST_MODEL=.
-##   Auth: uses LITELLM_MASTER_KEY (resolved from 1Password if needed).
-TRACE_TEST_MODEL ?= deepseek-v4-flash
-.PHONY: litellm-test-trace
-litellm-test-trace:
-	@$(call port_ready,$(LITELLM_PORT)) || { echo "✗ LiteLLM not running — run: make ai"; exit 1; }
-	@$(call port_ready,$(MLFLOW_PORT)) || { echo "✗ MLflow not running — run: make mlflow"; exit 1; }
-	@_key=$${LITELLM_MASTER_KEY}; \
-	[[ "$$_key" == op://* ]] && _key=$$(op read "$$_key" 2>/dev/null) || true; \
-	[ -n "$$_key" ] || { echo "✗ LITELLM_MASTER_KEY not set — source .envrc or run op signin"; exit 1; }; \
-	_before=$$(curl -sf -X POST "http://localhost:$(MLFLOW_PORT)/api/2.0/mlflow/runs/search" \
-		-H "Content-Type: application/json" \
-		-d '{"experiment_ids":["1"],"max_results":1,"order_by":["start_time DESC"]}' \
-		| jq -r '.runs[0].info.run_id // "none"'); \
-	echo "  baseline run_id: $$_before"; \
-	echo "  sending prompt via LiteLLM curl ($(TRACE_TEST_MODEL))..."; \
-	_resp=$$(curl -sf -X POST "http://localhost:$(LITELLM_PORT)/v1/chat/completions" \
-		-H "Content-Type: application/json" \
-		-H "Authorization: Bearer $$_key" \
-		-d "{\"model\":\"$(TRACE_TEST_MODEL)\",\"messages\":[{\"role\":\"user\",\"content\":\"Say: pong\"}],\"max_tokens\":5}" 2>&1); \
-	echo "$$_resp" | jq -r '.choices[0].message.content // empty' 2>/dev/null \
-		|| { echo "✗ LiteLLM call failed: $$(echo $$_resp | head -c 200)"; exit 1; }; \
-	echo "  call succeeded, waiting 10s for MLflow callback..."; \
-	sleep 10; \
-	_after=$$(curl -sf -X POST "http://localhost:$(MLFLOW_PORT)/api/2.0/mlflow/runs/search" \
-		-H "Content-Type: application/json" \
-		-d '{"experiment_ids":["1"],"max_results":1,"order_by":["start_time DESC"]}' \
-		| jq -r '.runs[0].info.run_id // "none"'); \
-	if [ "$$_after" != "$$_before" ] && [ "$$_after" != "none" ]; then \
-		echo "✓ MLflow trace created: run_id=$${_after:0:8}"; \
-		echo "  → http://localhost:$(MLFLOW_PORT)/#/experiments/1/runs/$$_after"; \
-	else \
-		echo "✗ No new trace in MLflow tne-costs after call — check LiteLLM mlflow callback"; \
-		echo "  run: make ai-log  to inspect sidecar-$(LITELLM_PORT).log"; \
-	fi
-
-## litellm-test-mlflow: live end-to-end check — writes a test run to MLflow tne-costs experiment.
-##   Requires: make litellm mlflow (both running). Confirms MLFLOW_TRACKING_URI is wired correctly.
-.PHONY: litellm-test-mlflow
-litellm-test-mlflow:
-	@echo "==> testing LiteLLM → MLflow trace pipeline"
-	@$(call port_ready,$(MLFLOW_PORT)) || { echo "✗ MLflow not running on :$(MLFLOW_PORT) — run: make mlflow"; exit 1; }
-	@$(call port_ready,$(LITELLM_PORT)) || { echo "✗ LiteLLM not running on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
-	@ps ewww $$(pgrep -f "litellm --config" | head -1) 2>/dev/null | tr ' ' '\n' | grep -q "^MLFLOW_TRACKING_URI=" \
-		|| { echo "✗ LiteLLM missing MLFLOW_TRACKING_URI — run: make litellm.stop litellm"; exit 1; }
-	@_uri=http://localhost:$(MLFLOW_PORT); \
-	_exp_id=$$(curl -sf "$$_uri/api/2.0/mlflow/experiments/get-by-name?experiment_name=tne-costs" \
-		| jq -r '.experiment.experiment_id // empty'); \
-	[ -n "$$_exp_id" ] || { echo "✗ tne-costs experiment not found in MLflow"; exit 1; }; \
-	_run_id=$$(curl -sf -X POST "$$_uri/api/2.0/mlflow/runs/create" \
-		-H "Content-Type: application/json" \
-		-d "{\"experiment_id\":\"$$_exp_id\",\"run_name\":\"litellm-test-mlflow-$$(date +%Y-%m-%d)\",\"tags\":[{\"key\":\"source\",\"value\":\"make litellm-test-mlflow\"}]}" \
-		| jq -r '.run.info.run_id // empty'); \
-	[ -n "$$_run_id" ] || { echo "✗ Failed to create MLflow run"; exit 1; }; \
-	curl -sf -X POST "$$_uri/api/2.0/mlflow/runs/log-metric" \
-		-H "Content-Type: application/json" \
-		-d "{\"run_id\":\"$$_run_id\",\"key\":\"latency_ms\",\"value\":42,\"timestamp\":$$(date +%s000),\"step\":0}" >/dev/null; \
-	curl -sf -X POST "$$_uri/api/2.0/mlflow/runs/update" \
-		-H "Content-Type: application/json" \
-		-d "{\"run_id\":\"$$_run_id\",\"status\":\"FINISHED\",\"end_time\":$$(date +%s000)}" >/dev/null; \
-	echo "✓ MLflow run written: run_id=$${_run_id:0:8}"; \
-	echo "  → $$_uri/#/experiments/$$_exp_id/runs/$$_run_id"
-
-## ai-test-models: Phase 2 of `make ai-test` — live round-trip per cloud model
-##   Sends 'pong' prompt to every model in LITELLM_CFG. Skips local (lms/*, lls/*).
-##   claude-* models tested via `claude -p` (OAuth token flow, not curl).
-##   Thinking models (deepseek-reasoner, minimax-*): checks reasoning_content fallback.
-##   Reports ✓/✗ per model with response preview and final pass/fail count.
 .PHONY: ai-test-models
 ai-test-models:
-	@$(call port_ready,$(LITELLM_PORT)) || { echo "✗ LiteLLM not running — run: make ai"; exit 1; }
-	@echo "==> live model round-trips via LiteLLM :$(LITELLM_PORT)"
-	@pass=0; fail=0; \
-	for model in $$(yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null \
-			| grep -v '^lms/' | grep -v '^lls/'); do \
-		case "$$model" in \
-		claude-*) \
-			echo "  – $$model: skipped (Max plan OAuth — tested implicitly via Claude Code session)"; \
-			continue; \
-			;; \
-		*-proxy) \
-			result=$$(curl -sf --max-time 30 -X POST \
-				http://localhost:$(LITELLM_PORT)/v1/chat/completions \
-				-H "Content-Type: application/json" \
-				-H "Authorization: Bearer $${LITELLM_MASTER_KEY}" \
-				-d "{\"model\":\"$$model\",\"stream\":true,\"messages\":[{\"role\":\"user\",\"content\":\"reply with the single word: pong\"}],\"max_tokens\":200}" \
-				2>&1); \
-			reply=$$(echo "$$result" \
-				| python3 -c 'import sys,json; chunks=[l for l in sys.stdin if l.startswith("data:") and l.strip()!="data: [DONE]"]; print("".join(json.loads(c[5:])["choices"][0]["delta"].get("content","") for c in chunks if json.loads(c[5:]).get("choices",[{}])[0].get("delta",{}).get("content")).strip()[:60])' \
-				2>/dev/null); \
-			;; \
-		*) \
-			result=$$(curl -sf --max-time 30 -X POST \
-				http://localhost:$(LITELLM_PORT)/v1/chat/completions \
-				-H "Content-Type: application/json" \
-				-H "Authorization: Bearer $${LITELLM_MASTER_KEY}" \
-				-d "{\"model\":\"$$model\",\"messages\":[{\"role\":\"user\",\"content\":\"reply with the single word: pong\"}],\"max_tokens\":200}" \
-				2>&1); \
-			reply=$$(echo "$$result" | python3 -c \
-				'import sys,json; r=json.load(sys.stdin); m=r["choices"][0]["message"]; print((m.get("content") or m.get("reasoning_content","")).strip()[:60])' \
-				2>/dev/null); \
-			;; \
-		esac; \
-		if [ -n "$$reply" ]; then \
-			echo "  ✓ $$model: $$reply"; pass=$$((pass+1)); \
-		else \
-			err=$$(echo "$${result:-}" | python3 -c \
-				'import sys,json; d=json.load(sys.stdin); print(d.get("error",{}).get("message","?")[:80])' \
-				2>/dev/null || echo "$${result:-}" | head -c 80); \
-			echo "  ✗ $$model: $$err"; fail=$$((fail+1)); \
-		fi; \
-	done; \
-	echo ""; echo "==> $$pass passed / $$fail failed"
+	@$(LIB_DIR)/scripts/ai-test.sh models
 
 ## ai-test-quality: Phase 3 of `make ai-test` — quality probe per backend
 ##   Sends a specific prompt ("2+2") and checks output matches expected pattern.
@@ -960,30 +668,7 @@ ai-test-models:
 AI_QUALITY_MODELS ?= qwen-max gpt-5.4-mini gemini-2.5-flash deepseek-v4-pro kimi-k2.6 minimax-m2.7 glm-4.7-flash or-nemotron-super-120b
 .PHONY: ai-test-quality
 ai-test-quality:
-	@$(call port_ready,$(LITELLM_PORT)) || { echo "✗ LiteLLM not running — run: make ai"; exit 1; }
-	@echo ""
-	@echo "══ Tier 3: quality gate ══════════════════════════════"
-	@_key=$${LITELLM_MASTER_KEY}; \
-	[[ "$$_key" == op://* ]] && _key=$$(op read "$$_key" 2>/dev/null) || true; \
-	pass=0; fail=0; \
-	for model in $(AI_QUALITY_MODELS); do \
-		result=$$(curl -sf --max-time 45 -X POST \
-			http://localhost:$(LITELLM_PORT)/v1/chat/completions \
-			-H "Content-Type: application/json" \
-			-H "Authorization: Bearer $$_key" \
-			-d "{\"model\":\"$$model\",\"messages\":[{\"role\":\"user\",\"content\":\"What is 2+2? Reply with just the digit.\"}],\"max_tokens\":10}" \
-			2>/dev/null); \
-		reply=$$(echo "$$result" | python3 -c \
-			'import sys; raw=sys.stdin.buffer.read().decode("utf-8","replace"); import json; d=json.loads(raw); m=d["choices"][0]["message"]; print((m.get("content") or m.get("reasoning_content","")).strip()[:20])' \
-			2>/dev/null); \
-		if echo "$$reply" | grep -q "4"; then \
-			echo "  ✓ $$model: '$$reply'"; pass=$$((pass+1)); \
-		else \
-			echo "  ✗ $$model: expected '4', got '$$reply'"; fail=$$((fail+1)); \
-		fi; \
-	done; \
-	echo ""; echo "==> quality gate: $$pass passed / $$fail failed"; \
-	[ "$$fail" -eq 0 ] || exit 1
+	@$(LIB_DIR)/scripts/ai-test.sh quality
 
 ## ai-sync: write-back sync — upsert new models from live provider catalogs into LITELLM_CFG
 ##   Currently syncs CLIProxyAPI :$(CLIPROXYAPI_PORT) (gemini + codex/gpt-5 subscriptions).
