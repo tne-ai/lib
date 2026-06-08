@@ -405,12 +405,12 @@ ai-p:
 
 # ── Public entry points ───────────────────────────────────────────────────────
 
-## ai: start full sidecar stack — cloud + local GPU, all models available
+## ai: start full sidecar stack — cloud + local GPU + routing, all models available
 ## See all available models (cloud + local) after start: make ai-help
-## Sidecars: postgres redis mlflow litellm temporal set-gpu-max-memory lls-start
-## (ai-local was merged into ai — one stack serves all models)
-.PHONY: ai ai-local
-ai ai-local: mlflow-start postgres redis mlflow litellm temporal set-gpu-max-memory lls-start ai-open
+## Covers all stack variants: use MODEL= to select provider (codex, routellm, kimi, etc.)
+## (ai-local, ai-cli, ai-auto merged here — one unified stack)
+.PHONY: ai
+ai: mlflow-start postgres redis mlflow litellm temporal set-gpu-max-memory lls-start ai-open
 	@$(MAKE) --no-print-directory ai-help
 	@$(MAKE) --no-print-directory ai-warn-bridges
 
@@ -511,20 +511,6 @@ ai-warn-bridges:
 	@nc -z localhost $(KIMI_CLAUDE_PROXY_PORT) 2>/dev/null \
 		&& nc -z localhost $(CLIPROXYAPI_PORT) 2>/dev/null \
 		&& echo "  ✓  Subscription bridges: kimi :$(KIMI_CLAUDE_PROXY_PORT) gemini/codex :$(CLIPROXYAPI_PORT)" || true
-
-## ai-cli: CLI-auth providers via CLIProxyAPI adapter  [PLAN — flat-rate subscriptions]
-## Authenticates via provider CLI login, not per-token API key.
-##   make ai-cli MODEL=codex        # ChatGPT/Codex plan (codex login)        [PLAN]
-##   make ai-cli MODEL=gemini-proxy # Google Gemini plan (gemini auth login)  [PLAN]
-.PHONY: ai-cli
-ai-cli: postgres redis mlflow litellm cliproxyapi ai-open
-	@echo "  CLI stack ready. Run: make ai-run MODEL=codex"
-
-## ai-auto: difficulty-routing — cheap for simple tasks, strong for hard  [PLAN+PLAN]
-## Easy prompts → kimi-k2.6 (Coding Plan $19/mo), hard → claude-sonnet (Max plan)
-.PHONY: ai-auto
-ai-auto: postgres redis mlflow litellm routellm
-	@echo "  Auto-routing stack ready. Run: make ai-run MODEL=routellm"
 
 ## ai-auth: log in to all AI providers (run once per machine or after token expiry)
 ##   make ai-auth              # all providers
@@ -1026,8 +1012,6 @@ ai-sync:
 ai-sync-force:
 	$(BIN_DIR)/install-litellm-sync.sh -f $(FLAGS)
 
-## ai-sync-cliproxyapi: legacy target — now handled by install-litellm-sync.sh
-ai-sync-cliproxyapi: ai-sync
 
 ## ai-latest-models: list models from each provider + what is in LITELLM_CFG
 ##   Delegates to install-litellm-sync.sh --list
@@ -1360,13 +1344,6 @@ LIB_UTIL    ?= $(WS_DIR)/git/src/lib/lib-util.sh
 ai-check-keys:
 	@bash -c 'source "$(LIB_UTIL)" && source "$(LIB_AI)" && ai_check_api_keys'
 
-## ai-refresh-models: query providers for latest model IDs, patch CCR + LiteLLM configs
-## Uses 7-day cache (~/.cache/tne/model-ids.yaml). Force refresh: make ai-refresh-models AI_MODEL_CACHE_TTL_DAYS=0
-.PHONY: ai-refresh-models
-ai-refresh-models:
-	@bash -c 'source "$(LIB_UTIL)" && source "$(LIB_AI)" && \
-		ai_resolve_model_names && ai_patch_ccr_config && ai_patch_litellm_config && \
-		echo "Done — restart ccr and litellm to pick up changes"'
 
 # ## mcpo: MCP → OpenAPI adapter (exposes MCP servers as REST endpoints)
 # MCPO_PORT    ?= 8001
