@@ -701,9 +701,8 @@ ai-log:
 ##     Phase 3: quality probe ("2+2") on one per backend  — ai-test-quality
 ##   Reports ✓/✗ per check; exits 1 if Phase 3 quality probe regresses.
 ##   Sub-targets above are runnable individually for debugging.
-.PHONY: ai-test test-ai
+.PHONY: ai-test
 ai-test: ai-test-infra ai-test-models ai-test-quality
-test-ai: ai-test
 
 .PHONY: ai-test-infra
 ai-test-infra:
@@ -1046,12 +1045,6 @@ ai-stop: $(MLFLOW_PORT).stop litellm.stop $(TEMPORAL_PORT).stop $(CCR_PORT).stop
 .PHONY: ai-install
 ai-install:
 	$(BIN_DIR)/install-ai.sh -v
-## ai-server: start all background sidecars without launching the AI harness
-## Use this to pre-warm sidecars before a session (postgres redis mlflow litellm)
-.PHONY: ai-server
-ai-server: postgres redis mlflow litellm
-	echo "Sidecars running. Launch with: make ai [MODEL=...]"
-
 ## set-gpu-max-memory: allocate maximum RAM to GPU (needed for large local models)
 .PHONY: set-gpu-max-memory
 set-gpu-max-memory:
