@@ -191,12 +191,12 @@ MISTRAL_API_KEY:
   op_vault: DevOps
 
 SAMBANOVA_API_KEY:
-  op_item: "Sambanova API Token Dev"
+  op_item: "SambaNova API Token Dev"
   op_field: "api token"
   op_vault: DevOps
 
 STEPFUN_API_KEY:
-  op_item: "StepFun API Key Dev"
+  op_item: "Stepfun API Key Dev"
   op_field: "interface key"
   op_vault: DevOps
 
@@ -240,7 +240,7 @@ ELEVENLABS_API_KEY:
   op_vault: DevOps
 
 FAL_KEY:
-  op_item: "FAL API Key Dev"
+  op_item: "fal API Key Dev"
   op_vault: DevOps
 
 LAMINI_API_TOKEN:
@@ -254,11 +254,11 @@ PEXELS_API_KEY:
 
 # ── Web & browser ─────────────────────────────────────────────────────────────
 BROWSERBASE_API_KEY:
-  op_item: "Browser Base API Key Dev"
+  op_item: "BrowserBase API Key Dev"
   op_vault: DevOps
 
 BROWSERBASE_PROJECT_ID:
-  op_item: "Browser Base API Key Dev"
+  op_item: "BrowserBase API Key Dev"
   op_field: "project id"
   op_vault: DevOps
 
