@@ -257,17 +257,6 @@ litellm: litellm-check-version
 	@[[ "$${LITELLM_MASTER_KEY}" == op://* ]] \
 		&& { echo "==> resolving LITELLM_MASTER_KEY from 1Password"; LITELLM_MASTER_KEY=$$(op read "$${LITELLM_MASTER_KEY}") || { echo "✗ op read failed — run: op signin"; exit 1; }; } \
 		|| true; \
-	_venv=$$(pipx environment --value PIPX_LOCAL_VENVS 2>/dev/null)/litellm; \
-	_schema=$$(echo $$_venv/lib/python*/site-packages/litellm/proxy/schema.prisma); \
-	_schema_hash=$$(md5 -q "$$_schema" 2>/dev/null || md5sum "$$_schema" 2>/dev/null | awk '{print $$1}'); \
-	if [ "$$(cat $(PRISMA_STAMP) 2>/dev/null)" != "$$_schema_hash" ]; then \
-		echo "==> prisma generate (schema changed or first run)"; \
-		PATH="$$_venv/bin:$$PATH" $$_venv/bin/prisma generate --schema "$$_schema"; \
-		echo "==> prisma db push (applying schema changes to database)"; \
-		DATABASE_URL=$${DATABASE_URL:-postgresql://$$USER@localhost/litellm} \
-			PATH="$$_venv/bin:$$PATH" $$_venv/bin/prisma db push --schema "$$_schema" --accept-data-loss; \
-		mkdir -p $$(dirname $(PRISMA_STAMP)) && echo "$$_schema_hash" > $(PRISMA_STAMP); \
-	fi; \
 	lsof -ti :$(LITELLM_PORT) -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true; \
 	pkill -f "bin/litellm" 2>/dev/null || true; \
 	sleep 1; \
