@@ -638,19 +638,17 @@ ai-models:
 			printf '  make ai MODEL=%-32s # %s\n' "$$name" "$$tag"; \
 		done || echo "  (config not found — run make ai-install)"
 	echo ""
-	echo "Local models — make ai-local, then: make ai-run MODEL=lms/<vendor>/<model>"
+	echo "Local models — start LM Studio, then: make ai-run MODEL=lms/<vendor>/<model>"
 	echo "──────────────────────────────────────────────────────"
 	lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {printf "  make ai-run MODEL=lms/%-42s # FREE — %.1f GB\n", $$1, $$4+0}' | sort -k6 -n \
 		|| echo "  (lms not running — start LM Studio or run: make lms-server)"
 	echo ""
 	echo "Entry points:"
-	echo "  make ai                              # PLAN  — Anthropic Max (default)"
-	echo "  make ai MODEL=kimi-k2.6              # PLAN  — any cloud model above"
-	echo "  make ai HARNESS=aider                # swap AI harness"
-	echo "  make ai-local                        # FREE  — local GPU (run make ai-run MODEL=lms/...)"
-	echo "  make ai-cli MODEL=codex              # PLAN  — codex login"
-	echo "  make ai-cli MODEL=gemini-proxy       # PLAN  — gemini auth login"
-	echo "  make ai-auto                         # PLAN+PLAN — kimi (easy) → claude (hard)"
+	echo "  make ai                              # start full stack (LiteLLM + MLflow + Temporal + sidecars)"
+	echo "  make ai-run                          # PLAN  — claude Max (default, via LiteLLM)"
+	echo "  make ai-run MODEL=kimi-k2.6          # PLAN  — Kimi Coding Plan \$19/mo (via LiteLLM)"
+	echo "  make ai-run HARNESS=aider            # swap AI harness"
+	echo "  make ai-auth PROVIDER=kimi           # one-time OAuth login for Kimi plan"
 
 ## ai-keys: show which env vars are required for each PLAN provider and where to get them
 ## Sources:
@@ -742,40 +740,31 @@ ai-test-infra:
 	fi
 	@$(call port_ready,$(CCR_PORT))      && echo "  ✓ ccr      :$(CCR_PORT)"      || echo "  ✗ ccr      :$(CCR_PORT) stopped      → make ccr"
 	@echo ""
-	@echo "══ make ai-local (+ LM Studio local inference) ═══════"
+	@echo "══ local GPU (make ai-run MODEL=lms/...) ══════════════"
 	@command -v lms >/dev/null 2>&1 \
 		&& echo "✓ lms (LM Studio CLI) installed" \
 		|| echo "✗ lms missing — install LM Studio from lmstudio.ai"
 	@$(call port_ready,1234) && echo "  ✓ lms-server :1234" || echo "  ✗ lms-server :1234 stopped  → make lms-server"
 	@echo ""
-	@echo "══ make ai-cli (+ CLIProxyAPI for Gemini/Codex subs) ══"
-	@command -v cliproxyapi >/dev/null 2>&1 \
-		&& echo "✓ cliproxyapi installed" \
-		|| echo "✗ cliproxyapi missing — run: brew install cliproxyapi"
-	@$(call port_ready,$(CLIPROXYAPI_PORT)) \
-		&& echo "  ✓ cliproxyapi :$(CLIPROXYAPI_PORT)" \
-		|| echo "  ✗ cliproxyapi :$(CLIPROXYAPI_PORT) stopped  → make cliproxyapi"
-	@echo ""
-	@echo "══ make ai-plan (+ claude-code-proxy for Kimi/ChatGPT) "
+	@echo "══ subscription bridges (started by make ai) ══════════"
 	@command -v claude-code-proxy >/dev/null 2>&1 \
 		&& echo "✓ claude-code-proxy installed" \
 		|| echo "✗ claude-code-proxy missing — run: brew install raine/claude-code-proxy/claude-code-proxy"
 	@yq e '.model_list[] | select(.model_name=="kimi-k2.6") | .litellm_params.api_base' "$(LITELLM_CFG)" 2>/dev/null \
 		| grep -q "localhost:$(KIMI_CLAUDE_PROXY_PORT)" \
-		&& echo "✓ litellm kimi-k2.6 → claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT) (PLAN, Anthropic-native)" \
-		|| echo "⚠ litellm kimi-k2.6 not on claude-code-proxy — make ai-run will fail (MaaS /responses rejects kimi)"
-	@yq e '.model_list[] | select(.model_name=="kimi-k2.6-maas") | .litellm_params.api_base' "$(LITELLM_CFG)" 2>/dev/null \
-		| grep -q "maas.aliyuncs.com" \
-		&& echo "✓ litellm kimi-k2.6-maas → Alibaba MaaS (PLAN, OpenAI for non-streaming clients)" \
-		|| echo "⚠ litellm kimi-k2.6-maas alias missing"
-	@grep -q "localhost:$(CLIPROXYAPI_PORT)" "$(LITELLM_CFG)" 2>/dev/null \
-		&& echo "✓ litellm gemini → localhost:$(CLIPROXYAPI_PORT) (PLAN)" \
-		|| echo "✗ litellm config: gemini still PAYG (expected localhost:$(CLIPROXYAPI_PORT))"
+		&& echo "✓ litellm kimi-k2.6 → claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT) (PLAN)" \
+		|| echo "⚠ litellm kimi-k2.6 not on claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT)"
 	@$(call port_ready,$(KIMI_CLAUDE_PROXY_PORT)) \
 		&& echo "  ✓ claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT)" \
-		|| echo "  ✗ claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT) stopped  → make kimi-claude-proxy"
+		|| echo "  ✗ claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT) stopped  → make ai (auto-starts)"
+	@command -v cliproxyapi >/dev/null 2>&1 \
+		&& echo "✓ cliproxyapi installed" \
+		|| echo "✗ cliproxyapi missing — run: brew install cliproxyapi"
+	@$(call port_ready,$(CLIPROXYAPI_PORT)) \
+		&& echo "  ✓ cliproxyapi :$(CLIPROXYAPI_PORT)" \
+		|| echo "  ✗ cliproxyapi :$(CLIPROXYAPI_PORT) stopped  → make ai (auto-starts)"
 	@echo ""
-	@echo "══ make ai-auto (+ RouteLLM difficulty router) ════════"
+	@echo "══ RouteLLM difficulty router (make ai-run MODEL=routellm*) ═"
 	@$(call port_ready,$(ROUTELLM_PORT)) \
 		&& echo "  ✓ routellm :$(ROUTELLM_PORT)" \
 		|| echo "  ✗ routellm :$(ROUTELLM_PORT) stopped  → make routellm"
@@ -799,7 +788,7 @@ ai-test-infra:
 	@#   call in `make ai-test-models` validates auth end-to-end.
 	@$(call port_ready,$(KIMI_CLAUDE_PROXY_PORT)) \
 		&& echo "  ✓ claude-code-proxy :$(KIMI_CLAUDE_PROXY_PORT) up (auth verified by ai-test-models kimi-k2.6)" \
-		|| echo "  ⚠ claude-code-proxy not running — run: make kimi-claude-proxy && make ai-auth PROVIDER=kimi"
+		|| echo "  ⚠ claude-code-proxy not running — run: make ai (auto-starts) or: make ai-auth PROVIDER=kimi"
 	@# cliproxyapi: /v1/models probe covers gemini + codex/gpt-5 token health
 	@if $(call port_ready,$(CLIPROXYAPI_PORT)) && [[ -n "${CLIPROXYAPI_KEY}" ]]; then \
 		_resp=$$(curl -sf -w "\n%{http_code}" --max-time 5 \
@@ -1042,17 +1031,14 @@ ai-ps: mlflow.ps litellm.ps temporal.ps ccr.ps
 	brew services list | grep -E "postgresql|redis" | awk '{printf "%-10s %s\n", $$1, $$2}'
 
 ## ai-stop: stop all sidecars (brew services stop for postgres/redis, SIGTERM for others)
+## Stops local GPU inference (lms) if running, and releases GPU memory limit.
 .PHONY: ai-stop
 ai-stop: $(MLFLOW_PORT).stop litellm.stop $(TEMPORAL_PORT).stop $(CCR_PORT).stop
 	brew services stop temporal 2>/dev/null || true
 	brew services stop redis 2>/dev/null || true
 	brew services stop postgresql@17 2>/dev/null || brew services stop postgresql 2>/dev/null || true
-
-## ai-local-stop: stop sidecars + LM Studio + restore GPU memory limit
-.PHONY: ai-local-stop
-ai-local-stop: ai-stop
-	lms server stop
-	sudo sysctl iogpu.wired_limit_mb=0
+	command -v lms >/dev/null 2>&1 && lms server stop 2>/dev/null || true
+	sudo sysctl iogpu.wired_limit_mb=0 2>/dev/null || true
 
 ## ai-install: install AI stack (brew + uv + services) via bin/install-ai.sh
 ## Delegates to bin/install-ai.sh — single source of truth (r-cto-dev98, r-cto-dev109)
@@ -1243,34 +1229,11 @@ ccr:
 	$(call start_server_self,$(CCR_PORT),ccr start)
 	$(call check_port,$(CCR_PORT))
 
-## kimi-claude-proxy: claude-code-proxy sidecar — bridges Kimi/ChatGPT subscription to Claude Code
-## Uses OAuth login (not PAYG API key). Login once: make kimi-claude-login
-## Supports: kimi (kimi.com Coding Plan $19/mo) | chatgpt (ChatGPT Plus/Pro)
+## Kimi Coding Plan bridge — started automatically by make ai via ai-warn-bridges.
+## Use: make ai-run MODEL=kimi-k2.6   (canonical path — routes through LiteLLM :4000 → :3457)
+## Auth: make ai-auth PROVIDER=kimi   (one-time OAuth login)
 KIMI_CLAUDE_PROXY_PORT ?= 3457
 KIMI_CLAUDE_PROVIDER   ?= kimi
-.PHONY: kimi-claude-proxy
-kimi-claude-proxy:
-	command -v claude-code-proxy >/dev/null || { echo "claude-code-proxy not installed — run: brew install raine/claude-code-proxy/claude-code-proxy"; exit 1; }
-	$(call start_server,$(KIMI_CLAUDE_PROXY_PORT),PORT=$(KIMI_CLAUDE_PROXY_PORT) claude-code-proxy serve)
-	$(call check_port,$(KIMI_CLAUDE_PROXY_PORT))
-
-## kimi-claude-login: log in to Kimi (or ChatGPT) for claude-code-proxy subscription auth
-##   make kimi-claude-login                       # login to kimi (default)
-##   make kimi-claude-login KIMI_CLAUDE_PROVIDER=chatgpt  # login to ChatGPT
-.PHONY: kimi-claude-login
-kimi-claude-login:
-	claude-code-proxy login $(KIMI_CLAUDE_PROVIDER)
-
-## kimi-claude: run Claude Code against Kimi Coding Plan via claude-code-proxy  [PLAN — $19/mo]
-## Uses OAuth subscription — no PAYG API key required.
-## Login first: make kimi-claude-login
-##   make kimi-claude                             # Kimi plan (default)
-##   make kimi-claude KIMI_CLAUDE_PROVIDER=chatgpt  # ChatGPT Plus/Pro plan
-.PHONY: kimi-claude
-kimi-claude: kimi-claude-proxy
-	ANTHROPIC_BASE_URL=http://localhost:$(KIMI_CLAUDE_PROXY_PORT) \
-	ANTHROPIC_API_KEY=placeholder \
-	claude $(HARNESS_ARGS)
 
 # ── Commented-out local inference stacks ─────────────────────────────────────
 
