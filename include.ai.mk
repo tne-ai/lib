@@ -1017,83 +1017,23 @@ ai-test-quality:
 ##   After sync: restart LiteLLM to activate new entries (make litellm).
 ##   Extend: add ai-sync-<provider> targets and list them as prerequisites here.
 .PHONY: ai-sync ai-sync-cliproxyapi
-ai-sync: ai-sync-cliproxyapi
-	@echo "  restart LiteLLM to activate: make litellm"
+## ai-sync: sync provider model names into LITELLM_CFG (delegates to install-litellm-sync.sh)
+ai-sync:
+	$(BIN_DIR)/install-litellm-sync.sh $(FLAGS)
 
-ai-sync-cliproxyapi:
-	@$(call port_ready,$(CLIPROXYAPI_PORT)) \
-		|| { echo "✗ cliproxyapi not running — run: make cliproxyapi"; exit 1; }
-	@_key="${CLIPROXYAPI_KEY}"; \
-	if [[ -z "$$_key" ]]; then \
-		echo "✗ CLIPROXYAPI_KEY not set — run a new shell after install-1password.sh loads it via op inject"; \
-		exit 1; \
-	fi; \
-	echo "==> syncing CLIProxyAPI :$(CLIPROXYAPI_PORT) → $(LITELLM_CFG)"; \
-	_resp=$$(curl -s -w "\n%{http_code}" "http://localhost:$(CLIPROXYAPI_PORT)/v1/models" \
-		-H "Authorization: Bearer $$_key"); \
-	_code=$$(echo "$$_resp" | tail -1); \
-	_body=$$(echo "$$_resp" | sed '$$d'); \
-	if [[ "$$_code" != "200" ]]; then \
-		echo "✗ CLIProxyAPI returned HTTP $$_code (expected 200)"; \
-		echo "  body: $$_body"; \
-		exit 1; \
-	fi; \
-	echo "$$_body" | python3 -c "import sys,json,subprocess; data=json.load(sys.stdin); cfg='$(LITELLM_CFG)'; port='$(CLIPROXYAPI_PORT)'; existing=set(subprocess.check_output(['yq','.model_list[].model_name',cfg],text=True).split()); new=[m['id'] for m in sorted(data['data'],key=lambda x:x['id']) if m['id'] not in existing]; [subprocess.run(['yq','-i','.model_list+=['+json.dumps({'model_name':mid,'litellm_params':{'model':'openai/'+mid,'api_base':'http://localhost:'+port,'api_key':'os.environ/CLIPROXYAPI_KEY'}})+']',cfg]) for mid in new]; print('  ✓ added: '+', '.join(new) if new else '  ✓ already in sync — no new models')"
+## ai-sync-force: bypass 7-day cache and query live provider APIs
+.PHONY: ai-sync-force
+ai-sync-force:
+	$(BIN_DIR)/install-litellm-sync.sh -f $(FLAGS)
 
-## ai-latest-models: query each provider API for their current model list; diff against config
-##   Requires: provider API keys in env. Reports new models not yet in LITELLM_CFG.
+## ai-sync-cliproxyapi: legacy target — now handled by install-litellm-sync.sh
+ai-sync-cliproxyapi: ai-sync
+
+## ai-latest-models: list models from each provider + what is in LITELLM_CFG
+##   Delegates to install-litellm-sync.sh --list
 .PHONY: ai-latest-models
 ai-latest-models:
-	@echo "==> querying providers for latest model names"
-	@echo ""
-	@echo "── Anthropic ────────────────────────────────────────"
-	@curl -sf https://api.anthropic.com/v1/models \
-		-H "x-api-key: $${ANTHROPIC_API_KEY}" -H "anthropic-version: 2023-06-01" \
-		| python3 -c 'import sys,json; [print(" ", m["id"]) for m in json.load(sys.stdin).get("data",[])]' \
-		2>/dev/null || echo "  (skipped — ANTHROPIC_API_KEY not set or request failed)"
-	@echo ""
-	@echo "── Moonshot / Kimi ──────────────────────────────────"
-	@curl -sf https://api.moonshot.ai/v1/models \
-		-H "Authorization: Bearer $${MOONSHOT_API_KEY}" \
-		| python3 -c 'import sys,json; [print(" ", m["id"]) for m in json.load(sys.stdin).get("data",[])]' \
-		2>/dev/null || echo "  (skipped — MOONSHOT_API_KEY not set or request failed)"
-	@echo ""
-	@echo "── Z.AI / GLM ───────────────────────────────────────"
-	@curl -sf https://api.z.ai/api/anthropic/v1/models \
-		-H "x-api-key: $${Z_AI_PLAN_KEY}" -H "anthropic-version: 2023-06-01" \
-		| python3 -c 'import sys,json; [print(" ", m.get("id","?")) for m in json.load(sys.stdin).get("data",[])]' \
-		2>/dev/null || echo "  (skipped — Z_AI_PLAN_KEY not set or request failed)"
-	@echo ""
-	@echo "── MiniMax ──────────────────────────────────────────"
-	@curl -sf https://api.minimax.io/v1/models \
-		-H "Authorization: Bearer $${MINIMAX_API_KEY}" \
-		| python3 -c 'import sys,json; [print(" ", m["id"]) for m in json.load(sys.stdin).get("data",[])]' \
-		2>/dev/null || echo "  (skipped — MINIMAX_API_KEY not set or request failed)"
-	@echo ""
-	@echo "── DeepSeek ─────────────────────────────────────────"
-	@curl -sf https://api.deepseek.com/models \
-		-H "Authorization: Bearer $${DEEPSEEK_API_KEY}" \
-		| python3 -c 'import sys,json; [print(" ", m["id"]) for m in json.load(sys.stdin).get("data",[])]' \
-		2>/dev/null || echo "  (skipped — DEEPSEEK_API_KEY not set or request failed)"
-	@echo ""
-	@echo "── Qwen / DashScope ─────────────────────────────────"
-	@curl -sf https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models \
-		-H "Authorization: Bearer $${ALIBABA_API_KEY}" \
-		| python3 -c 'import sys,json; [print(" ", m["id"]) for m in json.load(sys.stdin).get("data",[])]' \
-		2>/dev/null || echo "  (skipped — ALIBABA_API_KEY not set or request failed)"
-	@echo ""
-	@echo "── CLIProxyAPI :$(CLIPROXYAPI_PORT) (gemini/codex/gpt-5 subscription) ──"
-	@$(call port_ready,$(CLIPROXYAPI_PORT)) \
-		&& curl -sf http://localhost:$(CLIPROXYAPI_PORT)/v1/models \
-			-H "Authorization: Bearer $${CLIPROXYAPI_KEY}" \
-			| python3 -c \
-				'import sys,json; ids=sorted(m["id"] for m in json.load(sys.stdin)["data"]); [print("  ",i) for i in ids]' \
-			2>/dev/null \
-		|| echo "  (skipped — cliproxyapi not running on :$(CLIPROXYAPI_PORT))"
-	@echo ""
-	@echo "── In $(LITELLM_CFG) ────────────────────────────────"
-	@yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null \
-		| grep -v '^lms/' | grep -v '^lls/' | sed 's/^/  /'
+	$(BIN_DIR)/install-litellm-sync.sh -l $(FLAGS)
 
 ## ai-test-ui: playwright smoke test — verify each service UI renders correctly
 ##   Requires: make ai (sidecars up). Saves failure screenshots to /tmp.
