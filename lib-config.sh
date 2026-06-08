@@ -138,10 +138,11 @@ config_profile_interactive() {
 config_profile_shell_zsh() {
 	echo "$HOME/.zprofile"
 }
-# due to pipenv bug where it never executes .bash_profile but only .bashrc
+# ~/.bash_profile runs once per macOS login shell (every new terminal window).
+# Prefer it over ~/.bashrc for secrets injection — ~/.bashrc runs on every
+# subshell spawn. The old pipenv workaround is no longer relevant.
 config_profile_shell_bash() {
-	# echo "$HOME/.bash_profile"
-	echo "$HOME/.bashrc"
+	echo "$HOME/.bash_profile"
 }
 # config_profile_shell: set to .bash_profile or .zprofile if using zsh
 config_profile_shell() {
