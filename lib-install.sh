@@ -186,6 +186,7 @@ if eval "[[ -z \${$lib_name+x} ]]"; then
 	# code_install [extensions] for vscode and vscodium
 	code_install() {
 		local editor
+		local editors=()
 		# look for vscode based editors
 		for editor in code codium cursor; do
 			if command -v "$editor" >/dev/null; then
@@ -193,7 +194,7 @@ if eval "[[ -z \${$lib_name+x} ]]"; then
 			fi
 		done
 		for editor in "${editors[@]}"; do
-			installed="($editor --list-extensions)"
+			installed="$($editor --list-extensions)"
 			for ext in "${VSCODE[@]}"; do
 				if [[ ! $installed =~ $ext ]]; then
 					"$editor" --install-extension "$ext"
