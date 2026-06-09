@@ -179,40 +179,20 @@ LITELLM_VERSION ?= 1.86.2
 ## litellm-install: install or upgrade litellm to the pinned LITELLM_VERSION
 .PHONY: litellm-install
 litellm-install:
-	@echo "==> installing litellm==$(LITELLM_VERSION)"
-	pipx install --force "litellm[proxy]==$(LITELLM_VERSION)"
-	pipx inject litellm mlflow
-	@$(MAKE) --no-print-directory litellm-fix-ui
+	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh
 
 ## litellm-fix-ui: patch login/index.html hash mismatch (1.85.x packaging bug)
 ## login/index.html ships with stale chunk hashes; overwrite with login.html which is correct.
 .PHONY: litellm-fix-ui
 litellm-fix-ui:
-	@_base=$$(python3 -c "import litellm,os; print(os.path.dirname(litellm.__file__))" 2>/dev/null \
-		|| pipx run --spec "litellm==$(LITELLM_VERSION)" python3 -c "import litellm,os; print(os.path.dirname(litellm.__file__))"); \
-	_out="$$_base/proxy/_experimental/out"; \
-	if [ -f "$$_out/login.html" ] && [ -f "$$_out/login/index.html" ]; then \
-		cp "$$_out/login.html" "$$_out/login/index.html"; \
-		echo "✓ litellm UI patch applied (login/index.html synced from login.html)"; \
-	else \
-		echo "⚠  litellm UI patch: paths not found — skipping"; \
-	fi
+	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh --fix-ui
 
 
 ## litellm-check-version: verify installed litellm matches LITELLM_VERSION; fix if not
 ## Called automatically by make litellm before startup.
 .PHONY: litellm-check-version
 litellm-check-version:
-	@_installed=$$(litellm --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1); \
-	if [ "$$_installed" != "$(LITELLM_VERSION)" ]; then \
-		echo "⚠️  litellm $$_installed ≠ pinned $(LITELLM_VERSION) — reinstalling..."; \
-		pipx install --force "litellm[proxy]==$(LITELLM_VERSION)" --quiet \
-			&& echo "✓ litellm $(LITELLM_VERSION) installed" \
-			&& $(MAKE) --no-print-directory litellm-fix-ui \
-			|| { echo "✗ reinstall failed — run: make litellm-install"; exit 1; }; \
-	else \
-		echo "✓ litellm $(LITELLM_VERSION) (pinned)"; \
-	fi
+	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh --check
 
 ## litellm.stop / 4000.stop: kill ALL litellm processes (port kill + pkill sweep for zombies)
 ## WHY bin/litellm not litellm: postgres names its worker processes after the database.
@@ -363,26 +343,8 @@ MODEL              ?=
 #                      litellm_params (forward_client_headers_to_llm_api: false).
 .PHONY: ai-run
 ai-run:
-	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
-		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — auto-restarting..."; \
-			$(MAKE) --no-print-directory litellm; } \
-		&& curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
-		|| { echo "LiteLLM still not ready — check: make ai-log"; exit 1; }
-	@$(if $(filter lls/%,$(MODEL)), \
-		$(call port_ready,8081) \
-		|| { echo "llama-server not running on :8081 — run: make lls-start"; exit 1; },)
-	@$(if $(filter lms/%,$(MODEL)), \
-		lms load "$$(echo '$(MODEL)' | sed 's|^lms/||')" --gpu max \
-		|| echo "⚠️  lms load failed — model may already be loaded",)
-	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
-	TNE_SESSION_MODEL="$(MODEL)" \
-	CLAUDE_CODE_ENABLE_TELEMETRY=1 \
-	OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
-	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$(MLFLOW_PORT) \
-	OTEL_EXPORTER_OTLP_HEADERS="x-mlflow-experiment-id=2" \
-	env -u CLAUDECODE -u ANTHROPIC_MAX $(HARNESS) $(if $(MODEL),--model $(MODEL),) $(HARNESS_ARGS)
+	MODEL=$(MODEL) HARNESS=$(HARNESS) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) \
+		$(SCRIPT_DIR)/../bin/ai-run.sh $(HARNESS_ARGS)
 
 ## ai-p: run a single claude -p batch invocation via LiteLLM routing
 ## Same env as ai-run — engine invoker.py inherits ANTHROPIC_BASE_URL via os.environ.
@@ -392,17 +354,8 @@ PROMPT ?=
 AI_P_ARGS ?=
 .PHONY: ai-p
 ai-p:
-	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
-		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
-	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
-	TNE_SESSION_MODEL="$(MODEL)" \
-	CLAUDE_CODE_ENABLE_TELEMETRY=1 \
-	OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
-	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$(MLFLOW_PORT) \
-	OTEL_EXPORTER_OTLP_HEADERS="x-mlflow-experiment-id=2" \
-	env -u ANTHROPIC_MAX claude -p $(AI_P_ARGS) $(if $(MODEL),--model $(MODEL),) "$(PROMPT)"
+	MODEL=$(MODEL) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) AI_P_ARGS="$(AI_P_ARGS)" \
+		$(SCRIPT_DIR)/../bin/ai-run.sh --batch "$(PROMPT)"
 
 # ── Public entry points ───────────────────────────────────────────────────────
 
