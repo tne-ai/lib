@@ -430,54 +430,12 @@ ai-open-force:
 ## ai-status: health check for all sidecars
 .PHONY: ai-status
 ai-status:
-	echo "PostgreSQL :$(POSTGRES_PORT): $$($(call port_ready,$(POSTGRES_PORT)) && echo ok || echo stopped)"
-	echo "Redis      :$(REDIS_PORT): $$($(call port_ready,$(REDIS_PORT)) && echo ok || echo stopped)"
-	echo "LiteLLM    :$(LITELLM_PORT): $$($(call port_ready,$(LITELLM_PORT)) && echo ok || echo stopped)"
-	echo "MLflow     :$(MLFLOW_PORT): $$($(call port_ready,$(MLFLOW_PORT)) && echo ok || echo stopped)"
-	echo "Temporal   :$(TEMPORAL_PORT): $$($(call port_ready,$(TEMPORAL_PORT)) && echo ok || echo stopped)"
-	echo "CCR        :$(CCR_PORT): $$($(call port_ready,$(CCR_PORT)) && echo ok || echo stopped)"
-	echo "kimi-proxy :$(KIMI_CLAUDE_PROXY_PORT): $$($(call port_ready,$(KIMI_CLAUDE_PROXY_PORT)) && echo ok || echo stopped)"
-	echo "ktap       :$(KTAP_PORT): $$($(call port_ready,$(KTAP_PORT)) && echo ok || echo stopped)"
-	echo "LM Studio  : $$(pgrep -x 'LM Studio' >/dev/null 2>&1 && echo ok || echo stopped)"
+	$(SCRIPT_DIR)/../bin/start-ai.sh --status
 
 ## ai-models: list available models with make invocation examples
 .PHONY: ai-models
 ai-models:
-	echo ""
-	echo "Cloud models — make ai MODEL=<name>"
-	echo "──────────────────────────────────────────────────────"
-	yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | sort -u | grep -v '^lms/' | \
-		while IFS= read -r name; do \
-			case "$$name" in \
-			*-free)    tag="FREE  -- provider free tier via OpenRouter" ;; \
-			claude*)   tag="PLAN  -- Anthropic Max (~\$$20-100/mo flat)" ;; \
-			kimi*)     tag="PLAN  -- Kimi Coding Plan (\$$19/mo flat)" ;; \
-			glm*)      tag="PLAN  -- ZAI GLM Coding Plan \$$18/mo → Z_AI_PLAN_KEY" ;; \
-			qwen*)     tag="PLAN  -- Alibaba Plan → ALIBABA_PLAN_KEY" ;; \
-			minimax*)  tag="PLAN  -- MiniMax Token Plan \$$10-20/mo → MINIMAX_PLAN_KEY" ;; \
-			routellm*) tag="PLAN+PLAN -- auto-routes kimi->claude by difficulty" ;; \
-			gemini*)   tag="PLAN  -- Google CLI sub → make ai-auth PROVIDER=gemini" ;; \
-			deepseek*) tag="PAYG  -- no flat-rate plan; use sparingly" ;; \
-			or-*nemotron*free*)  tag="FREE  -- NVIDIA Nemotron via OpenRouter (rate-limited) → OPENROUTER_API_KEY" ;; \
-			or-*nemotron*)       tag="PAYG  -- NVIDIA Nemotron via OpenRouter → OPENROUTER_API_KEY" ;; \
-			or-*qwen*coder*free*)tag="FREE  -- Qwen3 Coder via OpenRouter (rate-limited) → OPENROUTER_API_KEY" ;; \
-			or-*)                tag="PAYG  -- OpenRouter bridge → OPENROUTER_API_KEY" ;; \
-			*)         tag="PAYG" ;; \
-			esac; \
-			printf '  make ai MODEL=%-32s # %s\n' "$$name" "$$tag"; \
-		done || echo "  (config not found — run make ai-install)"
-	echo ""
-	echo "Local models — start LM Studio, then: make ai-run MODEL=lms/<vendor>/<model>"
-	echo "──────────────────────────────────────────────────────"
-	lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {printf "  make ai-run MODEL=lms/%-42s # FREE — %.1f GB\n", $$1, $$4+0}' | sort -k6 -n \
-		|| echo "  (lms not running — start LM Studio or run: make lms-server)"
-	echo ""
-	echo "Entry points:"
-	echo "  make ai                              # start full stack (LiteLLM + MLflow + Temporal + sidecars)"
-	echo "  make ai-run                          # PLAN  — claude Max (default, via LiteLLM)"
-	echo "  make ai-run MODEL=kimi-k2.6          # PLAN  — Kimi Coding Plan \$19/mo (via LiteLLM)"
-	echo "  make ai-run HARNESS=aider            # swap AI harness"
-	echo "  make ai-auth PROVIDER=kimi           # one-time OAuth login for Kimi plan"
+	LITELLM_CFG=$(LITELLM_CFG) LLS_PORT=$(LLS_PORT) $(SCRIPT_DIR)/../bin/help-ai.sh
 
 ## ai-keys: show which env vars are required for each PLAN provider and where to get them
 ## Sources:
@@ -488,39 +446,26 @@ ai-models:
 ##   Kimi:    claude-code-proxy handles auth — no extra key needed
 .PHONY: ai-keys
 ai-keys:
-	@echo "══ PLAN provider keys (set in .envrc or 1Password) ══════"
-	@printf "  %-28s %s\n" "Z_AI_PLAN_KEY" \
-		"$$([ -n "$$Z_AI_PLAN_KEY" ] && echo "✓ set" || echo "✗ missing — z.ai → account → API Keys")"
-	@printf "  %-28s %s\n" "MINIMAX_PLAN_KEY" \
-		"$$([ -n "$$MINIMAX_PLAN_KEY" ] && echo "✓ set" || echo "✗ missing — platform.minimax.io/subscribe/token-plan")"
-	@printf "  %-28s %s\n" "ALIBABA_PLAN_KEY" \
-		"$$([ -n "$$ALIBABA_PLAN_KEY" ] && echo "✓ set" || echo "✗ missing — bailian.console.aliyun.com → API Keys")"
-	@printf "  %-28s %s\n" "LITELLM_MASTER_KEY" \
-		"$$([ -n "$$LITELLM_MASTER_KEY" ] && echo "✓ set" || echo "✗ missing — generate random, set in 1Password")"
-	@echo ""
-	@echo "══ PLAN providers requiring OAuth (no API key) ══════════"
-	@printf "  %-28s %s\n" "Gemini (CLIProxyAPI)" \
-		"$$(cliproxyapi status 2>/dev/null | grep -q authenticated && echo "✓ authenticated" || echo "✗ run: make ai-auth PROVIDER=gemini")"
-	@printf "  %-28s %s\n" "Kimi (claude-code-proxy)" \
-		"$$($(call port_ready,3457) && echo "✓ running :3457" || echo "✗ run: make ai")"
-
+	$(SCRIPT_DIR)/../bin/show-keys.sh
 ## ai-logs: push Claude Code session logs to MLflow
 .PHONY: ai-logs
 ai-logs:
-	uv run "$(MLFLOW_LOG_SCRIPT)"
+	$(SCRIPT_DIR)/../bin/push-logs.sh
+
+## push-logs: alias for ai-logs (clearer name)
+.PHONY: push-logs
+push-logs:
+	$(SCRIPT_DIR)/../bin/push-logs.sh
 
 ## ai-log: tail all sidecar logs from TNE_LOG_DIR (Ctrl-C to stop)
 .PHONY: ai-log
 ai-log:
-	@mkdir -p "$(TNE_LOG_DIR)"
-	@echo "Tailing logs from $(TNE_LOG_DIR) — Ctrl-C to stop"
-	@tail -f \
-		"$(TNE_LOG_DIR)/sidecar-$(LITELLM_PORT).log" \
-		"$(TNE_LOG_DIR)/sidecar-$(MLFLOW_PORT).log" \
-		"$(TNE_LOG_DIR)/sidecar-$(KTAP_PORT).log" \
-		"$(TNE_LOG_DIR)/ktap.log" \
-		"$(TNE_LOG_DIR)/tne-engine.log" \
-		2>/dev/null || echo "(no log files yet — start services with make ai-local)"
+	TNE_LOG_DIR=$(TNE_LOG_DIR) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) KTAP_PORT=$(KTAP_PORT) $(SCRIPT_DIR)/../bin/watch-logs.sh
+
+## watch-logs: alias for ai-log (clearer name)
+.PHONY: watch-logs
+watch-logs:
+	TNE_LOG_DIR=$(TNE_LOG_DIR) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) KTAP_PORT=$(KTAP_PORT) $(SCRIPT_DIR)/../bin/watch-logs.sh
 
 ## ai-test: canonical end-to-end check for the ai-* stack
 ##   Runs all three phases unconditionally — bias toward complete since ai-test
