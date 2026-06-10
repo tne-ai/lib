@@ -163,20 +163,20 @@ LITELLM_VERSION ?= 1.86.2
 ## litellm-install: install or upgrade litellm to the pinned LITELLM_VERSION
 .PHONY: litellm-install
 litellm-install:
-	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/install-litellm.sh
+	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh
 
 ## litellm-fix-ui: patch login/index.html hash mismatch (1.85.x packaging bug)
 ## login/index.html ships with stale chunk hashes; overwrite with login.html which is correct.
 .PHONY: litellm-fix-ui
 litellm-fix-ui:
-	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/install-litellm.sh --fix-ui
+	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh --fix-ui
 
 
 ## litellm-check-version: verify installed litellm matches LITELLM_VERSION; fix if not
 ## Called automatically by make litellm before startup.
 .PHONY: litellm-check-version
 litellm-check-version:
-	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/install-litellm.sh --check
+	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh --check
 
 ## litellm.stop / 4000.stop: kill ALL litellm processes (port kill + pkill sweep for zombies)
 ## WHY bin/litellm not litellm: postgres names its worker processes after the database.
@@ -186,7 +186,7 @@ litellm-check-version:
 ## missed. Matching "bin/litellm" targets only the Python CLI binary, not postgres.
 .PHONY: litellm.stop 4000.stop
 litellm.stop 4000.stop:
-	LITELLM_PORT=$(LITELLM_PORT) $(SCRIPT_DIR)/../bin/stop-litellm.sh
+	LITELLM_PORT=$(LITELLM_PORT) $(SCRIPT_DIR)/../bin/litellm-stop.sh
 
 ## litellm: start LiteLLM proxy with automatic Prisma client regeneration
 ##
@@ -211,7 +211,7 @@ litellm.stop 4000.stop:
 ## To force regeneration: rm $(PRISMA_STAMP)
 .PHONY: litellm
 litellm: litellm-check-version
-	LITELLM_PORT=$(LITELLM_PORT) LITELLM_CFG=$(LITELLM_CFG) MLFLOW_PORT=$(MLFLOW_PORT) PRISMA_STAMP=$(PRISMA_STAMP) LITELLM_DB_URL=$(LITELLM_DB_URL) $(SCRIPT_DIR)/../bin/start-litellm.sh
+	LITELLM_PORT=$(LITELLM_PORT) LITELLM_CFG=$(LITELLM_CFG) MLFLOW_PORT=$(MLFLOW_PORT) PRISMA_STAMP=$(PRISMA_STAMP) LITELLM_DB_URL=$(LITELLM_DB_URL) $(SCRIPT_DIR)/../bin/litellm-start.sh
 # ── Harness + model variables ─────────────────────────────────────────────────
 # HARNESS: the AI coding assistant CLI. Swap without changing targets.
 #   make ai                        # claude (default)
@@ -450,22 +450,22 @@ ai-keys:
 ## ai-logs: push Claude Code session logs to MLflow
 .PHONY: ai-logs
 ai-logs:
-	$(SCRIPT_DIR)/../bin/push-logs.sh
+	$(SCRIPT_DIR)/../bin/logs-push.sh
 
 ## push-logs: alias for ai-logs (clearer name)
 .PHONY: push-logs
 push-logs:
-	$(SCRIPT_DIR)/../bin/push-logs.sh
+	$(SCRIPT_DIR)/../bin/logs-push.sh
 
 ## ai-log: tail all sidecar logs from TNE_LOG_DIR (Ctrl-C to stop)
 .PHONY: ai-log
 ai-log:
-	TNE_LOG_DIR=$(TNE_LOG_DIR) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) KTAP_PORT=$(KTAP_PORT) $(SCRIPT_DIR)/../bin/watch-logs.sh
+	TNE_LOG_DIR=$(TNE_LOG_DIR) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) KTAP_PORT=$(KTAP_PORT) $(SCRIPT_DIR)/../bin/logs-watch.sh
 
 ## watch-logs: alias for ai-log (clearer name)
 .PHONY: watch-logs
 watch-logs:
-	TNE_LOG_DIR=$(TNE_LOG_DIR) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) KTAP_PORT=$(KTAP_PORT) $(SCRIPT_DIR)/../bin/watch-logs.sh
+	TNE_LOG_DIR=$(TNE_LOG_DIR) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) KTAP_PORT=$(KTAP_PORT) $(SCRIPT_DIR)/../bin/logs-watch.sh
 
 ## ai-test: canonical end-to-end check for the ai-* stack
 ##   Runs all three phases unconditionally — bias toward complete since ai-test
