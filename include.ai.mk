@@ -127,21 +127,12 @@ SERVICE_PORTS := litellm:$(LITELLM_PORT) mlflow:$(MLFLOW_PORT) temporal:$(TEMPOR
 ## postgres: start PostgreSQL via brew services (needed for LiteLLM spend tracking)
 .PHONY: postgres
 postgres:
-	if ! command -v psql >/dev/null 2>&1; then \
-		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
-	fi
-	$(call port_ready,$(POSTGRES_PORT)) || brew services start postgresql@17 2>/dev/null || brew services start postgresql 2>/dev/null || true
-	timeout=30; until $(call port_ready,$(POSTGRES_PORT)); do sleep 1; timeout=$$((timeout-1)); [ $$timeout -gt 0 ] || { echo "postgres did not become ready"; exit 1; }; done
-	psql -lqt | grep -q "$(LITELLM_DB)" || createdb "$(LITELLM_DB)"
+	POSTGRES_PORT=$(POSTGRES_PORT) LITELLM_DB=$(LITELLM_DB) $(SCRIPT_DIR)/../bin/start-postgres.sh
 
 ## redis: start Redis via brew services (needed for LiteLLM response caching)
 .PHONY: redis
 redis:
-	if ! command -v redis-cli >/dev/null 2>&1; then \
-		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
-	fi
-	$(call port_ready,$(REDIS_PORT)) || brew services start redis 2>/dev/null || true
-	timeout=30; until $(call port_ready,$(REDIS_PORT)); do sleep 1; timeout=$$((timeout-1)); [ $$timeout -gt 0 ] || { echo "redis did not become ready"; exit 1; }; done
+	REDIS_PORT=$(REDIS_PORT) $(SCRIPT_DIR)/../bin/start-redis.sh
 
 ## mlflow: start MLflow tracking server at http://localhost:$(MLFLOW_PORT)
 ## mlflow has no Homebrew formula — install chain is: uv tool install → uvx (ephemeral).
@@ -150,14 +141,7 @@ redis:
 ## mlflow-start: fire mlflow in background without waiting — overlaps with postgres/redis startup
 .PHONY: mlflow-start
 mlflow-start:
-	if ! command -v mlflow >/dev/null 2>&1 && ! uvx mlflow --version >/dev/null 2>&1; then \
-		echo "mlflow not installed — running make ai-install first"; \
-		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
-	fi
-	mkdir -p "$(MLFLOW_DIR)/artifacts"
-	$(call start_server_double_fork,$(MLFLOW_PORT),$$(command -v mlflow || echo uvx mlflow) server --host 127.0.0.1 --port $(MLFLOW_PORT) \
-		--backend-store-uri sqlite:///$(MLFLOW_DIR)/mlflow.db \
-		--default-artifact-root $(MLFLOW_DIR)/artifacts)
+	MLFLOW_PORT=$(MLFLOW_PORT) MLFLOW_DIR=$(MLFLOW_DIR) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-mlflow.sh
 
 ## mlflow: wait for mlflow to be ready (call mlflow-start first to overlap with postgres/redis)
 .PHONY: mlflow
@@ -179,20 +163,20 @@ LITELLM_VERSION ?= 1.86.2
 ## litellm-install: install or upgrade litellm to the pinned LITELLM_VERSION
 .PHONY: litellm-install
 litellm-install:
-	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh
+	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/install-litellm.sh
 
 ## litellm-fix-ui: patch login/index.html hash mismatch (1.85.x packaging bug)
 ## login/index.html ships with stale chunk hashes; overwrite with login.html which is correct.
 .PHONY: litellm-fix-ui
 litellm-fix-ui:
-	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh --fix-ui
+	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/install-litellm.sh --fix-ui
 
 
 ## litellm-check-version: verify installed litellm matches LITELLM_VERSION; fix if not
 ## Called automatically by make litellm before startup.
 .PHONY: litellm-check-version
 litellm-check-version:
-	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh --check
+	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/install-litellm.sh --check
 
 ## litellm.stop / 4000.stop: kill ALL litellm processes (port kill + pkill sweep for zombies)
 ## WHY bin/litellm not litellm: postgres names its worker processes after the database.
@@ -344,7 +328,7 @@ MODEL              ?=
 .PHONY: ai-run
 ai-run:
 	MODEL=$(MODEL) HARNESS=$(HARNESS) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) \
-		$(SCRIPT_DIR)/../bin/ai-run.sh $(HARNESS_ARGS)
+		$(SCRIPT_DIR)/../bin/run-ai.sh $(HARNESS_ARGS)
 
 ## ai-p: run a single claude -p batch invocation via LiteLLM routing
 ## Same env as ai-run — engine invoker.py inherits ANTHROPIC_BASE_URL via os.environ.
@@ -355,7 +339,7 @@ AI_P_ARGS ?=
 .PHONY: ai-p
 ai-p:
 	MODEL=$(MODEL) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) AI_P_ARGS="$(AI_P_ARGS)" \
-		$(SCRIPT_DIR)/../bin/ai-run.sh --batch "$(PROMPT)"
+		$(SCRIPT_DIR)/../bin/run-ai.sh --batch "$(PROMPT)"
 
 # ── Public entry points ───────────────────────────────────────────────────────
 
@@ -454,45 +438,21 @@ ai-auth:
 CLIPROXYAPI_PORT ?= 8317
 .PHONY: cliproxyapi
 cliproxyapi:
-	command -v cliproxyapi >/dev/null || { echo "cliproxyapi not installed — run: brew install cliproxyapi"; exit 1; }
-	$(call start_server_self,$(CLIPROXYAPI_PORT),cliproxyapi -config $(HOME)/.config/cliproxyapi/config.yaml)
-	$(call check_port,$(CLIPROXYAPI_PORT))
+	CLIPROXYAPI_PORT=$(CLIPROXYAPI_PORT) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-cliproxyapi.sh
 
 ## routellm: RouteLLM difficulty-routing server
 ROUTELLM_PORT ?= 6060
 ROUTELLM_CFG  ?= $(HOME)/.config/routellm/config.yaml
 .PHONY: routellm
 routellm:
-	$(call start_server_double_fork,$(ROUTELLM_PORT),uvx routellm.server --config $(ROUTELLM_CFG) --port $(ROUTELLM_PORT))
-	$(call check_port,$(ROUTELLM_PORT))
+	ROUTELLM_PORT=$(ROUTELLM_PORT) ROUTELLM_CFG=$(ROUTELLM_CFG) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-routellm.sh
 
 ## ai-open: open service UIs in Chrome — once per session (stamp in /tmp, resets on reboot)
 ## Skips any port not yet listening. Safe to call multiple times — no duplicate tabs.
 AI_OPEN_STAMP ?= /tmp/.make-ai-open-$(shell id -u)
 .PHONY: ai-open
 ai-open:
-	@if [ -f "$(AI_OPEN_STAMP)" ]; then \
-		echo "  (UIs already opened this session — run: make ai-open-force to reopen)"; \
-	else \
-		nc -z localhost $(LITELLM_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(LITELLM_PORT)/ui" || true; \
-		nc -z localhost $(MLFLOW_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(MLFLOW_PORT)" || true; \
-		nc -z localhost $(TEMPORAL_UI_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(TEMPORAL_UI_PORT)" || true; \
-		nc -z localhost $(CCR_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(CCR_PORT)" || true; \
-		nc -z localhost $(KTAP_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(KTAP_PORT)" || true; \
-		nc -z localhost $(LLS_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(LLS_PORT)/" || true; \
-		open -a "Google Chrome" "https://console.anthropic.com/settings/usage" || true; \
-		open -a "Google Chrome" "https://platform.openai.com/usage" || true; \
-		open -a "Google Chrome" "https://platform.moonshot.cn/console/account" || true; \
-		open -a "Google Chrome" "https://aistudio.google.com/app/usage?timeRange=last-28-days" || true; \
-		open -a "Google Chrome" "https://z.ai/manage-apikey/billing" || true; \
-		open -a "Google Chrome" "https://platform.minimax.io/user-center/payment/token-plan" || true; \
-		open -a "Google Chrome" "https://platform.deepseek.com/usage" || true; \
-		open -a "Google Chrome" "https://openrouter.ai/activity" || true; \
-		open -a "Google Chrome" "https://console.groq.com/settings/usage" || true; \
-		open -a "Google Chrome" "https://cloud.cerebras.ai/platform/usage" || true; \
-		open -a "Google Chrome" "https://dashscope.console.aliyun.com/billing" || true; \
-		touch "$(AI_OPEN_STAMP)"; \
-	fi
+	LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) TEMPORAL_UI_PORT=$(TEMPORAL_UI_PORT) CCR_PORT=$(CCR_PORT) KTAP_PORT=$(KTAP_PORT) LLS_PORT=$(LLS_PORT) AI_OPEN_STAMP=$(AI_OPEN_STAMP) $(SCRIPT_DIR)/../bin/open-ai.sh
 
 ## ai-open-force: open all service UIs unconditionally (clears once-per-session guard)
 .PHONY: ai-open-force
@@ -686,13 +646,7 @@ ai-install:
 ## set-gpu-max-memory: allocate maximum RAM to GPU (needed for large local models)
 .PHONY: set-gpu-max-memory
 set-gpu-max-memory:
-	MEMORY="$$(($$(sysctl -n hw.memsize) / 2 ** 30))" && \
-	if ((MEMORY <= 16)); then MEMORY_GPU=2; \
-	elif ((MEMORY <= 32)); then MEMORY_GPU=4; \
-	elif ((MEMORY <= 64)); then MEMORY_GPU=5; \
-	elif ((MEMORY <= 128)); then MEMORY_GPU=9; \
-	else MEMORY_GPU=10; fi && \
-	sudo sysctl iogpu.wired_limit_mb=$$(bc -l <<<"($$MEMORY - $$MEMORY_GPU)*1024") || echo "set-gpu-max-memory: sudo failed — run manually or add to sudoers"
+	$(SCRIPT_DIR)/../bin/set-gpu-max-memory.sh
 
 ## lms-server: start LM Studio local inference server
 .PHONY: lms-server
@@ -704,25 +658,13 @@ lms-server:
 ## One model loaded at a time (--models-max 1); swaps automatically on model field change.
 ## Port 8081 (8080 is reserved for CLIProxyAPI/Gemini).
 .PHONY: lls-start
-lls-start: lls-sync
-	@$(call port_ready,8081) && echo "llama-server already running on :8081" || \
-		(llama-server \
-			--models-preset "$(HOME)/.config/litellm/llama-presets.ini" \
-			--models-max 1 \
-			--port 8081 \
-			--log-disable & \
-		for i in $$(seq 1 20); do \
-			sleep 1; \
-			out=$$(curl -sf http://localhost:8081/v1/models 2>/dev/null) && \
-			echo "$$out" | yq -p json '.data | length | "llama-server ready — " + tostring + " models available"' 2>/dev/null && \
-			break; \
-			[ "$$i" = "20" ] && echo "⚠️  llama-server did not start within 20s" && exit 1; \
-		done)
+lls-start:
+	LLS_PORT=$(LLS_PORT) LLS_PRESETS=$(LLS_PRESETS) LITELLM_CFG=$(LITELLM_CFG) LLS_CTX=$(LLS_CTX) $(SCRIPT_DIR)/../bin/start-lls.sh
 
 ## lls-stop: stop llama-server router
 .PHONY: lls-stop
 lls-stop:
-	@pkill -f "llama-server.*8081" && echo "llama-server stopped" || echo "llama-server not running"
+	LLS_PORT=$(LLS_PORT) $(SCRIPT_DIR)/../bin/start-lls.sh --stop
 
 ## lls-sync: sync lls/* litellm entries + llama-presets.ini from lms ls --json (GGUF only)
 ## Setup: open LM Studio → Browse → Staff Picks → download GGUF variants → run make lls-sync
