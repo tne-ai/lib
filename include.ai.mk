@@ -127,21 +127,12 @@ SERVICE_PORTS := litellm:$(LITELLM_PORT) mlflow:$(MLFLOW_PORT) temporal:$(TEMPOR
 ## postgres: start PostgreSQL via brew services (needed for LiteLLM spend tracking)
 .PHONY: postgres
 postgres:
-	if ! command -v psql >/dev/null 2>&1; then \
-		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
-	fi
-	$(call port_ready,$(POSTGRES_PORT)) || brew services start postgresql@17 2>/dev/null || brew services start postgresql 2>/dev/null || true
-	timeout=30; until $(call port_ready,$(POSTGRES_PORT)); do sleep 1; timeout=$$((timeout-1)); [ $$timeout -gt 0 ] || { echo "postgres did not become ready"; exit 1; }; done
-	psql -lqt | grep -q "$(LITELLM_DB)" || createdb "$(LITELLM_DB)"
+	POSTGRES_PORT=$(POSTGRES_PORT) LITELLM_DB=$(LITELLM_DB) $(SCRIPT_DIR)/../bin/start-postgres.sh
 
 ## redis: start Redis via brew services (needed for LiteLLM response caching)
 .PHONY: redis
 redis:
-	if ! command -v redis-cli >/dev/null 2>&1; then \
-		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
-	fi
-	$(call port_ready,$(REDIS_PORT)) || brew services start redis 2>/dev/null || true
-	timeout=30; until $(call port_ready,$(REDIS_PORT)); do sleep 1; timeout=$$((timeout-1)); [ $$timeout -gt 0 ] || { echo "redis did not become ready"; exit 1; }; done
+	REDIS_PORT=$(REDIS_PORT) $(SCRIPT_DIR)/../bin/start-redis.sh
 
 ## mlflow: start MLflow tracking server at http://localhost:$(MLFLOW_PORT)
 ## mlflow has no Homebrew formula — install chain is: uv tool install → uvx (ephemeral).
@@ -150,14 +141,7 @@ redis:
 ## mlflow-start: fire mlflow in background without waiting — overlaps with postgres/redis startup
 .PHONY: mlflow-start
 mlflow-start:
-	if ! command -v mlflow >/dev/null 2>&1 && ! uvx mlflow --version >/dev/null 2>&1; then \
-		echo "mlflow not installed — running make ai-install first"; \
-		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
-	fi
-	mkdir -p "$(MLFLOW_DIR)/artifacts"
-	$(call start_server_double_fork,$(MLFLOW_PORT),$$(command -v mlflow || echo uvx mlflow) server --host 127.0.0.1 --port $(MLFLOW_PORT) \
-		--backend-store-uri sqlite:///$(MLFLOW_DIR)/mlflow.db \
-		--default-artifact-root $(MLFLOW_DIR)/artifacts)
+	MLFLOW_PORT=$(MLFLOW_PORT) MLFLOW_DIR=$(MLFLOW_DIR) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-mlflow.sh
 
 ## mlflow: wait for mlflow to be ready (call mlflow-start first to overlap with postgres/redis)
 .PHONY: mlflow
@@ -179,40 +163,20 @@ LITELLM_VERSION ?= 1.86.2
 ## litellm-install: install or upgrade litellm to the pinned LITELLM_VERSION
 .PHONY: litellm-install
 litellm-install:
-	@echo "==> installing litellm==$(LITELLM_VERSION)"
-	pipx install --force "litellm[proxy]==$(LITELLM_VERSION)"
-	pipx inject litellm mlflow
-	@$(MAKE) --no-print-directory litellm-fix-ui
+	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh
 
 ## litellm-fix-ui: patch login/index.html hash mismatch (1.85.x packaging bug)
 ## login/index.html ships with stale chunk hashes; overwrite with login.html which is correct.
 .PHONY: litellm-fix-ui
 litellm-fix-ui:
-	@_base=$$(python3 -c "import litellm,os; print(os.path.dirname(litellm.__file__))" 2>/dev/null \
-		|| pipx run --spec "litellm==$(LITELLM_VERSION)" python3 -c "import litellm,os; print(os.path.dirname(litellm.__file__))"); \
-	_out="$$_base/proxy/_experimental/out"; \
-	if [ -f "$$_out/login.html" ] && [ -f "$$_out/login/index.html" ]; then \
-		cp "$$_out/login.html" "$$_out/login/index.html"; \
-		echo "✓ litellm UI patch applied (login/index.html synced from login.html)"; \
-	else \
-		echo "⚠  litellm UI patch: paths not found — skipping"; \
-	fi
+	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh --fix-ui
 
 
 ## litellm-check-version: verify installed litellm matches LITELLM_VERSION; fix if not
 ## Called automatically by make litellm before startup.
 .PHONY: litellm-check-version
 litellm-check-version:
-	@_installed=$$(litellm --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1); \
-	if [ "$$_installed" != "$(LITELLM_VERSION)" ]; then \
-		echo "⚠️  litellm $$_installed ≠ pinned $(LITELLM_VERSION) — reinstalling..."; \
-		pipx install --force "litellm[proxy]==$(LITELLM_VERSION)" --quiet \
-			&& echo "✓ litellm $(LITELLM_VERSION) installed" \
-			&& $(MAKE) --no-print-directory litellm-fix-ui \
-			|| { echo "✗ reinstall failed — run: make litellm-install"; exit 1; }; \
-	else \
-		echo "✓ litellm $(LITELLM_VERSION) (pinned)"; \
-	fi
+	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh --check
 
 ## litellm.stop / 4000.stop: kill ALL litellm processes (port kill + pkill sweep for zombies)
 ## WHY bin/litellm not litellm: postgres names its worker processes after the database.
@@ -222,11 +186,7 @@ litellm-check-version:
 ## missed. Matching "bin/litellm" targets only the Python CLI binary, not postgres.
 .PHONY: litellm.stop 4000.stop
 litellm.stop 4000.stop:
-	@-lsof -ti :$(LITELLM_PORT) -sTCP:LISTEN | xargs kill 2>/dev/null || true
-	@pkill -f "bin/litellm" 2>/dev/null || true
-	@sleep 1
-	@pkill -9 -f "bin/litellm" 2>/dev/null || true
-	@echo "litellm stopped"
+	LITELLM_PORT=$(LITELLM_PORT) $(SCRIPT_DIR)/../bin/litellm-stop.sh
 
 ## litellm: start LiteLLM proxy with automatic Prisma client regeneration
 ##
@@ -251,36 +211,7 @@ litellm.stop 4000.stop:
 ## To force regeneration: rm $(PRISMA_STAMP)
 .PHONY: litellm
 litellm: litellm-check-version
-	@if ! command -v litellm >/dev/null 2>&1 && ! uvx litellm --version >/dev/null 2>&1; then \
-		echo "litellm not installed — running make ai-install first"; \
-		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
-	fi
-	@[[ "$${LITELLM_MASTER_KEY}" == op://* ]] \
-		&& { echo "==> resolving LITELLM_MASTER_KEY from 1Password"; LITELLM_MASTER_KEY=$$(op read "$${LITELLM_MASTER_KEY}") || { echo "✗ op read failed — run: op signin"; exit 1; }; } \
-		|| true; \
-	lsof -ti :$(LITELLM_PORT) -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true; \
-	pkill -f "bin/litellm" 2>/dev/null || true; \
-	sleep 1; \
-	$(call start_server_double_fork,$(LITELLM_PORT),\
-		LITELLM_LOG=DEBUG \
-		ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" \
-		DATABASE_URL=$${DATABASE_URL:-postgresql://$$USER@localhost/litellm} \
-		LM_STUDIO_API_TOKEN="$${LM_STUDIO_API_TOKEN}" \
-		MOONSHOT_API_KEY="" \
-		GEMINI_API_KEY="$${GEMINI_API_KEY}" \
-		DEEPSEEK_API_KEY="$${DEEPSEEK_API_KEY}" \
-		ALIBABA_API_KEY="$${ALIBABA_API_KEY}" \
-		ALIBABA_PLAN_KEY="$${ALIBABA_PLAN_KEY}" \
-		Z_AI_PLAN_KEY="$${Z_AI_PLAN_KEY}" \
-		MINIMAX_API_KEY="$${MINIMAX_API_KEY}" \
-		MINIMAX_PLAN_KEY="$${MINIMAX_PLAN_KEY}" \
-		OPENROUTER_API_KEY="$${OPENROUTER_API_KEY}" \
-		CLIPROXYAPI_KEY="$${CLIPROXYAPI_KEY}" \
-		MLFLOW_TRACKING_URI="http://localhost:$(MLFLOW_PORT)" \
-		MLFLOW_EXPERIMENT_NAME="tne-costs" \
-		$$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
-	$(call check_port,$(LITELLM_PORT))
-
+	LITELLM_PORT=$(LITELLM_PORT) LITELLM_CFG=$(LITELLM_CFG) MLFLOW_PORT=$(MLFLOW_PORT) PRISMA_STAMP=$(PRISMA_STAMP) LITELLM_DB_URL=$(LITELLM_DB_URL) $(SCRIPT_DIR)/../bin/litellm-start.sh
 # ── Harness + model variables ─────────────────────────────────────────────────
 # HARNESS: the AI coding assistant CLI. Swap without changing targets.
 #   make ai                        # claude (default)
@@ -363,26 +294,8 @@ MODEL              ?=
 #                      litellm_params (forward_client_headers_to_llm_api: false).
 .PHONY: ai-run
 ai-run:
-	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
-		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — auto-restarting..."; \
-			$(MAKE) --no-print-directory litellm; } \
-		&& curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
-		|| { echo "LiteLLM still not ready — check: make ai-log"; exit 1; }
-	@$(if $(filter lls/%,$(MODEL)), \
-		$(call port_ready,8081) \
-		|| { echo "llama-server not running on :8081 — run: make lls-start"; exit 1; },)
-	@$(if $(filter lms/%,$(MODEL)), \
-		lms load "$$(echo '$(MODEL)' | sed 's|^lms/||')" --gpu max \
-		|| echo "⚠️  lms load failed — model may already be loaded",)
-	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
-	TNE_SESSION_MODEL="$(MODEL)" \
-	CLAUDE_CODE_ENABLE_TELEMETRY=1 \
-	OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
-	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$(MLFLOW_PORT) \
-	OTEL_EXPORTER_OTLP_HEADERS="x-mlflow-experiment-id=2" \
-	env -u CLAUDECODE -u ANTHROPIC_MAX $(HARNESS) $(if $(MODEL),--model $(MODEL),) $(HARNESS_ARGS)
+	MODEL=$(MODEL) HARNESS=$(HARNESS) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) \
+		$(SCRIPT_DIR)/../bin/run-ai.sh $(HARNESS_ARGS)
 
 ## ai-p: run a single claude -p batch invocation via LiteLLM routing
 ## Same env as ai-run — engine invoker.py inherits ANTHROPIC_BASE_URL via os.environ.
@@ -392,17 +305,8 @@ PROMPT ?=
 AI_P_ARGS ?=
 .PHONY: ai-p
 ai-p:
-	@curl -sf http://localhost:$(LITELLM_PORT)/health/readiness >/dev/null 2>&1 \
-		|| { echo "LiteLLM not ready on :$(LITELLM_PORT) — run: make litellm"; exit 1; }
-	ANTHROPIC_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	OPENAI_BASE_URL=http://localhost:$(LITELLM_PORT) \
-	$(if $(MODEL),ANTHROPIC_CUSTOM_MODEL_OPTION=$(MODEL),) \
-	TNE_SESSION_MODEL="$(MODEL)" \
-	CLAUDE_CODE_ENABLE_TELEMETRY=1 \
-	OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
-	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$(MLFLOW_PORT) \
-	OTEL_EXPORTER_OTLP_HEADERS="x-mlflow-experiment-id=2" \
-	env -u ANTHROPIC_MAX claude -p $(AI_P_ARGS) $(if $(MODEL),--model $(MODEL),) "$(PROMPT)"
+	MODEL=$(MODEL) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) AI_P_ARGS="$(AI_P_ARGS)" \
+		$(SCRIPT_DIR)/../bin/run-ai.sh --batch "$(PROMPT)"
 
 # ── Public entry points ───────────────────────────────────────────────────────
 
@@ -501,45 +405,21 @@ ai-auth:
 CLIPROXYAPI_PORT ?= 8317
 .PHONY: cliproxyapi
 cliproxyapi:
-	command -v cliproxyapi >/dev/null || { echo "cliproxyapi not installed — run: brew install cliproxyapi"; exit 1; }
-	$(call start_server_self,$(CLIPROXYAPI_PORT),cliproxyapi -config $(HOME)/.config/cliproxyapi/config.yaml)
-	$(call check_port,$(CLIPROXYAPI_PORT))
+	CLIPROXYAPI_PORT=$(CLIPROXYAPI_PORT) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-cliproxyapi.sh
 
 ## routellm: RouteLLM difficulty-routing server
 ROUTELLM_PORT ?= 6060
 ROUTELLM_CFG  ?= $(HOME)/.config/routellm/config.yaml
 .PHONY: routellm
 routellm:
-	$(call start_server_double_fork,$(ROUTELLM_PORT),uvx routellm.server --config $(ROUTELLM_CFG) --port $(ROUTELLM_PORT))
-	$(call check_port,$(ROUTELLM_PORT))
+	ROUTELLM_PORT=$(ROUTELLM_PORT) ROUTELLM_CFG=$(ROUTELLM_CFG) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-routellm.sh
 
 ## ai-open: open service UIs in Chrome — once per session (stamp in /tmp, resets on reboot)
 ## Skips any port not yet listening. Safe to call multiple times — no duplicate tabs.
 AI_OPEN_STAMP ?= /tmp/.make-ai-open-$(shell id -u)
 .PHONY: ai-open
 ai-open:
-	@if [ -f "$(AI_OPEN_STAMP)" ]; then \
-		echo "  (UIs already opened this session — run: make ai-open-force to reopen)"; \
-	else \
-		nc -z localhost $(LITELLM_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(LITELLM_PORT)/ui" || true; \
-		nc -z localhost $(MLFLOW_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(MLFLOW_PORT)" || true; \
-		nc -z localhost $(TEMPORAL_UI_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(TEMPORAL_UI_PORT)" || true; \
-		nc -z localhost $(CCR_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(CCR_PORT)" || true; \
-		nc -z localhost $(KTAP_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(KTAP_PORT)" || true; \
-		nc -z localhost $(LLS_PORT) 2>/dev/null && open -a "Google Chrome" "http://localhost:$(LLS_PORT)/" || true; \
-		open -a "Google Chrome" "https://console.anthropic.com/settings/usage" || true; \
-		open -a "Google Chrome" "https://platform.openai.com/usage" || true; \
-		open -a "Google Chrome" "https://platform.moonshot.cn/console/account" || true; \
-		open -a "Google Chrome" "https://aistudio.google.com/app/usage?timeRange=last-28-days" || true; \
-		open -a "Google Chrome" "https://z.ai/manage-apikey/billing" || true; \
-		open -a "Google Chrome" "https://platform.minimax.io/user-center/payment/token-plan" || true; \
-		open -a "Google Chrome" "https://platform.deepseek.com/usage" || true; \
-		open -a "Google Chrome" "https://openrouter.ai/activity" || true; \
-		open -a "Google Chrome" "https://console.groq.com/settings/usage" || true; \
-		open -a "Google Chrome" "https://cloud.cerebras.ai/platform/usage" || true; \
-		open -a "Google Chrome" "https://dashscope.console.aliyun.com/billing" || true; \
-		touch "$(AI_OPEN_STAMP)"; \
-	fi
+	LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) TEMPORAL_UI_PORT=$(TEMPORAL_UI_PORT) CCR_PORT=$(CCR_PORT) KTAP_PORT=$(KTAP_PORT) LLS_PORT=$(LLS_PORT) AI_OPEN_STAMP=$(AI_OPEN_STAMP) $(SCRIPT_DIR)/../bin/open-ai.sh
 
 ## ai-open-force: open all service UIs unconditionally (clears once-per-session guard)
 .PHONY: ai-open-force
@@ -550,54 +430,12 @@ ai-open-force:
 ## ai-status: health check for all sidecars
 .PHONY: ai-status
 ai-status:
-	echo "PostgreSQL :$(POSTGRES_PORT): $$($(call port_ready,$(POSTGRES_PORT)) && echo ok || echo stopped)"
-	echo "Redis      :$(REDIS_PORT): $$($(call port_ready,$(REDIS_PORT)) && echo ok || echo stopped)"
-	echo "LiteLLM    :$(LITELLM_PORT): $$($(call port_ready,$(LITELLM_PORT)) && echo ok || echo stopped)"
-	echo "MLflow     :$(MLFLOW_PORT): $$($(call port_ready,$(MLFLOW_PORT)) && echo ok || echo stopped)"
-	echo "Temporal   :$(TEMPORAL_PORT): $$($(call port_ready,$(TEMPORAL_PORT)) && echo ok || echo stopped)"
-	echo "CCR        :$(CCR_PORT): $$($(call port_ready,$(CCR_PORT)) && echo ok || echo stopped)"
-	echo "kimi-proxy :$(KIMI_CLAUDE_PROXY_PORT): $$($(call port_ready,$(KIMI_CLAUDE_PROXY_PORT)) && echo ok || echo stopped)"
-	echo "ktap       :$(KTAP_PORT): $$($(call port_ready,$(KTAP_PORT)) && echo ok || echo stopped)"
-	echo "LM Studio  : $$(pgrep -x 'LM Studio' >/dev/null 2>&1 && echo ok || echo stopped)"
+	$(SCRIPT_DIR)/../bin/start-ai.sh --status
 
 ## ai-models: list available models with make invocation examples
 .PHONY: ai-models
 ai-models:
-	echo ""
-	echo "Cloud models — make ai MODEL=<name>"
-	echo "──────────────────────────────────────────────────────"
-	yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | sort -u | grep -v '^lms/' | \
-		while IFS= read -r name; do \
-			case "$$name" in \
-			*-free)    tag="FREE  -- provider free tier via OpenRouter" ;; \
-			claude*)   tag="PLAN  -- Anthropic Max (~\$$20-100/mo flat)" ;; \
-			kimi*)     tag="PLAN  -- Kimi Coding Plan (\$$19/mo flat)" ;; \
-			glm*)      tag="PLAN  -- ZAI GLM Coding Plan \$$18/mo → Z_AI_PLAN_KEY" ;; \
-			qwen*)     tag="PLAN  -- Alibaba Plan → ALIBABA_PLAN_KEY" ;; \
-			minimax*)  tag="PLAN  -- MiniMax Token Plan \$$10-20/mo → MINIMAX_PLAN_KEY" ;; \
-			routellm*) tag="PLAN+PLAN -- auto-routes kimi->claude by difficulty" ;; \
-			gemini*)   tag="PLAN  -- Google CLI sub → make ai-auth PROVIDER=gemini" ;; \
-			deepseek*) tag="PAYG  -- no flat-rate plan; use sparingly" ;; \
-			or-*nemotron*free*)  tag="FREE  -- NVIDIA Nemotron via OpenRouter (rate-limited) → OPENROUTER_API_KEY" ;; \
-			or-*nemotron*)       tag="PAYG  -- NVIDIA Nemotron via OpenRouter → OPENROUTER_API_KEY" ;; \
-			or-*qwen*coder*free*)tag="FREE  -- Qwen3 Coder via OpenRouter (rate-limited) → OPENROUTER_API_KEY" ;; \
-			or-*)                tag="PAYG  -- OpenRouter bridge → OPENROUTER_API_KEY" ;; \
-			*)         tag="PAYG" ;; \
-			esac; \
-			printf '  make ai MODEL=%-32s # %s\n' "$$name" "$$tag"; \
-		done || echo "  (config not found — run make ai-install)"
-	echo ""
-	echo "Local models — start LM Studio, then: make ai-run MODEL=lms/<vendor>/<model>"
-	echo "──────────────────────────────────────────────────────"
-	lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {printf "  make ai-run MODEL=lms/%-42s # FREE — %.1f GB\n", $$1, $$4+0}' | sort -k6 -n \
-		|| echo "  (lms not running — start LM Studio or run: make lms-server)"
-	echo ""
-	echo "Entry points:"
-	echo "  make ai                              # start full stack (LiteLLM + MLflow + Temporal + sidecars)"
-	echo "  make ai-run                          # PLAN  — claude Max (default, via LiteLLM)"
-	echo "  make ai-run MODEL=kimi-k2.6          # PLAN  — Kimi Coding Plan \$19/mo (via LiteLLM)"
-	echo "  make ai-run HARNESS=aider            # swap AI harness"
-	echo "  make ai-auth PROVIDER=kimi           # one-time OAuth login for Kimi plan"
+	LITELLM_CFG=$(LITELLM_CFG) LLS_PORT=$(LLS_PORT) $(SCRIPT_DIR)/../bin/help-ai.sh
 
 ## ai-keys: show which env vars are required for each PLAN provider and where to get them
 ## Sources:
@@ -608,39 +446,26 @@ ai-models:
 ##   Kimi:    claude-code-proxy handles auth — no extra key needed
 .PHONY: ai-keys
 ai-keys:
-	@echo "══ PLAN provider keys (set in .envrc or 1Password) ══════"
-	@printf "  %-28s %s\n" "Z_AI_PLAN_KEY" \
-		"$$([ -n "$$Z_AI_PLAN_KEY" ] && echo "✓ set" || echo "✗ missing — z.ai → account → API Keys")"
-	@printf "  %-28s %s\n" "MINIMAX_PLAN_KEY" \
-		"$$([ -n "$$MINIMAX_PLAN_KEY" ] && echo "✓ set" || echo "✗ missing — platform.minimax.io/subscribe/token-plan")"
-	@printf "  %-28s %s\n" "ALIBABA_PLAN_KEY" \
-		"$$([ -n "$$ALIBABA_PLAN_KEY" ] && echo "✓ set" || echo "✗ missing — bailian.console.aliyun.com → API Keys")"
-	@printf "  %-28s %s\n" "LITELLM_MASTER_KEY" \
-		"$$([ -n "$$LITELLM_MASTER_KEY" ] && echo "✓ set" || echo "✗ missing — generate random, set in 1Password")"
-	@echo ""
-	@echo "══ PLAN providers requiring OAuth (no API key) ══════════"
-	@printf "  %-28s %s\n" "Gemini (CLIProxyAPI)" \
-		"$$(cliproxyapi status 2>/dev/null | grep -q authenticated && echo "✓ authenticated" || echo "✗ run: make ai-auth PROVIDER=gemini")"
-	@printf "  %-28s %s\n" "Kimi (claude-code-proxy)" \
-		"$$($(call port_ready,3457) && echo "✓ running :3457" || echo "✗ run: make ai")"
-
+	$(SCRIPT_DIR)/../bin/show-keys.sh
 ## ai-logs: push Claude Code session logs to MLflow
 .PHONY: ai-logs
 ai-logs:
-	uv run "$(MLFLOW_LOG_SCRIPT)"
+	$(SCRIPT_DIR)/../bin/logs-push.sh
+
+## push-logs: alias for ai-logs (clearer name)
+.PHONY: push-logs
+push-logs:
+	$(SCRIPT_DIR)/../bin/logs-push.sh
 
 ## ai-log: tail all sidecar logs from TNE_LOG_DIR (Ctrl-C to stop)
 .PHONY: ai-log
 ai-log:
-	@mkdir -p "$(TNE_LOG_DIR)"
-	@echo "Tailing logs from $(TNE_LOG_DIR) — Ctrl-C to stop"
-	@tail -f \
-		"$(TNE_LOG_DIR)/sidecar-$(LITELLM_PORT).log" \
-		"$(TNE_LOG_DIR)/sidecar-$(MLFLOW_PORT).log" \
-		"$(TNE_LOG_DIR)/sidecar-$(KTAP_PORT).log" \
-		"$(TNE_LOG_DIR)/ktap.log" \
-		"$(TNE_LOG_DIR)/tne-engine.log" \
-		2>/dev/null || echo "(no log files yet — start services with make ai-local)"
+	TNE_LOG_DIR=$(TNE_LOG_DIR) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) KTAP_PORT=$(KTAP_PORT) $(SCRIPT_DIR)/../bin/logs-watch.sh
+
+## watch-logs: alias for ai-log (clearer name)
+.PHONY: watch-logs
+watch-logs:
+	TNE_LOG_DIR=$(TNE_LOG_DIR) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) KTAP_PORT=$(KTAP_PORT) $(SCRIPT_DIR)/../bin/logs-watch.sh
 
 ## ai-test: canonical end-to-end check for the ai-* stack
 ##   Runs all three phases unconditionally — bias toward complete since ai-test
@@ -733,13 +558,7 @@ ai-install:
 ## set-gpu-max-memory: allocate maximum RAM to GPU (needed for large local models)
 .PHONY: set-gpu-max-memory
 set-gpu-max-memory:
-	MEMORY="$$(($$(sysctl -n hw.memsize) / 2 ** 30))" && \
-	if ((MEMORY <= 16)); then MEMORY_GPU=2; \
-	elif ((MEMORY <= 32)); then MEMORY_GPU=4; \
-	elif ((MEMORY <= 64)); then MEMORY_GPU=5; \
-	elif ((MEMORY <= 128)); then MEMORY_GPU=9; \
-	else MEMORY_GPU=10; fi && \
-	sudo sysctl iogpu.wired_limit_mb=$$(bc -l <<<"($$MEMORY - $$MEMORY_GPU)*1024") || echo "set-gpu-max-memory: sudo failed — run manually or add to sudoers"
+	$(SCRIPT_DIR)/../bin/set-gpu-max-memory.sh
 
 ## lms-server: start LM Studio local inference server
 .PHONY: lms-server
@@ -751,25 +570,13 @@ lms-server:
 ## One model loaded at a time (--models-max 1); swaps automatically on model field change.
 ## Port 8081 (8080 is reserved for CLIProxyAPI/Gemini).
 .PHONY: lls-start
-lls-start: lls-sync
-	@$(call port_ready,8081) && echo "llama-server already running on :8081" || \
-		(llama-server \
-			--models-preset "$(HOME)/.config/litellm/llama-presets.ini" \
-			--models-max 1 \
-			--port 8081 \
-			--log-disable & \
-		for i in $$(seq 1 20); do \
-			sleep 1; \
-			out=$$(curl -sf http://localhost:8081/v1/models 2>/dev/null) && \
-			echo "$$out" | yq -p json '.data | length | "llama-server ready — " + tostring + " models available"' 2>/dev/null && \
-			break; \
-			[ "$$i" = "20" ] && echo "⚠️  llama-server did not start within 20s" && exit 1; \
-		done)
+lls-start:
+	LLS_PORT=$(LLS_PORT) LLS_PRESETS=$(LLS_PRESETS) LITELLM_CFG=$(LITELLM_CFG) LLS_CTX=$(LLS_CTX) $(SCRIPT_DIR)/../bin/start-lls.sh
 
 ## lls-stop: stop llama-server router
 .PHONY: lls-stop
 lls-stop:
-	@pkill -f "llama-server.*8081" && echo "llama-server stopped" || echo "llama-server not running"
+	LLS_PORT=$(LLS_PORT) $(SCRIPT_DIR)/../bin/start-lls.sh --stop
 
 ## lls-sync: sync lls/* litellm entries + llama-presets.ini from lms ls --json (GGUF only)
 ## Setup: open LM Studio → Browse → Staff Picks → download GGUF variants → run make lls-sync
@@ -781,71 +588,14 @@ LLS_CTX ?= 100000
 LLS_PRESETS ?= $(HOME)/.config/litellm/llama-presets.ini
 .PHONY: lls-sync
 lls-sync:
-	@command -v lms >/dev/null 2>&1 || { echo "lms CLI not found — install LM Studio first"; exit 1; }
-	@command -v jq  >/dev/null 2>&1 || { echo "jq not found — brew install jq"; exit 1; }
-	@mkdir -p $$(dirname $(LLS_PRESETS))
-	@echo "==> Removing old lls/* entries from $(LITELLM_CFG)"
-	@yq -i 'del(.model_list[] | select(.model_name | test("^lls/")))' "$(LITELLM_CFG)"
-	@echo "==> Discovering GGUF models via lms ls --json (sorted largest → smallest)"
-	@_lls_index=/tmp/lls-index-$$$$.tsv; \
-	  lms ls --json 2>/dev/null \
-	  | jq -r '[.[] | select(.type=="llm" and .format=="gguf")] | .[] | [.modelKey, .quantization.name] | @tsv' \
-	  | while IFS=$$'\t' read -r model_key quant; do \
-	      model_leaf=$$(basename "$$model_key"); \
-	      gguf=$$(find "$(HOME)/.cache/lm-studio/models" -name "*$${quant}*.gguf" \
-	               ! -name "mmproj*" -ipath "*$${model_leaf}*" 2>/dev/null | head -1); \
-	      [[ -z "$$gguf" ]] && { echo "  skip $$model_key (no GGUF found for $${model_leaf}/$${quant})"; continue; }; \
-	      base=$$(basename "$$gguf" .gguf); \
-	      size=$$(stat -f%z "$$gguf" 2>/dev/null || stat -c%s "$$gguf" 2>/dev/null || echo 0); \
-	      echo "$$size	$$model_key	$$base	$$gguf"; \
-	    done | sort -rn > "$$_lls_index"; \
-	  while IFS=$$'\t' read -r _sz model_key base gguf; do \
-	      lls_name="lls/$$model_key"; \
-	      grep -qF "[$$base]" "$(LLS_PRESETS)" 2>/dev/null || \
-	        printf '\n[%s]\nmodel = %s\nctx-size = %s\nflash-attn = on\ncache-type-k = q8_0\ncache-type-v = q8_0\n' \
-	          "$$base" "$$gguf" "$(LLS_CTX)" >> "$(LLS_PRESETS)"; \
-	      yq -i ".model_list += [{\"model_name\": \"$$lls_name\", \"litellm_params\": {\"model\": \"openai/$$base\", \"api_base\": \"http://localhost:$(LLS_PORT)/v1\", \"api_key\": \"none\", \"extra_body\": {\"cache_prompt\": true}}}]" "$(LITELLM_CFG)"; \
-	      echo "  + $$lls_name → $$base ($$(( _sz / 1024 / 1024 / 1024 ))GB)"; \
-	    done < "$$_lls_index"; \
-	  echo "==> Setting lls/auto (largest GGUF) + fallback chain (largest → smallest)"; \
-	  first_base=$$(head -1 "$$_lls_index" | cut -f3); \
-	  first_gguf=$$(head -1 "$$_lls_index" | cut -f4); \
-	  yq -i ".model_list += [{\"model_name\": \"lls/auto\", \"litellm_params\": {\"model\": \"openai/$$first_base\", \"api_base\": \"http://localhost:$(LLS_PORT)/v1\", \"api_key\": \"none\", \"extra_body\": {\"cache_prompt\": true}}}]" "$(LITELLM_CFG)"; \
-	  fallbacks=$$(awk -F'\t' 'BEGIN{s=""} {s=s (s?",":"") "\"lls/" $$2 "\""}  END{print s}' "$$_lls_index"); \
-	  yq -i ".router_settings.routing_strategy = \"simple-shuffle\"" "$(LITELLM_CFG)"; \
-	  yq -i ".router_settings.fallbacks = [{\"lls/auto\": [$$fallbacks]}]" "$(LITELLM_CFG)"; \
-	  echo "  lls/auto → $$first_base"; \
-	  rm -f "$$_lls_index"
-	@echo "==> Done. Restart litellm: make litellm.stop && make litellm"
-
+	LITELLM_CFG=$(LITELLM_CFG) LLS_PRESETS=$(LLS_PRESETS) LLS_PORT=$(LLS_PORT) LLS_CTX=$(LLS_CTX) $(SCRIPT_DIR)/../bin/sync-lls.sh
 ## lms-sync: sync litellm config model_names with lms ls output
 ## Removes all lms/* entries and re-adds them as lms/<vendor>/<model> to match lms ls IDs.
 ## Also writes local-only fallbacks (smallest → next-smallest) so ai-local never leaks to cloud.
 ## Run after installing new models in LM Studio.
 .PHONY: lms-sync
 lms-sync:
-	@echo "==> Removing old lms/* entries from $(LITELLM_CFG)"
-	@yq -i 'del(.model_list[] | select(.model_name | test("^lms/")))' "$(LITELLM_CFG)"
-	@echo "==> Adding lms/<vendor>/<model> entries from lms ls"
-	@lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {print $$1}' | grep -v 'text-embedding' | \
-		while IFS= read -r id; do \
-			name="lms/$$id"; \
-			yq -i ".model_list += [{\"model_name\": \"$$name\", \"litellm_params\": {\"model\": \"openai/$$id\", \"api_base\": \"http://localhost:1234/v1\", \"api_key\": \"os.environ/LM_STUDIO_API_TOKEN\"}}]" "$(LITELLM_CFG)"; \
-			echo "  + $$name"; \
-		done
-	@echo "==> Writing local-only fallbacks (ordered smallest → largest)"
-	@yq -i 'del(.router_settings.fallbacks)' "$(LITELLM_CFG)"
-	@lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {print $$4+0, $$1}' | grep -v 'text-embedding' | sort -n | awk '{print $$2}' > /tmp/lms-ordered.txt; \
-		models=($$(cat /tmp/lms-ordered.txt)); \
-		count=$${#models[@]}; \
-		for i in $$(seq 0 $$((count-2))); do \
-			src="lms/$${models[$$i]}"; \
-			dst="lms/$${models[$$((i+1))]}"; \
-			yq -i ".router_settings.fallbacks += [{\"$$src\": [\"$$dst\"]}]" "$(LITELLM_CFG)"; \
-		done; \
-		echo "  fallback chain: $$(cat /tmp/lms-ordered.txt | sed 's|^|lms/|' | tr '\n' ' → ' | sed 's| → $$||')"
-	@echo "==> Done. Restart litellm: make litellm.stop && make litellm"
-
+	LITELLM_CFG=$(LITELLM_CFG) $(SCRIPT_DIR)/../bin/sync-lms.sh
 # ── Commented-out stacks ──────────────────────────────────────────────────────
 
 ## temporal: Temporal workflow server at http://localhost:$(TEMPORAL_PORT)
@@ -856,41 +606,7 @@ lms-sync:
 TEMPORAL_PLIST ?= $(TNE_DB_DIR)/temporal/homebrew.mxcl.temporal-tne.plist
 .PHONY: temporal
 temporal:
-	mkdir -p "$(dir $(TEMPORAL_DB))"
-	@# Regenerate plist each run — pulls in current $(TEMPORAL_DB) / $(TEMPORAL_UI_PORT) paths
-	@printf '%s\n' \
-		'<?xml version="1.0" encoding="UTF-8"?>' \
-		'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
-		'<plist version="1.0">' \
-		'<dict>' \
-		'  <key>KeepAlive</key><true/>' \
-		'  <key>Label</key><string>homebrew.mxcl.temporal</string>' \
-		'  <key>RunAtLoad</key><true/>' \
-		'  <key>ProgramArguments</key>' \
-		'  <array>' \
-		'    <string>/opt/homebrew/opt/temporal/bin/temporal</string>' \
-		'    <string>server</string><string>start-dev</string>' \
-		'    <string>--db-filename</string><string>$(TEMPORAL_DB)</string>' \
-		'    <string>--ui-port</string><string>$(TEMPORAL_UI_PORT)</string>' \
-		'  </array>' \
-		'  <key>StandardErrorPath</key><string>$(TNE_LOG_DIR)/temporal.log</string>' \
-		'  <key>StandardOutPath</key><string>$(TNE_LOG_DIR)/temporal.log</string>' \
-		'  <key>WorkingDirectory</key><string>$(TNE_DB_DIR)/temporal</string>' \
-		'</dict></plist>' \
-		> "$(TEMPORAL_PLIST)"
-	@# Start via brew services with custom plist; if already running with correct DB, skip
-	@if ! lsof -p "$$(pgrep -f 'temporal server start-dev' | head -1)" 2>/dev/null | grep -q "$(TEMPORAL_DB)"; then \
-		brew services stop temporal >/dev/null 2>&1 || true; \
-		brew services start temporal --file="$(TEMPORAL_PLIST)" >/dev/null 2>&1 \
-			|| { echo "⚠ brew services failed — falling back to nohup direct start"; \
-				 $(call start_server,$(TEMPORAL_PORT),temporal server start-dev --db-filename $(TEMPORAL_DB) --ui-port $(TEMPORAL_UI_PORT)); }; \
-	fi
-	$(call check_port,$(TEMPORAL_PORT))
-	@# tne-engine-worker: start via brew services if formula installed (r-cto-dev129)
-	@brew list tne-engine-worker &>/dev/null 2>&1 \
-		&& { pgrep -f "engine.temporal_worker" >/dev/null 2>&1 || brew services start tne-engine-worker 2>/dev/null || true; } \
-		|| echo "  (tne-engine-worker formula not installed — run: make ai-install)"
-
+	TEMPORAL_PORT=$(TEMPORAL_PORT) TEMPORAL_UI_PORT=$(TEMPORAL_UI_PORT) TEMPORAL_DB=$(TEMPORAL_DB) TEMPORAL_PLIST=$(TEMPORAL_PLIST) TNE_DB_DIR=$(TNE_DB_DIR) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-temporal.sh
 # ktap is tne-plugin-only — override in project Makefile if needed
 # ## ktap: KTAP knowledge graph viewer at http://localhost:$(KTAP_PORT)
 # .PHONY: ktap
@@ -904,8 +620,7 @@ temporal:
 # CHECK: 2026-06-10 — if fixed upstream, remove || true from start_server_self call.
 .PHONY: ccr
 ccr:
-	$(call start_server_self,$(CCR_PORT),ccr start)
-	$(call check_port,$(CCR_PORT))
+	CCR_PORT=$(CCR_PORT) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-ccr.sh
 
 ## Kimi Coding Plan bridge — started automatically by make ai via ai-warn-bridges.
 ## Use: make ai-run MODEL=kimi-k2.6   (canonical path — routes through LiteLLM :4000 → :3457)
