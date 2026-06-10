@@ -1,5 +1,18 @@
 # Progress
 
+## 2026-06-10
+
+### In Flight
+
+- **Task #12**: include.ai.mk refactor to 11 targets (branch: refactor/ai-targets-11-and-archive-20260606, worktree: .worktree/refactor-ai-targets-11). Partial edits applied before interrupt. Need to: verify/complete 6 modifications to include.ai.mk, add function stubs to lib-ai.sh, create include.old.ai.mk, delete include.tne.mk, commit and push PR.
+- **Task #11**: Temporal persistent-DB fix — PR tne-ai/lib#105 open (ai-test-infra || true fix + temporal plist target). Awaiting merge.
+- **Task #9**: Cloud AI provider fixes — PR tne-ai/src#106 open (envrc ALIBABA_PLAN_KEY 1Password item name fix).
+
+### Known Issues
+
+- include.ai.mk worktree has partial edits — variables section (PHASE/SECTION/ACTION) applied; other 5 modifications pending verification before commit.
+- r-cto-dev98-makefile skill PR #2532 open in tne-plugins — Law XIV (Discoverable Deprecation) not yet added. Block before merge.
+
 ## 2026-03-21
 
 ### p-cco7-commit-push: Commit and push lib repo changes
