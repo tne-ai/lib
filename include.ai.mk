@@ -186,11 +186,7 @@ litellm-check-version:
 ## missed. Matching "bin/litellm" targets only the Python CLI binary, not postgres.
 .PHONY: litellm.stop 4000.stop
 litellm.stop 4000.stop:
-	@-lsof -ti :$(LITELLM_PORT) -sTCP:LISTEN | xargs kill 2>/dev/null || true
-	@pkill -f "bin/litellm" 2>/dev/null || true
-	@sleep 1
-	@pkill -9 -f "bin/litellm" 2>/dev/null || true
-	@echo "litellm stopped"
+	LITELLM_PORT=$(LITELLM_PORT) $(SCRIPT_DIR)/../bin/stop-litellm.sh
 
 ## litellm: start LiteLLM proxy with automatic Prisma client regeneration
 ##
@@ -215,36 +211,7 @@ litellm.stop 4000.stop:
 ## To force regeneration: rm $(PRISMA_STAMP)
 .PHONY: litellm
 litellm: litellm-check-version
-	@if ! command -v litellm >/dev/null 2>&1 && ! uvx litellm --version >/dev/null 2>&1; then \
-		echo "litellm not installed — running make ai-install first"; \
-		$(MAKE) -f $(firstword $(MAKEFILE_LIST)) ai-install; \
-	fi
-	@[[ "$${LITELLM_MASTER_KEY}" == op://* ]] \
-		&& { echo "==> resolving LITELLM_MASTER_KEY from 1Password"; LITELLM_MASTER_KEY=$$(op read "$${LITELLM_MASTER_KEY}") || { echo "✗ op read failed — run: op signin"; exit 1; }; } \
-		|| true; \
-	lsof -ti :$(LITELLM_PORT) -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true; \
-	pkill -f "bin/litellm" 2>/dev/null || true; \
-	sleep 1; \
-	$(call start_server_double_fork,$(LITELLM_PORT),\
-		LITELLM_LOG=DEBUG \
-		ANTHROPIC_API_KEY="$${LITELLM_MASTER_KEY}" \
-		DATABASE_URL=$${DATABASE_URL:-postgresql://$$USER@localhost/litellm} \
-		LM_STUDIO_API_TOKEN="$${LM_STUDIO_API_TOKEN}" \
-		MOONSHOT_API_KEY="" \
-		GEMINI_API_KEY="$${GEMINI_API_KEY}" \
-		DEEPSEEK_API_KEY="$${DEEPSEEK_API_KEY}" \
-		ALIBABA_API_KEY="$${ALIBABA_API_KEY}" \
-		ALIBABA_PLAN_KEY="$${ALIBABA_PLAN_KEY}" \
-		Z_AI_PLAN_KEY="$${Z_AI_PLAN_KEY}" \
-		MINIMAX_API_KEY="$${MINIMAX_API_KEY}" \
-		MINIMAX_PLAN_KEY="$${MINIMAX_PLAN_KEY}" \
-		OPENROUTER_API_KEY="$${OPENROUTER_API_KEY}" \
-		CLIPROXYAPI_KEY="$${CLIPROXYAPI_KEY}" \
-		MLFLOW_TRACKING_URI="http://localhost:$(MLFLOW_PORT)" \
-		MLFLOW_EXPERIMENT_NAME="tne-costs" \
-		$$(command -v litellm || echo uvx litellm) --config $(LITELLM_CFG) --port $(LITELLM_PORT) --host 127.0.0.1)
-	$(call check_port,$(LITELLM_PORT))
-
+	LITELLM_PORT=$(LITELLM_PORT) LITELLM_CFG=$(LITELLM_CFG) MLFLOW_PORT=$(MLFLOW_PORT) PRISMA_STAMP=$(PRISMA_STAMP) LITELLM_DB_URL=$(LITELLM_DB_URL) $(SCRIPT_DIR)/../bin/start-litellm.sh
 # ── Harness + model variables ─────────────────────────────────────────────────
 # HARNESS: the AI coding assistant CLI. Swap without changing targets.
 #   make ai                        # claude (default)
@@ -676,71 +643,14 @@ LLS_CTX ?= 100000
 LLS_PRESETS ?= $(HOME)/.config/litellm/llama-presets.ini
 .PHONY: lls-sync
 lls-sync:
-	@command -v lms >/dev/null 2>&1 || { echo "lms CLI not found — install LM Studio first"; exit 1; }
-	@command -v jq  >/dev/null 2>&1 || { echo "jq not found — brew install jq"; exit 1; }
-	@mkdir -p $$(dirname $(LLS_PRESETS))
-	@echo "==> Removing old lls/* entries from $(LITELLM_CFG)"
-	@yq -i 'del(.model_list[] | select(.model_name | test("^lls/")))' "$(LITELLM_CFG)"
-	@echo "==> Discovering GGUF models via lms ls --json (sorted largest → smallest)"
-	@_lls_index=/tmp/lls-index-$$$$.tsv; \
-	  lms ls --json 2>/dev/null \
-	  | jq -r '[.[] | select(.type=="llm" and .format=="gguf")] | .[] | [.modelKey, .quantization.name] | @tsv' \
-	  | while IFS=$$'\t' read -r model_key quant; do \
-	      model_leaf=$$(basename "$$model_key"); \
-	      gguf=$$(find "$(HOME)/.cache/lm-studio/models" -name "*$${quant}*.gguf" \
-	               ! -name "mmproj*" -ipath "*$${model_leaf}*" 2>/dev/null | head -1); \
-	      [[ -z "$$gguf" ]] && { echo "  skip $$model_key (no GGUF found for $${model_leaf}/$${quant})"; continue; }; \
-	      base=$$(basename "$$gguf" .gguf); \
-	      size=$$(stat -f%z "$$gguf" 2>/dev/null || stat -c%s "$$gguf" 2>/dev/null || echo 0); \
-	      echo "$$size	$$model_key	$$base	$$gguf"; \
-	    done | sort -rn > "$$_lls_index"; \
-	  while IFS=$$'\t' read -r _sz model_key base gguf; do \
-	      lls_name="lls/$$model_key"; \
-	      grep -qF "[$$base]" "$(LLS_PRESETS)" 2>/dev/null || \
-	        printf '\n[%s]\nmodel = %s\nctx-size = %s\nflash-attn = on\ncache-type-k = q8_0\ncache-type-v = q8_0\n' \
-	          "$$base" "$$gguf" "$(LLS_CTX)" >> "$(LLS_PRESETS)"; \
-	      yq -i ".model_list += [{\"model_name\": \"$$lls_name\", \"litellm_params\": {\"model\": \"openai/$$base\", \"api_base\": \"http://localhost:$(LLS_PORT)/v1\", \"api_key\": \"none\", \"extra_body\": {\"cache_prompt\": true}}}]" "$(LITELLM_CFG)"; \
-	      echo "  + $$lls_name → $$base ($$(( _sz / 1024 / 1024 / 1024 ))GB)"; \
-	    done < "$$_lls_index"; \
-	  echo "==> Setting lls/auto (largest GGUF) + fallback chain (largest → smallest)"; \
-	  first_base=$$(head -1 "$$_lls_index" | cut -f3); \
-	  first_gguf=$$(head -1 "$$_lls_index" | cut -f4); \
-	  yq -i ".model_list += [{\"model_name\": \"lls/auto\", \"litellm_params\": {\"model\": \"openai/$$first_base\", \"api_base\": \"http://localhost:$(LLS_PORT)/v1\", \"api_key\": \"none\", \"extra_body\": {\"cache_prompt\": true}}}]" "$(LITELLM_CFG)"; \
-	  fallbacks=$$(awk -F'\t' 'BEGIN{s=""} {s=s (s?",":"") "\"lls/" $$2 "\""}  END{print s}' "$$_lls_index"); \
-	  yq -i ".router_settings.routing_strategy = \"simple-shuffle\"" "$(LITELLM_CFG)"; \
-	  yq -i ".router_settings.fallbacks = [{\"lls/auto\": [$$fallbacks]}]" "$(LITELLM_CFG)"; \
-	  echo "  lls/auto → $$first_base"; \
-	  rm -f "$$_lls_index"
-	@echo "==> Done. Restart litellm: make litellm.stop && make litellm"
-
+	LITELLM_CFG=$(LITELLM_CFG) LLS_PRESETS=$(LLS_PRESETS) LLS_PORT=$(LLS_PORT) LLS_CTX=$(LLS_CTX) $(SCRIPT_DIR)/../bin/sync-lls.sh
 ## lms-sync: sync litellm config model_names with lms ls output
 ## Removes all lms/* entries and re-adds them as lms/<vendor>/<model> to match lms ls IDs.
 ## Also writes local-only fallbacks (smallest → next-smallest) so ai-local never leaks to cloud.
 ## Run after installing new models in LM Studio.
 .PHONY: lms-sync
 lms-sync:
-	@echo "==> Removing old lms/* entries from $(LITELLM_CFG)"
-	@yq -i 'del(.model_list[] | select(.model_name | test("^lms/")))' "$(LITELLM_CFG)"
-	@echo "==> Adding lms/<vendor>/<model> entries from lms ls"
-	@lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {print $$1}' | grep -v 'text-embedding' | \
-		while IFS= read -r id; do \
-			name="lms/$$id"; \
-			yq -i ".model_list += [{\"model_name\": \"$$name\", \"litellm_params\": {\"model\": \"openai/$$id\", \"api_base\": \"http://localhost:1234/v1\", \"api_key\": \"os.environ/LM_STUDIO_API_TOKEN\"}}]" "$(LITELLM_CFG)"; \
-			echo "  + $$name"; \
-		done
-	@echo "==> Writing local-only fallbacks (ordered smallest → largest)"
-	@yq -i 'del(.router_settings.fallbacks)' "$(LITELLM_CFG)"
-	@lms ls 2>/dev/null | awk 'NF>=5 && $$4~/^[0-9]/ {print $$4+0, $$1}' | grep -v 'text-embedding' | sort -n | awk '{print $$2}' > /tmp/lms-ordered.txt; \
-		models=($$(cat /tmp/lms-ordered.txt)); \
-		count=$${#models[@]}; \
-		for i in $$(seq 0 $$((count-2))); do \
-			src="lms/$${models[$$i]}"; \
-			dst="lms/$${models[$$((i+1))]}"; \
-			yq -i ".router_settings.fallbacks += [{\"$$src\": [\"$$dst\"]}]" "$(LITELLM_CFG)"; \
-		done; \
-		echo "  fallback chain: $$(cat /tmp/lms-ordered.txt | sed 's|^|lms/|' | tr '\n' ' → ' | sed 's| → $$||')"
-	@echo "==> Done. Restart litellm: make litellm.stop && make litellm"
-
+	LITELLM_CFG=$(LITELLM_CFG) $(SCRIPT_DIR)/../bin/sync-lms.sh
 # ── Commented-out stacks ──────────────────────────────────────────────────────
 
 ## temporal: Temporal workflow server at http://localhost:$(TEMPORAL_PORT)
@@ -751,41 +661,7 @@ lms-sync:
 TEMPORAL_PLIST ?= $(TNE_DB_DIR)/temporal/homebrew.mxcl.temporal-tne.plist
 .PHONY: temporal
 temporal:
-	mkdir -p "$(dir $(TEMPORAL_DB))"
-	@# Regenerate plist each run — pulls in current $(TEMPORAL_DB) / $(TEMPORAL_UI_PORT) paths
-	@printf '%s\n' \
-		'<?xml version="1.0" encoding="UTF-8"?>' \
-		'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
-		'<plist version="1.0">' \
-		'<dict>' \
-		'  <key>KeepAlive</key><true/>' \
-		'  <key>Label</key><string>homebrew.mxcl.temporal</string>' \
-		'  <key>RunAtLoad</key><true/>' \
-		'  <key>ProgramArguments</key>' \
-		'  <array>' \
-		'    <string>/opt/homebrew/opt/temporal/bin/temporal</string>' \
-		'    <string>server</string><string>start-dev</string>' \
-		'    <string>--db-filename</string><string>$(TEMPORAL_DB)</string>' \
-		'    <string>--ui-port</string><string>$(TEMPORAL_UI_PORT)</string>' \
-		'  </array>' \
-		'  <key>StandardErrorPath</key><string>$(TNE_LOG_DIR)/temporal.log</string>' \
-		'  <key>StandardOutPath</key><string>$(TNE_LOG_DIR)/temporal.log</string>' \
-		'  <key>WorkingDirectory</key><string>$(TNE_DB_DIR)/temporal</string>' \
-		'</dict></plist>' \
-		> "$(TEMPORAL_PLIST)"
-	@# Start via brew services with custom plist; if already running with correct DB, skip
-	@if ! lsof -p "$$(pgrep -f 'temporal server start-dev' | head -1)" 2>/dev/null | grep -q "$(TEMPORAL_DB)"; then \
-		brew services stop temporal >/dev/null 2>&1 || true; \
-		brew services start temporal --file="$(TEMPORAL_PLIST)" >/dev/null 2>&1 \
-			|| { echo "⚠ brew services failed — falling back to nohup direct start"; \
-				 $(call start_server,$(TEMPORAL_PORT),temporal server start-dev --db-filename $(TEMPORAL_DB) --ui-port $(TEMPORAL_UI_PORT)); }; \
-	fi
-	$(call check_port,$(TEMPORAL_PORT))
-	@# tne-engine-worker: start via brew services if formula installed (r-cto-dev129)
-	@brew list tne-engine-worker &>/dev/null 2>&1 \
-		&& { pgrep -f "engine.temporal_worker" >/dev/null 2>&1 || brew services start tne-engine-worker 2>/dev/null || true; } \
-		|| echo "  (tne-engine-worker formula not installed — run: make ai-install)"
-
+	TEMPORAL_PORT=$(TEMPORAL_PORT) TEMPORAL_UI_PORT=$(TEMPORAL_UI_PORT) TEMPORAL_DB=$(TEMPORAL_DB) TEMPORAL_PLIST=$(TEMPORAL_PLIST) TNE_DB_DIR=$(TNE_DB_DIR) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-temporal.sh
 # ktap is tne-plugin-only — override in project Makefile if needed
 # ## ktap: KTAP knowledge graph viewer at http://localhost:$(KTAP_PORT)
 # .PHONY: ktap
@@ -799,8 +675,7 @@ temporal:
 # CHECK: 2026-06-10 — if fixed upstream, remove || true from start_server_self call.
 .PHONY: ccr
 ccr:
-	$(call start_server_self,$(CCR_PORT),ccr start)
-	$(call check_port,$(CCR_PORT))
+	CCR_PORT=$(CCR_PORT) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-ccr.sh
 
 ## Kimi Coding Plan bridge — started automatically by make ai via ai-warn-bridges.
 ## Use: make ai-run MODEL=kimi-k2.6   (canonical path — routes through LiteLLM :4000 → :3457)
