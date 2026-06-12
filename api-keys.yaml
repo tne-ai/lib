@@ -89,7 +89,7 @@ ALIBABA_API_KEY:
   op_vault: DevOps
 
 ALIBABA_PLAN_KEY:
-  op_item: "Alibaba Cloud Api Key Dev"
+  op_item: "Alibaba Cloud Plan API Key Dev"
   op_field: "api key"
   op_vault: DevOps
   disabled: true  # deprecated 2026-06-22 — Kimi K2 moved to Moonshot PAYG
@@ -264,9 +264,9 @@ BROWSERBASE_PROJECT_ID:
   op_field: "project id"
   op_vault: DevOps
 
-BROWSERLESS_API_TOKEN:
-  op_item: "Browserless API Key Dev"
-  op_vault: DevOps  # field is "api key" — mulmocast names it token not key
+BROWSERBASE_API_KEY:
+  op_item: "BrowserBase API Key Dev"
+  op_vault: DevOps
 
 FIRECRAWL_API_KEY:
   op_item: "firecrawl API Key Dev"
