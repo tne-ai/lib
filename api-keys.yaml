@@ -262,10 +262,6 @@ BROWSERBASE_PROJECT_ID:
   op_field: "project id"
   op_vault: DevOps
 
-BROWSERBASE_API_KEY:
-  op_item: "BrowserBase API Key Dev"
-  op_vault: DevOps
-
 FIRECRAWL_API_KEY:
   op_item: "firecrawl API Key Dev"
   op_vault: DevOps
