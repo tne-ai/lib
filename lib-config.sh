@@ -101,6 +101,37 @@ config_profile() {
 	fi
 }
 
+## config_profile_no_script: shell-AGNOSTIC env exports only -- NO commands, NO user input.
+## Governed by r-cto-dev145-shell-config-no-script-profile.
+##
+## Why ~/.profile?
+##   - POSIX standard; works in bash, zsh, sh.
+##   - Both ~/.bash_profile and ~/.zprofile MUST source it (use
+##     config_profile_no_script_wire_login below to ensure this once at install).
+##   - By convention, ~/.profile must be non-interactive -- anything that prompts
+##     breaks SSH/cron/script flows.
+##
+## What belongs:  export KEY=VALUE; export PATH=...; silent guards
+## What does NOT: op inject, compinit, completions, aliases, anything prompting
+config_profile_no_script() {
+	echo "$HOME/.profile"
+}
+
+## Ensure ~/.bash_profile and ~/.zprofile source ~/.profile.
+## Idempotent via config_mark. Call once during install bootstrap.
+config_profile_no_script_wire_login() {
+	# shellcheck disable=SC2016  # literal expression; expands at shell-read time, not install time
+	local source_line='[[ -f "$HOME/.profile" ]] && . "$HOME/.profile"'
+	for login_rc in "$HOME/.bash_profile" "$HOME/.zprofile"; do
+		if ! config_mark "$login_rc" "#" "" "Source ~/.profile for shell-agnostic env (r-cto-dev145)"; then
+			config_add "$login_rc" <<-EOF
+				# Source ~/.profile for shell-agnostic env exports (r-cto-dev145).
+				$source_line
+			EOF
+		fi
+	done
+}
+
 ## config the non-login script run with every new shell
 # set ZSH_VERSION to use .zshrc
 config_profile_nonexportable_zsh() {
@@ -775,9 +806,13 @@ config_replace_once() {
 		echo "replacing '$pattern' with canonical line in $file"
 		local tmp
 		tmp="$(mktemp "${file}.XXXX")"
-		awk -v pat="$pattern" -v rep="$line" -v done=0 \
+		if awk -v pat="$pattern" -v rep="$line" -v done=0 \
 			'!done && $0 ~ pat { print rep; done=1; next } { print }' \
-			"$file" >"$tmp" && $(config_sudo "$file") mv "$tmp" "$file" || rm -f "$tmp"
+			"$file" >"$tmp"; then
+			$(config_sudo "$file") mv "$tmp" "$file"
+		else
+			rm -f "$tmp"
+		fi
 	else
 		echo "adding line to $file"
 		$(config_sudo "$file") tee -a "$file" <<<"$line" >/dev/null
