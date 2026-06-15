@@ -12,10 +12,10 @@ fi
 # from https://github.com/direnv/direnv/blob/master/man/direnv-stdlib.1.md
 layout go
 layout node
-# Only create a python venv is python is locally installed with asdf cmd direnv set _python _version_
-if [[ -r .python-version ]] || [[ -r .tool-versions ]] && grep "^python" .tool-versions; then
-	layout uv
-fi
+# layout uv removed — uv probes ~/Library/Application Support/uv/ on every
+# invocation, triggering the macOS "would like to access data from other apps"
+# TCC prompt per direnv reload. Project-level .envrc files that genuinely
+# need a uv venv should add `layout uv` themselves.
 
 # Added by install-1password.sh on Mon Sep  2 14:45:33 PDT 2024
 echo "checking api keys"
