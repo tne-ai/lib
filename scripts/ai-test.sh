@@ -40,10 +40,13 @@ run_infra() {
 
 	if port_ready "$TEMPORAL_PORT"; then
 		_tpid=$(pgrep -f "temporal server start-dev" | head -1)
-		if [[ -n "$_tpid" ]] && lsof -p "$_tpid" 2>/dev/null | grep -q "$TEMPORAL_DB"; then
-			echo "  ✓ temporal DB: $TEMPORAL_DB (persistent)"
+		# Check brew var/ path first (temporal-dev formula), then legacy TEMPORAL_DB path
+		_brew_db="/opt/homebrew/var/temporal/temporal.db"
+		if [[ -n "$_tpid" ]] && lsof -p "$_tpid" 2>/dev/null | grep -qE "temporal\.db"; then
+			_db=$(lsof -p "$_tpid" 2>/dev/null | grep -E "temporal\.db" | awk "{print \$NF}" | head -1)
+			echo "  ✓ temporal DB: ${_db:-$_brew_db} (persistent)"
 		else
-			echo "  ✗ temporal DB: in-memory (workflows lost on restart) — make ai-stop && make temporal"
+			echo "  ✗ temporal DB: in-memory (workflows lost on restart) — brew services restart temporal-dev"
 		fi
 	fi
 
@@ -118,7 +121,20 @@ run_models() {
 				-H "Authorization: Bearer $_key" \
 				-d "{\"model\":\"$model\",\"stream\":true,\"messages\":[{\"role\":\"user\",\"content\":\"reply with the single word: pong\"}],\"max_tokens\":200}" \
 				2>/dev/null |
-				python3 -c 'import sys,json; chunks=[l for l in sys.stdin if l.startswith("data:") and l.strip()!="data: [DONE]"]; print("".join(json.loads(c[5:])["choices"][0]["delta"].get("content","") for c in chunks if json.loads(c[5:]).get("choices",[{}])[0].get("delta",{}).get("content")).strip()[:60])' 2>/dev/null)
+				python3 -c '
+import sys,json
+chunks=[l for l in sys.stdin if l.startswith("data:") and l.strip()!="data: [DONE]"]
+content="".join(
+  json.loads(c[5:])["choices"][0]["delta"].get("content","")
+  for c in chunks if json.loads(c[5:]).get("choices",[{}])[0].get("delta",{}).get("content")
+)
+if not content.strip():
+  content="".join(
+    json.loads(c[5:])["choices"][0]["delta"].get("reasoning_content","")
+    for c in chunks if json.loads(c[5:]).get("choices",[{}])[0].get("delta",{}).get("reasoning_content")
+  )
+print(content.strip()[:60])
+' 2>/dev/null)
 			;;
 		*)
 			reply=$(curl -sf --max-time 30 -X POST \
