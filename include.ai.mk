@@ -495,6 +495,20 @@ AI_QUALITY_MODELS ?= qwen-max gpt-5.4-mini gemini-2.5-flash deepseek-v4-pro kimi
 ai-test-quality:
 	@$(LIB_DIR)/scripts/ai-test.sh quality
 
+## ai-test-restart: cold-start idempotency check (r-cto-ops92)
+##   Stops the full AI stack, restarts it, then runs infra check.
+##   Catches regressions that only appear on cold start:
+##     - temporal running in-memory (no --db-filename)
+##     - prisma not connected at startup
+##     - port conflicts between old + new processes
+##   Run after any change to start-ai.sh, temporal-dev, or litellm formulas.
+.PHONY: ai-test-restart
+ai-test-restart:
+	@echo "==> ai-test-restart: stop → start → infra check"
+	@$(BIN_DIR)/start-ai.sh --stop
+	@$(BIN_DIR)/start-ai.sh
+	@$(LIB_DIR)/scripts/ai-test.sh infra
+
 ## ai-sync: write-back sync — upsert new models from live provider catalogs into LITELLM_CFG
 ##   Currently syncs CLIProxyAPI :$(CLIPROXYAPI_PORT) (gemini + codex/gpt-5 subscriptions).
 ##   Add-only: existing entries are preserved; nothing is removed.
