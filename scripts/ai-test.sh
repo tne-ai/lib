@@ -121,7 +121,20 @@ run_models() {
 				-H "Authorization: Bearer $_key" \
 				-d "{\"model\":\"$model\",\"stream\":true,\"messages\":[{\"role\":\"user\",\"content\":\"reply with the single word: pong\"}],\"max_tokens\":200}" \
 				2>/dev/null |
-				python3 -c 'import sys,json; chunks=[l for l in sys.stdin if l.startswith("data:") and l.strip()!="data: [DONE]"]; print("".join(json.loads(c[5:])["choices"][0]["delta"].get("content","") for c in chunks if json.loads(c[5:]).get("choices",[{}])[0].get("delta",{}).get("content")).strip()[:60])' 2>/dev/null)
+				python3 -c '
+import sys,json
+chunks=[l for l in sys.stdin if l.startswith("data:") and l.strip()!="data: [DONE]"]
+content="".join(
+  json.loads(c[5:])["choices"][0]["delta"].get("content","")
+  for c in chunks if json.loads(c[5:]).get("choices",[{}])[0].get("delta",{}).get("content")
+)
+if not content.strip():
+  content="".join(
+    json.loads(c[5:])["choices"][0]["delta"].get("reasoning_content","")
+    for c in chunks if json.loads(c[5:]).get("choices",[{}])[0].get("delta",{}).get("reasoning_content")
+  )
+print(content.strip()[:60])
+' 2>/dev/null)
 			;;
 		*)
 			reply=$(curl -sf --max-time 30 -X POST \
