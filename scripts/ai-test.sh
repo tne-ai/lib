@@ -40,10 +40,13 @@ run_infra() {
 
 	if port_ready "$TEMPORAL_PORT"; then
 		_tpid=$(pgrep -f "temporal server start-dev" | head -1)
-		if [[ -n "$_tpid" ]] && lsof -p "$_tpid" 2>/dev/null | grep -q "$TEMPORAL_DB"; then
-			echo "  ✓ temporal DB: $TEMPORAL_DB (persistent)"
+		# Check brew var/ path first (temporal-dev formula), then legacy TEMPORAL_DB path
+		_brew_db="/opt/homebrew/var/temporal/temporal.db"
+		if [[ -n "$_tpid" ]] && lsof -p "$_tpid" 2>/dev/null | grep -qE "temporal\.db"; then
+			_db=$(lsof -p "$_tpid" 2>/dev/null | grep -E "temporal\.db" | awk "{print \$NF}" | head -1)
+			echo "  ✓ temporal DB: ${_db:-$_brew_db} (persistent)"
 		else
-			echo "  ✗ temporal DB: in-memory (workflows lost on restart) — make ai-stop && make temporal"
+			echo "  ✗ temporal DB: in-memory (workflows lost on restart) — brew services restart temporal-dev"
 		fi
 	fi
 
