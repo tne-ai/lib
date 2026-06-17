@@ -127,12 +127,12 @@ SERVICE_PORTS := litellm:$(LITELLM_PORT) mlflow:$(MLFLOW_PORT) temporal:$(TEMPOR
 ## postgres: start PostgreSQL via brew services (needed for LiteLLM spend tracking)
 .PHONY: postgres
 postgres:
-	POSTGRES_PORT=$(POSTGRES_PORT) LITELLM_DB=$(LITELLM_DB) $(SCRIPT_DIR)/../bin/start-postgres.sh
+	POSTGRES_PORT=$(POSTGRES_PORT) LITELLM_DB=$(LITELLM_DB) $(BIN_DIR)/start-postgres.sh
 
 ## redis: start Redis via brew services (needed for LiteLLM response caching)
 .PHONY: redis
 redis:
-	REDIS_PORT=$(REDIS_PORT) $(SCRIPT_DIR)/../bin/start-redis.sh
+	REDIS_PORT=$(REDIS_PORT) $(BIN_DIR)/start-redis.sh
 
 ## mlflow: start MLflow tracking server at http://localhost:$(MLFLOW_PORT)
 ## mlflow has no Homebrew formula — install chain is: uv tool install → uvx (ephemeral).
@@ -141,7 +141,7 @@ redis:
 ## mlflow-start: fire mlflow in background without waiting — overlaps with postgres/redis startup
 .PHONY: mlflow-start
 mlflow-start:
-	MLFLOW_PORT=$(MLFLOW_PORT) MLFLOW_DIR=$(MLFLOW_DIR) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-mlflow.sh
+	MLFLOW_PORT=$(MLFLOW_PORT) MLFLOW_DIR=$(MLFLOW_DIR) TNE_LOG_DIR=$(TNE_LOG_DIR) $(BIN_DIR)/start-mlflow.sh
 
 ## mlflow: wait for mlflow to be ready (call mlflow-start first to overlap with postgres/redis)
 .PHONY: mlflow
@@ -163,20 +163,20 @@ LITELLM_VERSION ?= 1.86.2
 ## litellm-install: install or upgrade litellm to the pinned LITELLM_VERSION
 .PHONY: litellm-install
 litellm-install:
-	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh
+	LITELLM_VERSION=$(LITELLM_VERSION) $(BIN_DIR)/litellm-install.sh
 
 ## litellm-fix-ui: patch login/index.html hash mismatch (1.85.x packaging bug)
 ## login/index.html ships with stale chunk hashes; overwrite with login.html which is correct.
 .PHONY: litellm-fix-ui
 litellm-fix-ui:
-	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh --fix-ui
+	LITELLM_VERSION=$(LITELLM_VERSION) $(BIN_DIR)/litellm-install.sh --fix-ui
 
 
 ## litellm-check-version: verify installed litellm matches LITELLM_VERSION; fix if not
 ## Called automatically by make litellm before startup.
 .PHONY: litellm-check-version
 litellm-check-version:
-	LITELLM_VERSION=$(LITELLM_VERSION) $(SCRIPT_DIR)/../bin/litellm-install.sh --check
+	LITELLM_VERSION=$(LITELLM_VERSION) $(BIN_DIR)/litellm-install.sh --check
 
 ## litellm.stop / 4000.stop: kill ALL litellm processes (port kill + pkill sweep for zombies)
 ## WHY bin/litellm not litellm: postgres names its worker processes after the database.
@@ -186,7 +186,7 @@ litellm-check-version:
 ## missed. Matching "bin/litellm" targets only the Python CLI binary, not postgres.
 .PHONY: litellm.stop 4000.stop
 litellm.stop 4000.stop:
-	LITELLM_PORT=$(LITELLM_PORT) $(SCRIPT_DIR)/../bin/litellm-stop.sh
+	LITELLM_PORT=$(LITELLM_PORT) $(BIN_DIR)/litellm-stop.sh
 
 ## litellm: start LiteLLM proxy with automatic Prisma client regeneration
 ##
@@ -211,7 +211,7 @@ litellm.stop 4000.stop:
 ## To force regeneration: rm $(PRISMA_STAMP)
 .PHONY: litellm
 litellm: litellm-check-version
-	LITELLM_PORT=$(LITELLM_PORT) LITELLM_CFG=$(LITELLM_CFG) MLFLOW_PORT=$(MLFLOW_PORT) PRISMA_STAMP=$(PRISMA_STAMP) LITELLM_DB_URL=$(LITELLM_DB_URL) $(SCRIPT_DIR)/../bin/litellm-start.sh
+	LITELLM_PORT=$(LITELLM_PORT) LITELLM_CFG=$(LITELLM_CFG) MLFLOW_PORT=$(MLFLOW_PORT) PRISMA_STAMP=$(PRISMA_STAMP) LITELLM_DB_URL=$(LITELLM_DB_URL) $(BIN_DIR)/litellm-start.sh
 # ── Harness + model variables ─────────────────────────────────────────────────
 # HARNESS: the AI coding assistant CLI. Swap without changing targets.
 #   make ai                        # claude (default)
@@ -295,7 +295,7 @@ MODEL              ?=
 .PHONY: ai-run
 ai-run:
 	MODEL=$(MODEL) HARNESS=$(HARNESS) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) \
-		$(SCRIPT_DIR)/../bin/run-ai.sh $(HARNESS_ARGS)
+		$(BIN_DIR)/run-ai.sh $(HARNESS_ARGS)
 
 ## ai-p: run a single claude -p batch invocation via LiteLLM routing
 ## Same env as ai-run — engine invoker.py inherits ANTHROPIC_BASE_URL via os.environ.
@@ -306,7 +306,7 @@ AI_P_ARGS ?=
 .PHONY: ai-p
 ai-p:
 	MODEL=$(MODEL) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) AI_P_ARGS="$(AI_P_ARGS)" \
-		$(SCRIPT_DIR)/../bin/run-ai.sh --batch "$(PROMPT)"
+		$(BIN_DIR)/run-ai.sh --batch "$(PROMPT)"
 
 # ── Public entry points ───────────────────────────────────────────────────────
 
@@ -405,21 +405,21 @@ ai-auth:
 CLIPROXYAPI_PORT ?= 8317
 .PHONY: cliproxyapi
 cliproxyapi:
-	CLIPROXYAPI_PORT=$(CLIPROXYAPI_PORT) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-cliproxyapi.sh
+	CLIPROXYAPI_PORT=$(CLIPROXYAPI_PORT) TNE_LOG_DIR=$(TNE_LOG_DIR) $(BIN_DIR)/start-cliproxyapi.sh
 
 ## routellm: RouteLLM difficulty-routing server
 ROUTELLM_PORT ?= 6060
 ROUTELLM_CFG  ?= $(HOME)/.config/routellm/config.yaml
 .PHONY: routellm
 routellm:
-	ROUTELLM_PORT=$(ROUTELLM_PORT) ROUTELLM_CFG=$(ROUTELLM_CFG) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-routellm.sh
+	ROUTELLM_PORT=$(ROUTELLM_PORT) ROUTELLM_CFG=$(ROUTELLM_CFG) TNE_LOG_DIR=$(TNE_LOG_DIR) $(BIN_DIR)/start-routellm.sh
 
 ## ai-open: open service UIs in Chrome — once per session (stamp in /tmp, resets on reboot)
 ## Skips any port not yet listening. Safe to call multiple times — no duplicate tabs.
 AI_OPEN_STAMP ?= /tmp/.make-ai-open-$(shell id -u)
 .PHONY: ai-open
 ai-open:
-	LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) TEMPORAL_UI_PORT=$(TEMPORAL_UI_PORT) CCR_PORT=$(CCR_PORT) KTAP_PORT=$(KTAP_PORT) LLS_PORT=$(LLS_PORT) AI_OPEN_STAMP=$(AI_OPEN_STAMP) $(SCRIPT_DIR)/../bin/open-ai.sh
+	LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) TEMPORAL_UI_PORT=$(TEMPORAL_UI_PORT) CCR_PORT=$(CCR_PORT) KTAP_PORT=$(KTAP_PORT) LLS_PORT=$(LLS_PORT) AI_OPEN_STAMP=$(AI_OPEN_STAMP) $(BIN_DIR)/open-ai.sh
 
 ## ai-open-force: open all service UIs unconditionally (clears once-per-session guard)
 .PHONY: ai-open-force
@@ -430,12 +430,12 @@ ai-open-force:
 ## ai-status: health check for all sidecars
 .PHONY: ai-status
 ai-status:
-	$(SCRIPT_DIR)/../bin/start-ai.sh --status
+	$(BIN_DIR)/start-ai.sh --status
 
 ## ai-models: list available models with make invocation examples
 .PHONY: ai-models
 ai-models:
-	LITELLM_CFG=$(LITELLM_CFG) LLS_PORT=$(LLS_PORT) $(SCRIPT_DIR)/../bin/help-ai.sh
+	LITELLM_CFG=$(LITELLM_CFG) LLS_PORT=$(LLS_PORT) $(BIN_DIR)/help-ai.sh
 
 ## ai-keys: show which env vars are required for each PLAN provider and where to get them
 ## Sources:
@@ -446,26 +446,26 @@ ai-models:
 ##   Kimi:    claude-code-proxy handles auth — no extra key needed
 .PHONY: ai-keys
 ai-keys:
-	$(SCRIPT_DIR)/../bin/show-keys.sh
+	$(BIN_DIR)/show-keys.sh
 ## ai-logs: push Claude Code session logs to MLflow
 .PHONY: ai-logs
 ai-logs:
-	$(SCRIPT_DIR)/../bin/logs-push.sh
+	$(BIN_DIR)/logs-push.sh
 
 ## push-logs: alias for ai-logs (clearer name)
 .PHONY: push-logs
 push-logs:
-	$(SCRIPT_DIR)/../bin/logs-push.sh
+	$(BIN_DIR)/logs-push.sh
 
 ## ai-log: tail all sidecar logs from TNE_LOG_DIR (Ctrl-C to stop)
 .PHONY: ai-log
 ai-log:
-	TNE_LOG_DIR=$(TNE_LOG_DIR) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) KTAP_PORT=$(KTAP_PORT) $(SCRIPT_DIR)/../bin/logs-watch.sh
+	TNE_LOG_DIR=$(TNE_LOG_DIR) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) KTAP_PORT=$(KTAP_PORT) $(BIN_DIR)/logs-watch.sh
 
 ## watch-logs: alias for ai-log (clearer name)
 .PHONY: watch-logs
 watch-logs:
-	TNE_LOG_DIR=$(TNE_LOG_DIR) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) KTAP_PORT=$(KTAP_PORT) $(SCRIPT_DIR)/../bin/logs-watch.sh
+	TNE_LOG_DIR=$(TNE_LOG_DIR) LITELLM_PORT=$(LITELLM_PORT) MLFLOW_PORT=$(MLFLOW_PORT) KTAP_PORT=$(KTAP_PORT) $(BIN_DIR)/logs-watch.sh
 
 ## ai-test: canonical end-to-end check for the ai-* stack
 ##   Runs all three phases unconditionally — bias toward complete since ai-test
@@ -572,7 +572,7 @@ ai-install:
 ## set-gpu-max-memory: allocate maximum RAM to GPU (needed for large local models)
 .PHONY: set-gpu-max-memory
 set-gpu-max-memory:
-	$(SCRIPT_DIR)/../bin/set-gpu-max-memory.sh
+	$(BIN_DIR)/set-gpu-max-memory.sh
 
 ## lms-server: start LM Studio local inference server
 .PHONY: lms-server
@@ -585,12 +585,12 @@ lms-server:
 ## Port 8081 (8080 is reserved for CLIProxyAPI/Gemini).
 .PHONY: lls-start
 lls-start:
-	LLS_PORT=$(LLS_PORT) LLS_PRESETS=$(LLS_PRESETS) LITELLM_CFG=$(LITELLM_CFG) LLS_CTX=$(LLS_CTX) $(SCRIPT_DIR)/../bin/start-lls.sh
+	LLS_PORT=$(LLS_PORT) LLS_PRESETS=$(LLS_PRESETS) LITELLM_CFG=$(LITELLM_CFG) LLS_CTX=$(LLS_CTX) $(BIN_DIR)/start-lls.sh
 
 ## lls-stop: stop llama-server router
 .PHONY: lls-stop
 lls-stop:
-	LLS_PORT=$(LLS_PORT) $(SCRIPT_DIR)/../bin/start-lls.sh --stop
+	LLS_PORT=$(LLS_PORT) $(BIN_DIR)/start-lls.sh --stop
 
 ## lls-sync: sync lls/* litellm entries + llama-presets.ini from lms ls --json (GGUF only)
 ## Setup: open LM Studio → Browse → Staff Picks → download GGUF variants → run make lls-sync
@@ -602,14 +602,14 @@ LLS_CTX ?= 100000
 LLS_PRESETS ?= $(HOME)/.config/litellm/llama-presets.ini
 .PHONY: lls-sync
 lls-sync:
-	LITELLM_CFG=$(LITELLM_CFG) LLS_PRESETS=$(LLS_PRESETS) LLS_PORT=$(LLS_PORT) LLS_CTX=$(LLS_CTX) $(SCRIPT_DIR)/../bin/sync-lls.sh
+	LITELLM_CFG=$(LITELLM_CFG) LLS_PRESETS=$(LLS_PRESETS) LLS_PORT=$(LLS_PORT) LLS_CTX=$(LLS_CTX) $(BIN_DIR)/sync-lls.sh
 ## lms-sync: sync litellm config model_names with lms ls output
 ## Removes all lms/* entries and re-adds them as lms/<vendor>/<model> to match lms ls IDs.
 ## Also writes local-only fallbacks (smallest → next-smallest) so ai-local never leaks to cloud.
 ## Run after installing new models in LM Studio.
 .PHONY: lms-sync
 lms-sync:
-	LITELLM_CFG=$(LITELLM_CFG) $(SCRIPT_DIR)/../bin/sync-lms.sh
+	LITELLM_CFG=$(LITELLM_CFG) $(BIN_DIR)/sync-lms.sh
 # ── Commented-out stacks ──────────────────────────────────────────────────────
 
 ## temporal: Temporal workflow server at http://localhost:$(TEMPORAL_PORT)
@@ -620,7 +620,7 @@ lms-sync:
 TEMPORAL_PLIST ?= $(TNE_DB_DIR)/temporal/homebrew.mxcl.temporal-tne.plist
 .PHONY: temporal
 temporal:
-	TEMPORAL_PORT=$(TEMPORAL_PORT) TEMPORAL_UI_PORT=$(TEMPORAL_UI_PORT) TEMPORAL_DB=$(TEMPORAL_DB) TEMPORAL_PLIST=$(TEMPORAL_PLIST) TNE_DB_DIR=$(TNE_DB_DIR) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-temporal.sh
+	TEMPORAL_PORT=$(TEMPORAL_PORT) TEMPORAL_UI_PORT=$(TEMPORAL_UI_PORT) TEMPORAL_DB=$(TEMPORAL_DB) TEMPORAL_PLIST=$(TEMPORAL_PLIST) TNE_DB_DIR=$(TNE_DB_DIR) TNE_LOG_DIR=$(TNE_LOG_DIR) $(BIN_DIR)/start-temporal.sh
 # ktap is tne-plugin-only — override in project Makefile if needed
 # ## ktap: KTAP knowledge graph viewer at http://localhost:$(KTAP_PORT)
 # .PHONY: ktap
@@ -634,7 +634,7 @@ temporal:
 # CHECK: 2026-06-10 — if fixed upstream, remove || true from start_server_self call.
 .PHONY: ccr
 ccr:
-	CCR_PORT=$(CCR_PORT) TNE_LOG_DIR=$(TNE_LOG_DIR) $(SCRIPT_DIR)/../bin/start-ccr.sh
+	CCR_PORT=$(CCR_PORT) TNE_LOG_DIR=$(TNE_LOG_DIR) $(BIN_DIR)/start-ccr.sh
 
 ## Kimi Coding Plan bridge — started automatically by make ai via ai-warn-bridges.
 ## Use: make ai-run MODEL=kimi-k2.6   (canonical path — routes through LiteLLM :4000 → :3457)
