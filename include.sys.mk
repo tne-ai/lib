@@ -25,16 +25,20 @@ AVG_CONF    := /Library/Application Support/AVGAntivirus/config/com.avg.fileshie
 AVG_SECTION := fileshield
 AVG_KEY     := pathExclusions
 AVG_PATH    ?= $(or $(WS_DIR),$(HOME)/ws/git/src)
+# Space-separated list of paths to exclude; ~/.claude has plugin caches + session files.
+AVG_PATHS   ?= $(AVG_PATH) $(HOME)/.claude
 
-avg-add: ## Add $$AVG_PATH (default: $$WS_DIR) to AVG real-time scan exclusions
+avg-add: ## Add $$AVG_PATHS (default: $$WS_DIR + ~/.claude) to AVG real-time scan exclusions
 	@[[ -x "$(AVG_CFGCTL)" ]] || { echo "AVG not found: $(AVG_CFGCTL)" >&2; exit 1; }
-	sudo "$(AVG_CFGCTL)" -f "$(AVG_CONF)" -t "$(AVG_SECTION)" -v "$(AVG_KEY)" -a "$(AVG_PATH)"
-	@echo "AVG: added $(AVG_PATH)"
+	@for p in $(AVG_PATHS); do \
+		sudo "$(AVG_CFGCTL)" -f "$(AVG_CONF)" -t "$(AVG_SECTION)" -v "$(AVG_KEY)" -a "$$p" && echo "AVG: added $$p"; \
+	done
 
-avg-remove: ## Remove $$AVG_PATH from AVG real-time scan exclusions
+avg-remove: ## Remove $$AVG_PATHS from AVG real-time scan exclusions
 	@[[ -x "$(AVG_CFGCTL)" ]] || { echo "AVG not found: $(AVG_CFGCTL)" >&2; exit 1; }
-	sudo "$(AVG_CFGCTL)" -f "$(AVG_CONF)" -t "$(AVG_SECTION)" -v "$(AVG_KEY)" -r "$(AVG_PATH)"
-	@echo "AVG: removed $(AVG_PATH)"
+	@for p in $(AVG_PATHS); do \
+		sudo "$(AVG_CFGCTL)" -f "$(AVG_CONF)" -t "$(AVG_SECTION)" -v "$(AVG_KEY)" -r "$$p" && echo "AVG: removed $$p"; \
+	done
 
 avg-status: ## Show current AVG pathExclusions
 	@[[ -x "$(AVG_CFGCTL)" ]] || { echo "AVG not found: $(AVG_CFGCTL)" >&2; exit 1; }
