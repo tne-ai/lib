@@ -7,7 +7,8 @@ name: Stamp Marketplace
 on:
   push:
     branches:
-      - "**"
+      - main
+      - master
 
 jobs:
   stamp:
@@ -23,6 +24,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Stamp marketplace.json
+        if: hashFiles('scripts/stamp-marketplace.sh') != ''
         run: bash scripts/stamp-marketplace.sh
 
       - name: Commit if changed
