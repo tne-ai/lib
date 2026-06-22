@@ -69,9 +69,10 @@ Z_AI_PLAN_KEY:
   ccr_provider: z.ai
 
 MOONSHOT_API_KEY:
-  op_item: "Moonshot API Key Dev"
+  op_item: "Moonshot API Key Prod"
+  op_item_id: "fs4np24dsdyz5smfrxxwxrodri"
   op_vault: DevOps
-  disabled: true  # PAYG — use claude-code-proxy for Kimi Coding Plan
+  # enabled 2026-06-22 — Kimi K2 moved from Alibaba Coding Plan to Moonshot PAYG
   models_url: https://api.moonshot.cn/v1/models
   models_pattern: "^kimi-k2"
   litellm_base: https://api.moonshot.cn/v1
@@ -91,6 +92,7 @@ ALIBABA_PLAN_KEY:
   op_item: "Alibaba Cloud Api Key Dev"
   op_field: "api key"
   op_vault: DevOps
+  disabled: true  # deprecated 2026-06-22 — Kimi K2 moved to Moonshot PAYG
   models_url: https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models
   models_pattern: "^(qwen|wanx)"
   litellm_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
