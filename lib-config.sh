@@ -132,10 +132,9 @@ config_profile_no_script_wire_login() {
 	done
 }
 
-## config the non-login script run with every new shell
-# set ZSH_VERSION to use .zshrc
+## config the login shell profile for zsh (op inject and secrets belong here, not .zshrc)
 config_profile_nonexportable_zsh() {
-	echo "$HOME/.zshrc"
+	echo "$HOME/.zprofile"
 }
 config_profile_nonexportable_bash() {
 	echo "$HOME/.bashrc"
