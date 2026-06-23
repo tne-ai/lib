@@ -88,10 +88,22 @@
 # set ZSH_VERSION to use .zshrc when zsh is not the login shell
 
 config_profile_zsh() {
+	# zsh login — PATH/env exports; also the earliest viable file for zsh op inject
+	# (alias: config_profile_exportable_zsh — same file, zsh has no separate ~/.bash_profile)
+	echo "$HOME/.zprofile"
+}
+config_profile_exportable_zsh() {
+	# zsh login + op inject — same as config_profile_zsh; alias for naming symmetry with bash
 	echo "$HOME/.zprofile"
 }
 config_profile_bash() {
+	# POSIX sh login — PATH/env exports only; no [[ ]], no op inject (r-cto-dev155)
 	echo "$HOME/.profile"
+}
+config_profile_exportable_bash() {
+	# bash login — op inject and bash-specific code; uses [[ ]] so cannot go in ~/.profile
+	# r-cto-dev155: earliest viable file for bash op inject
+	echo "$HOME/.bash_profile"
 }
 config_profile() {
 	if [[ $SHELL =~ zsh || -v ZSH_VERSION ]]; then
