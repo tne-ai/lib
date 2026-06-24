@@ -86,8 +86,11 @@ if eval "[[ -z \${$lib_name+x} ]]"; then
 				}
 				export "$env_var=$val"
 			else
-				# Profile injection — write op:// reference
-				local line="[[ -v ${env_var} ]] || export ${env_var}=${op_ref}"
+				# Profile injection — write op:// reference.
+				# Quote the value: op inject substitutes the resolved secret in place,
+				# and multi-line/whitespace values (e.g. base64 git-crypt keys) would
+				# otherwise word-split into bogus `export: not a valid identifier` errors.
+				local line="[[ -v ${env_var} ]] || export ${env_var}=\"${op_ref}\""
 				if [[ -n "$disabled_by" ]]; then
 					line="if [[ ! -v ${disabled_by} ]]; then ${line}; fi"
 				fi
