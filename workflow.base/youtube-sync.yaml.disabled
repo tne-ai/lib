@@ -1,0 +1,257 @@
+name: YouTube Content Sync
+
+on:
+  schedule:
+    # Daily at 6 AM UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:  # Allow manual triggering
+    inputs:
+      force_refresh:
+        description: 'Force refresh (ignore cache)'
+        required: false
+        default: 'false'
+        type: boolean
+      specific_playlist:
+        description: 'Update specific playlist (leave empty for all)'
+        required: false
+        type: string
+  push:
+    paths:
+      - 'mktg/youtube-to-mkdocs/**'
+      - 'mktg/.github/workflows/youtube-sync.yml'
+      - 'mktg/Makefile'
+
+jobs:
+  sync-youtube-content:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          python3-dev \
+          python3-pip \
+          build-essential \
+          libssl-dev \
+          libffi-dev \
+          libjpeg-dev \
+          libpng-dev \
+          libwebp-dev
+
+    - name: Install Python dependencies
+      working-directory: mktg
+      run: make install
+
+    - name: Check environment variables
+      working-directory: mktg
+      run: make check-env
+      env:
+        YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+        YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+
+    - name: Test authentication
+      working-directory: mktg
+      run: make debug-auth
+      env:
+        YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+        YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+        YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+
+    - name: Sync YouTube content (all playlists)
+      if: ${{ github.event.inputs.specific_playlist == '' }}
+      working-directory: mktg
+      run: |
+        if [ "${{ github.event.inputs.force_refresh }}" = "true" ]; then
+          make force-update
+        else
+          make update
+        fi
+      env:
+        YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+        YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+        YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+
+    - name: Sync YouTube content (specific playlist)
+      if: ${{ github.event.inputs.specific_playlist != '' }}
+      working-directory: mktg
+      run: |
+        cd youtube-to-mkdocs
+        if [ "${{ github.event.inputs.force_refresh }}" = "true" ]; then
+          python -m main update --playlist "${{ github.event.inputs.specific_playlist }}" --force-refresh
+        else
+          python -m main update --playlist "${{ github.event.inputs.specific_playlist }}"
+        fi
+      env:
+        YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+        YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+        YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+
+    - name: Check for changes
+      id: git-check
+      working-directory: mktg
+      run: |
+        if git diff --quiet HEAD -- docs/youtube/ mkdocs.yml; then
+          echo "changes=false" >> $GITHUB_OUTPUT
+          echo "No changes detected"
+        else
+          echo "changes=true" >> $GITHUB_OUTPUT
+          echo "Changes detected:"
+          git diff --name-only HEAD -- docs/youtube/ mkdocs.yml
+        fi
+
+    - name: Show generated content summary
+      if: steps.git-check.outputs.changes == 'true'
+      working-directory: mktg
+      run: |
+        echo "## Generated Content Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -d "docs/youtube" ]; then
+          echo "### Markdown Files:" >> $GITHUB_STEP_SUMMARY
+          find docs/youtube -name "*.md" -type f | while read file; do
+            echo "- \`$file\`" >> $GITHUB_STEP_SUMMARY
+          done
+        fi
+
+        if [ -d "docs/youtube/assets" ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Asset Files:" >> $GITHUB_STEP_SUMMARY
+          asset_count=$(find docs/youtube/assets -name "thumb_*" -type f | wc -l)
+          echo "- $asset_count thumbnail images" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Configuration:" >> $GITHUB_STEP_SUMMARY
+        echo "- Updated mkdocs.yml navigation" >> $GITHUB_STEP_SUMMARY
+
+    - name: Commit and push changes
+      if: steps.git-check.outputs.changes == 'true'
+      working-directory: mktg
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+        # Add all YouTube-related changes
+        git add docs/youtube/
+        git add mkdocs.yml
+
+        # Create commit message with details
+        COMMIT_MSG="🎥 Auto-update YouTube content $(date +'%Y-%m-%d %H:%M')"
+
+        # Add playlist info if specific playlist was updated
+        if [ -n "${{ github.event.inputs.specific_playlist }}" ]; then
+          COMMIT_MSG="$COMMIT_MSG - ${{ github.event.inputs.specific_playlist }}"
+        fi
+
+        # Add force refresh note if applicable
+        if [ "${{ github.event.inputs.force_refresh }}" = "true" ]; then
+          COMMIT_MSG="$COMMIT_MSG (force refresh)"
+        fi
+
+        git commit -m "$COMMIT_MSG"
+
+        # Push changes
+        git push origin ${{ github.ref_name }}
+
+        echo "✅ Changes committed and pushed"
+
+    - name: Create Pull Request (for non-main branches)
+      if: steps.git-check.outputs.changes == 'true' && github.ref != 'refs/heads/main'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 🎥 Auto-update YouTube content
+        title: 'Auto-update: YouTube Content Sync'
+        body: |
+          ## Automated YouTube Content Synchronization
+
+          This pull request contains automatically updated YouTube content.
+
+          ### Changes:
+          - ✅ Updated video listings from configured playlists
+          - ✅ Refreshed video metadata (titles, descriptions, view counts)
+          - ✅ Downloaded new video thumbnails
+          - ✅ Updated MkDocs navigation
+
+          ### Playlists Updated:
+          - Rich Tong's Excellent Adventures in AI
+          - tne.ai Demo Videos
+
+          ### Trigger:
+          - **Event**: ${{ github.event_name }}
+          - **Ref**: ${{ github.ref }}
+          - **Workflow**: ${{ github.workflow }}
+
+          *This PR was automatically created by the YouTube Content Sync workflow.*
+        branch: auto/youtube-content-update
+        delete-branch: true
+
+    - name: Show status summary
+      working-directory: mktg
+      run: |
+        echo "## YouTube Sync Status" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        cd youtube-to-mkdocs
+        python -m main status >> status_output.txt 2>&1 || true
+
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        cat status_output.txt >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+        rm -f status_output.txt
+
+    - name: Handle errors
+      if: failure()
+      run: |
+        echo "## ❌ YouTube Sync Failed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "The YouTube content synchronization failed. Common causes:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Authentication Issues**: Check YouTube API credentials" >> $GITHUB_STEP_SUMMARY
+        echo "- **API Quota Exceeded**: YouTube API has daily limits" >> $GITHUB_STEP_SUMMARY
+        echo "- **Network Issues**: Temporary connectivity problems" >> $GITHUB_STEP_SUMMARY
+        echo "- **Configuration Errors**: Check playlist IDs and settings" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Troubleshooting:" >> $GITHUB_STEP_SUMMARY
+        echo "1. Check the job logs for specific error messages" >> $GITHUB_STEP_SUMMARY
+        echo "2. Verify that all required secrets are set" >> $GITHUB_STEP_SUMMARY
+        echo "3. Try running the workflow manually with fewer playlists" >> $GITHUB_STEP_SUMMARY
+        echo "4. Check YouTube API status and quotas" >> $GITHUB_STEP_SUMMARY
+
+        # Create an issue for persistent failures
+        if [ "${{ github.event_name }}" = "schedule" ]; then
+          echo "This was a scheduled run that failed - consider creating an issue for investigation"
+        fi
+
+  # Cleanup job to manage old workflow runs
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: sync-youtube-content
+    if: always()
+
+    steps:
+    - name: Delete old workflow runs
+      uses: Mattraks/delete-workflow-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        repository: ${{ github.repository }}
+        retain_days: 30
+        keep_minimum_runs: 10
+        delete_workflow_pattern: "YouTube Content Sync"
