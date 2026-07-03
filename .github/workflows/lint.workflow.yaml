@@ -10,6 +10,9 @@ on:
       - main
       - master
       - rich-*
+    # Release tags run the bats unit suite so a version bump is validated (r-cto-dev91).
+    tags:
+      - "v*"
   pull_request:
   workflow_dispatch:
 
@@ -174,3 +177,23 @@ jobs:
         # #yamllint $(find . -name "*.yaml" -o -name "*.yml")
         # #echo running yamllint
         # #yamllint .
+
+  # Behavioral shell tests (per r-cto-dev91: static shellcheck in pre-commit,
+  # behavioral bats here). Guarded — skips silently if no tests/*.bats, so it is
+  # safe fleet-wide. Runs on PRs/pushes AND release tags (see `tags: v*` above).
+  bats:
+    runs-on: ${{ github.event.repository.visibility == 'public' && 'ubuntu-latest' || vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout action
+        uses: actions/checkout@v5
+        with:
+          lfs: true
+      - name: Install bats
+        run: sudo apt-get update && sudo apt-get install -y bats
+      - name: Run bats unit tests (guarded — skip if none)
+        run: |
+          if ls tests/*.bats >/dev/null 2>&1; then
+            make test
+          else
+            echo "no tests/*.bats in this repo — skipping bats job"
+          fi
