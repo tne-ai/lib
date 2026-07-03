@@ -13,7 +13,7 @@ if eval "[[ -z \${$lib_name+x} ]]"; then
 	_SECRETS_YAML="${SECRETS_YAML:-$(dirname "${BASH_SOURCE[0]}")/api-keys.yaml}"
 
 	# ── YAML parser ───────────────────────────────────────────────────────────────
-	# Parses api-keys.yaml; prints TSV rows to stdout.
+	# Parses api-keys.yaml; prints 0x1F-delimited rows to stdout (NOT tab — see NOTE below).
 	# Columns: env_var op_item op_field op_vault disabled_by equivalent_of
 	# Args: [yaml_file] [env_var_filter...]
 	_secrets_parse_yaml() {
@@ -38,8 +38,14 @@ if eval "[[ -z \${$lib_name+x} ]]"; then
 			   (.value.op_vault // \"DevOps\"),
 			   (.value.disabled_by // \"\"),
 			   (.value.equivalent_of // \"\")]
-			| @tsv" "$yaml_file"
+			| @tsv" "$yaml_file" | tr '\t' '\037'
 	}
+	# NOTE: fields are joined with 0x1F (unit separator), NOT tab. A tab is an
+	# IFS-whitespace char, so `IFS=$'\037' read` collapses consecutive tabs and
+	# shifts columns whenever a field is empty (e.g. equivalent_of entries have
+	# no op_item) — which silently emitted broken `op://<equivalent>/...` refs.
+	# 0x1F is non-whitespace, so empty fields are preserved. All readers below
+	# MUST use `IFS=$'\037'`.
 
 	# ── op_load_api_keys ──────────────────────────────────────────────────────────
 	# Write op:// references for each key into a shell profile, or export directly.
@@ -67,7 +73,7 @@ if eval "[[ -z \${$lib_name+x} ]]"; then
 			return 1
 		}
 
-		while IFS=$'\t' read -r env_var op_item op_field op_vault disabled_by equivalent; do
+		while IFS=$'\037' read -r env_var op_item op_field op_vault disabled_by equivalent; do
 			[[ -z "$env_var" ]] && continue
 			# equivalents go in op_write_equivalents, not here
 			[[ -n "$equivalent" ]] && continue
@@ -112,7 +118,7 @@ if eval "[[ -z \${$lib_name+x} ]]"; then
 		local _out
 		_out=$(_secrets_parse_yaml "$_SECRETS_YAML") || return 1
 
-		while IFS=$'\t' read -r env_var _item _field _vault _disabled_by equivalent; do
+		while IFS=$'\037' read -r env_var _item _field _vault _disabled_by equivalent; do
 			[[ -z "$equivalent" ]] && continue
 			local line="${env_var}=\"\$${equivalent}\""
 			if [[ -n "$profile_file" ]]; then
@@ -134,7 +140,7 @@ if eval "[[ -z \${$lib_name+x} ]]"; then
 		if [[ ${#vars[@]} -eq 0 ]]; then
 			local _out
 			_out=$(_secrets_parse_yaml "$_SECRETS_YAML") || return 1
-			while IFS=$'\t' read -r env_var _rest; do
+			while IFS=$'\037' read -r env_var _rest; do
 				[[ -z "$env_var" ]] && continue
 				vars+=("$env_var")
 			done <<<"$_out"

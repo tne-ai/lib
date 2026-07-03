@@ -19,10 +19,15 @@ ORG ?= tne
 
 ## Local Make commands
 ## ---
-## test: test the library
+## test: run bats unit tests (per r-cto-dev91: static + behavioral coverage)
 .PHONY: test
 test:
-	@echo "insert test code here..."
+	bats tests/ --filter-tags unit
+
+## test-all: run every bats test (unit + any system-tagged)
+.PHONY: test-all
+test-all:
+	bats tests/
 
 ## clean: remove the build directory
 .PHONY: clean

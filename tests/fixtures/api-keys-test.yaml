@@ -1,0 +1,30 @@
+# Test fixture for lib-secrets.bats — not real secrets, just op:// reference shapes.
+SIMPLE_API_KEY:
+  op_item: Simple API Key Dev
+  op_field: api key
+  op_vault: DevOps
+
+# Value resolves to a multi-line base64 blob — the case that broke when unquoted
+# (export VAR=<frag1> <frag2> → "not a valid identifier"). See tne-ai/lib#127.
+TNE_DATA_SENSITIVE_GITCRYPT_KEY:
+  op_item: TNE Data Git Crypt Private Key
+  op_field: key
+  op_vault: Finance
+
+# Gated by an OAuth flag — must be wrapped in `if [[ ! -v FLAG ]]; then ... fi`.
+OPENAI_API_KEY:
+  op_item: OpenAI API Key Dev
+  op_field: api key
+  op_vault: DevOps
+  disabled_by: CODEX_CHATGPT
+
+# equivalent_of entries are emitted by op_write_equivalents, NOT op_load_api_keys.
+GOOGLE_API_KEY:
+  equivalent_of: GEMINI_API_KEY
+
+# disabled entries must be skipped entirely.
+DEAD_KEY:
+  op_item: Dead Key
+  op_field: api key
+  op_vault: DevOps
+  disabled: true
