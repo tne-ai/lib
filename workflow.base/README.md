@@ -14,7 +14,7 @@ This gets copied into your repo with `make install-repo` and you can modify
 | `claude.yml` / `claude-triage.yml` | active | all repos |
 | `dependabot.automerge.workflow.yaml` | active | all repos |
 | `stamp-marketplace.workflow.yaml` / `validate-plugins.workflow.yaml` / `sync-skills.yml` | active | plugin repos |
-| `homebrew-formula-bump.workflow.yaml` / `trigger-formula-bump.workflow.yaml` | active | formula repos |
+| `homebrew-formula-bump.workflow.yaml.disabled` / `trigger-formula-bump.workflow.yaml.disabled` | **disabled** | formula/tap repos only — enable by renaming to `.workflow.yaml` |
 | `youtube-sync.yaml.disabled` | **disabled** | mktg only — enable with `mv youtube-sync.yaml.disabled youtube-sync.yml` |
 
 Repo-specific workflows ship here as `*.yaml.disabled` so they distribute to every
