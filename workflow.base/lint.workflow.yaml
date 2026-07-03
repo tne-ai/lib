@@ -9,6 +9,10 @@ on:
       - main
       - master
       - rich-*
+    # Release tags run the full workflow (incl. the bats unit suite) regardless
+    # of paths — a version bump must be validated end to end (r-cto-dev91).
+    tags:
+      - "v*"
     paths:
       - "**/*.py"
       - "python/**"
@@ -99,3 +103,24 @@ jobs:
         uses: pre-commit/action@v3.0.1
         with:
           extra_args: --files ${{ steps.changed.outputs.all_changed_files }}
+
+  # Behavioral shell tests (per r-cto-dev91: static shellcheck runs in pre-commit,
+  # behavioral bats here). Guarded — skips silently in repos with no tests/*.bats,
+  # so this shared workflow is safe fleet-wide. Runs on PRs/pushes AND release
+  # tags (see the `tags: v*` trigger above) so a version bump is validated.
+  bats:
+    runs-on: ${{ github.event.repository.visibility == 'public' && 'ubuntu-latest' || vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout action
+        uses: actions/checkout@v5
+        with:
+          lfs: true
+      - name: Install bats
+        run: sudo apt-get update && sudo apt-get install -y bats
+      - name: Run bats unit tests (guarded — skip if none)
+        run: |
+          if ls tests/*.bats >/dev/null 2>&1; then
+            make test
+          else
+            echo "no tests/*.bats in this repo — skipping bats job"
+          fi
