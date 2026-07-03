@@ -254,14 +254,16 @@ repos:
         exclude: Dockerfile.dockerignore
 
   # Claude plugin docs sync check
-  # Verifies README.md and AGENTS.md stay in sync with skills/ directory
-  # No-op for repos without scripts/cai22-check-docs-sync.sh
+  # Verifies README.md and AGENTS.md stay in sync with skills/ directory.
+  # Genuine no-op for repos without scripts/cai22-check-docs-sync.sh (e.g. lib,
+  # which is not a plugin repo). `language: script` ERRORS when the entry file is
+  # missing, so we use `language: system` + a guard that exits 0 when absent.
   - repo: local
     hooks:
       - id: check-docs-sync
         name: Check plugin docs sync with skills
-        entry: scripts/cai22-check-docs-sync.sh
-        language: script
+        entry: bash -c 'if [ -x scripts/cai22-check-docs-sync.sh ]; then exec scripts/cai22-check-docs-sync.sh; fi'
+        language: system
         files: '(skills/|README\.md|AGENTS\.md)'
         pass_filenames: false
 
