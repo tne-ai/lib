@@ -439,10 +439,6 @@ config_lines_to_line() {
 #          1 no marker found so we added and this is a fresh file
 config_mark() {
 	# if (( $# < 1)); then return 1; fi
-	if [[ $# -gt 0 && $1 == -f ]]; then
-		local force=true
-		shift
-	fi
 	local file=${1:-"$(config_profile)"}
 	local comment_prefix="${2:-"#"}"
 	local comment_postfix="${3:-""}"
@@ -452,7 +448,7 @@ config_mark() {
 	# JSON/JSONC files cannot have comments — use a _managed_by array key as the marker instead
 	if [[ $file == *.json || $file == *.jsonc ]]; then
 		if [[ ! -s $file ]]; then echo '{}' >"$file"; fi
-		if ${force:-false} || ! jq -e --arg m "$marker" '._managed_by | index($m)' "$file" >/dev/null 2>&1; then
+		if ! jq -e --arg m "$marker" '._managed_by | index($m)' "$file" >/dev/null 2>&1; then
 			local jtmp
 			jtmp="$(mktemp "${file}.XXXX")"
 			if jq --arg m "$marker" 'if ._managed_by then ._managed_by += [$m] else ._managed_by = [$m] end' "$file" >"$jtmp"; then
@@ -466,7 +462,7 @@ config_mark() {
 		return 0
 	fi
 	# need the -- incase the comment_prefix has a leading -
-	if ${force:-false} || ! grep -q -- "$comment_prefix $marker" "$file"; then
+	if ! grep -q -- "$comment_prefix $marker" "$file"; then
 		# do not quote config_sudo because it can return null
 		# https://stackoverflow.com/questions/3005963/how-can-i-have-a-newline-in-a-string-in-sh
 		$(config_sudo "$file") tee -a "$file" <<<$'\n'"$comment_prefix $marker on $(date) $comment_postfix" >/dev/null
