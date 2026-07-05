@@ -145,15 +145,20 @@ print(int(age / 86400))
 			models_pattern _litellm_base _litellm_key _litellm_prefix ccr_provider; do
 			[[ -z "$env_var" || -z "${!env_var:-}" ]] && continue
 
-			local json
+			# Catch the probe failure and report it — a 401/timeout on one
+			# provider must not abort the whole run under set -e (r-cto-dev162).
+			local json=""
 			if [[ "$models_auth" == "query" ]]; then
 				json=$(curl -sf --connect-timeout 5 \
-					"${models_url}?${models_auth_param}=${!env_var}" 2>/dev/null)
+					"${models_url}?${models_auth_param}=${!env_var}" 2>/dev/null) || json=""
 			else
 				json=$(curl -sf --connect-timeout 5 \
-					-H "Authorization: Bearer ${!env_var}" "$models_url" 2>/dev/null)
+					-H "Authorization: Bearer ${!env_var}" "$models_url" 2>/dev/null) || json=""
 			fi
-			[[ -z "$json" ]] && continue
+			if [[ -z "$json" ]]; then
+				echo "  ⚠ ${env_var}: model probe failed at ${models_url} (key/endpoint?) — skipping, using fallback list" >&2
+				continue
+			fi
 
 			local ids
 			ids=$(echo "$json" | python3 -c "
