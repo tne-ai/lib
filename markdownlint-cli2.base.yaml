@@ -58,6 +58,10 @@ config:
   # MD052: Reference links/images — generated content may have unresolved refs
   MD052: false
 
+  # MD049: Emphasis style — prettier uses underscores, markdownlint would enforce asterisks.
+  # Disabling lets prettier control emphasis style and prevents an infinite formatter cycle.
+  MD049: false
+
   # MD055: Table pipe style — prettier controls formatting
   MD055: false
 
