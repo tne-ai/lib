@@ -21,5 +21,9 @@ config:
   # MD034: Bare URLs — allow email addresses
   MD034: false
 
+  # MD049: Emphasis style — prettier uses underscores, markdownlint would enforce asterisks.
+  # Disabling lets prettier control emphasis style and prevents an infinite formatter cycle.
+  MD049: false
+
   # MD060: Table column style — prettier controls formatting
   MD060: false
