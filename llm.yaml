@@ -1,0 +1,226 @@
+# Model optimization profiles — the data-driven source of truth.
+#
+# Every value here is grounded in the Phase B-G benchmark matrix
+# (results/matrix.csv, ~1124 cells). When new bench data lands, update
+# this file; scripts/optimize_for_model.py and the MODEL-OPTIMIZATION-GUIDE
+# read from it so the recommendations stay in sync with measured reality.
+#
+# Schema per model:
+#   tier:            cost-leader | stability-leader | escalation | deprecated
+#   route:           how claude -p reaches the model
+#   code_settings:   the optimal harness settings (timeout/budget/retries)
+#   failure_profile: dominant failure mode + empirical rate
+#   overlay_policy:  which anti-stuck overlay per task family
+#   family_fit:      measured accuracy band per family (anti-stuck v2)
+#   notes:           operational gotchas
+
+defaults:
+  # Baseline harness settings (run_benchmark.py / bench_cost.py).
+  inner_timeout_sec: 900       # CLAUDE_P_TIMEOUT_SEC — claude -p session deadline
+  outer_wall_sec: 1800         # PER_TASK_WALL_SEC — subprocess kill wall
+  budget_usd: 5.0              # --max-budget-usd
+  max_retries: 2               # MAX_RETRIES
+  skill_via: system            # --skill-via (overlay injection mode)
+  per_task_restart: true       # isolate each task in its own subprocess
+
+models:
+
+  GLM-5.2-OR:
+    tier: cost-leader
+    route:
+      kind: openrouter
+      slug: "z-ai/glm-5.2"
+      api_key_env: OPENROUTER_API_KEY
+      provider_routing: load-balanced   # do NOT pin DeepInfra (loses caching, 3.6x cost)
+    code_settings:
+      inner_timeout_sec: 900            # 5% timeout rate — default is safe
+      outer_wall_sec: 1800
+      budget_usd: 2.0                   # median $0.15/trial; rarely exceeds $1
+      max_retries: 2
+    failure_profile:
+      dominant: wrong-answer            # 14/15 baseline fails are wrong picks, not stuck
+      timeout_rate: 0.05
+      exit1_rate: 0.00
+      note: "Not a stuck-loop model. Failures are answer/format errors — fix via hygiene + overlay, not via timeouts."
+    overlay_policy:
+      research: research-anti-stuck        # v2
+      gtm: gtm-anti-stuck                  # v2
+      financial: financial-anti-stuck-v4   # reflection cuts cost -30%
+      verdict: decisive-verdict-anti-stuck # generous-bias on borderline; needs strict rubric
+      name_entity: name-precision-anti-stuck
+      factcheck: verdict-anti-stuck
+      dataquery: gtm-anti-stuck
+      long_horizon: ESCALATE               # 0% on GAIA L3 — route to Opus
+    family_fit:
+      factcheck: 1.00
+      dataquery: 1.00
+      mmlu: 0.80
+      hotpotqa: 0.80
+      research: 0.95
+      gtm: 1.00
+      financial: 1.00
+      verdict: 1.00
+      gaia_l1: 0.80
+      gaia_l2: 0.73
+      gaia_l3: 0.00                      # ceiling — escalate
+    notes:
+      - "Cost leader: $0.03-0.08/trial on short-form, $0.15-0.30 on deliverables."
+      - "Extreme cost advantage on classification/retrieval (factcheck/dataquery/mmlu)."
+      - "Use OpenRouter load-balanced; provider pinning is a measured anti-pattern."
+
+  Kimi-K2.6-Direct:
+    tier: stability-leader
+    route:
+      kind: vendor_anthropic
+      base_url: "https://api.moonshot.ai/anthropic"   # .ai NOT .cn (region-bound key)
+      model_id: "kimi-k2.6"
+      auth_token_env: MOONSHOT_API_KEY
+    code_settings:
+      inner_timeout_sec: 900
+      outer_wall_sec: 1800
+      budget_usd: 3.0                   # can reach $2-4 on hard multi-tool tasks
+      max_retries: 2
+    failure_profile:
+      dominant: timeout-stuck           # 10/12 baseline fails are timeouts
+      timeout_rate: 0.08
+      exit1_rate: 0.00
+      note: "Stuck-loop prone WITHOUT overlay. anti-stuck v2 eliminates timeouts entirely (10 baseline timeouts -> 0)."
+    overlay_policy:
+      research: research-anti-stuck
+      gtm: gtm-anti-stuck
+      financial: financial-anti-stuck-v4
+      verdict: verdict-anti-stuck       # Kimi's strict bias is GOOD for verdict — keep simple overlay
+      name_entity: name-precision-anti-stuck
+      factcheck: verdict-anti-stuck
+      dataquery: gtm-anti-stuck
+      long_horizon: ESCALATE            # 20% on GAIA L3 — route to Opus
+    family_fit:
+      factcheck: 1.00
+      dataquery: 1.00
+      mmlu: 0.87
+      hotpotqa: 0.80
+      research: 1.00
+      gtm: 1.00
+      financial: 1.00
+      verdict: 1.00
+      gaia_l1: 0.93
+      gaia_l2: 1.00                      # BEATS Sonnet (80%) on GAIA L2
+      gaia_l3: 0.20                      # ceiling — escalate
+    notes:
+      - "Stability leader: 21/21 perfect across the 7-task business suite post-hygiene."
+      - "anti-stuck overlay is MANDATORY — baseline timeouts on long deliverables."
+      - "Best for verdict/borderline-judgment tasks (conservative bias)."
+      - "~4x more expensive than GLM on short-form; converges on complex deliverables."
+
+  Opus-4-7:
+    tier: escalation
+    route:
+      kind: native
+      model_id: "claude-opus-4-7"
+    code_settings:
+      inner_timeout_sec: 1800           # reasoning class can legitimately take longer
+      outer_wall_sec: 3600
+      budget_usd: 5.0
+      max_retries: 1                    # fails fast and clean; retry rarely helps
+    failure_profile:
+      dominant: wrong-answer
+      timeout_rate: 0.00                # zero timeouts even on GAIA L3
+      exit1_rate: 0.00
+      note: "Reasoning capacity prevents the stuck-loop wall. Fails fast (1-22 turns) without burning the wall."
+    overlay_policy:
+      # Opus does NOT need anti-stuck overlays — reasoning class self-regulates.
+      research: NONE
+      gtm: NONE
+      financial: NONE
+      verdict: NONE
+      name_entity: NONE
+      long_horizon: NONE
+    family_fit:
+      gaia_l3: 0.78                      # 3.5x Sonnet, the only model that cracks L3
+    notes:
+      - "Escalation target for GAIA-L3-class long-horizon multi-tool tasks."
+      - "CHEAPER than Kimi on L3 ($0.29 vs $1.02) — answers in 1-2 turns from cached retrieval."
+      - "Do NOT apply anti-stuck overlay — it constrains the reasoning the model needs."
+      - "Use for: long_horizon, high-stakes (legal/compliance), premium-quality mode."
+
+  Sonnet-4-6:
+    tier: middle              # available but not a default route after the migration
+    route:
+      kind: native
+      model_id: "claude-sonnet-4-6"
+    code_settings:
+      inner_timeout_sec: 900
+      outer_wall_sec: 1800
+      budget_usd: 5.0
+      max_retries: 2
+    failure_profile:
+      dominant: mixed         # 42 wrong + 7 exit1 + 4 timeout
+      timeout_rate: 0.02
+      exit1_rate: 0.04
+    overlay_policy:
+      research: NONE          # Compass plugin skill works as-is on Sonnet
+    family_fit:
+      gaia_l2: 0.80           # LOSES to Kimi+anti-stuck (100%)
+      gaia_l3: 0.22           # basically tied with SLMs — NOT a useful escalation target
+    notes:
+      - "No privileged routing role after migration. SLM+overlay matches or beats it on L2."
+      - "On L3, only marginally better than SLMs (22%) — escalate to Opus instead."
+      - "Keep the original Compass plugin skill for Sonnet (do not apply SLM overlay)."
+
+  Nemotron-120B:
+    tier: deprecated
+    route:
+      kind: openrouter
+      slug: "nvidia/nemotron-3-super-120b-a12b"
+      api_key_env: OPENROUTER_API_KEY
+    code_settings:
+      inner_timeout_sec: 600        # aggressive — 36% timeout rate, cut losses early
+      outer_wall_sec: 1200
+      budget_usd: 1.0
+      max_retries: 1
+    failure_profile:
+      dominant: timeout-stuck
+      timeout_rate: 0.36            # very high
+      exit1_rate: 0.02
+    overlay_policy:
+      research: research-anti-stuck  # helps but anti-stuck v2 (target length) REGRESSES
+    family_fit:
+      research: 0.65
+      verdict: 0.34
+    notes:
+      - "NOT recommended for production. 36% timeout rate; anti-stuck v2 regresses accuracy."
+      - "Model capacity insufficient for long deliverable + budgeted reasoning simultaneously."
+
+  GLM-5.2-Direct:
+    tier: deprecated          # for BATCH/automation — fine for human-paced single calls
+    route:
+      kind: vendor_anthropic
+      base_url: "https://api.z.ai/api/anthropic"
+      model_id: "glm-5.2"
+      auth_token_env: ZHIPUAI_API_KEY
+    code_settings:
+      inner_timeout_sec: 900
+      outer_wall_sec: 1800
+      budget_usd: 2.0
+      max_retries: 0           # do NOT retry — re-hits the throttle
+    failure_profile:
+      dominant: exit1-throttle
+      timeout_rate: 0.00
+      exit1_rate: 0.82         # Z.ai Coding Plan rate-limit under sustained load
+    overlay_policy:
+      research: research-anti-stuck
+    family_fit: {}
+    notes:
+      - "NOT for batch/automation: Coding Plan throttles N>=3 sequential calls (82% Exit 1)."
+      - "Use GLM-5.2-OR (OpenRouter) for automation instead. Z.ai direct = human-paced only."
+
+# Task-family → canonical overlay file (when a model's overlay_policy says
+# to use it). These live in skills/tuned/.
+overlay_files:
+  research-anti-stuck: skills/tuned/research-anti-stuck.md
+  gtm-anti-stuck: skills/tuned/gtm-anti-stuck.md
+  financial-anti-stuck-v4: skills/tuned/financial-anti-stuck-v4.md
+  verdict-anti-stuck: skills/tuned/verdict-anti-stuck.md
+  decisive-verdict-anti-stuck: skills/tuned/decisive-verdict-anti-stuck.md
+  name-precision-anti-stuck: skills/tuned/name-precision-anti-stuck.md
+  long-horizon-anti-stuck: skills/tuned/long-horizon-anti-stuck.md
