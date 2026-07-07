@@ -53,6 +53,8 @@ MINIMAX_API_KEY:
   litellm_base: https://api.minimax.io/anthropic
   litellm_model_prefix: "anthropic/"
   ccr_provider: minimax
+  tiers:
+    standard: { pattern: "^MiniMax-M[0-9]", default: "MiniMax-M2.7", litellm_alias: "minimax" }
 
 MINIMAX_PLAN_KEY:
   op_item: "MiniMax API Key Dev"
@@ -79,6 +81,8 @@ MOONSHOT_API_KEY:
   litellm_base: https://api.moonshot.ai/v1
   litellm_model_prefix: "openai/"
   ccr_provider: kimi
+  tiers:
+    standard: { pattern: "^kimi-k[0-9]",  default: "kimi-k2.6", litellm_alias: "kimi" }
 
 QWEN_CODING_API_KEY:
   op_item: "Alibaba Model Studio Coding Plan Dev"
@@ -100,6 +104,10 @@ ALIBABA_PLAN_KEY:
   models_pattern: "^qwen"
   litellm_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
   litellm_model_prefix: "openai/"
+  tiers:
+    plus:  { pattern: "^qwen[0-9].*-plus$",  default: "qwen3.6-plus",  litellm_alias: "qwen-plus" }
+    flash: { pattern: "^qwen[0-9].*-flash$", default: "qwen3.6-flash", litellm_alias: "qwen-flash" }
+    max:   { pattern: "^qwen[0-9].*-max$",   default: "qwen3.7-max",   litellm_alias: "qwen-max" }
 
 DEEPSEEK_API_KEY:
   op_item: "deepseek API Key Dev"
