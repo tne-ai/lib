@@ -90,13 +90,15 @@ ALIBABA_API_KEY:
   op_vault: DevOps
 
 ALIBABA_PLAN_KEY:
-  op_item: "Alibaba Cloud Api Key Dev"
+  op_item: "Alibaba Cloud Plan API Key Dev"
   op_field: "api key"
   op_vault: DevOps
-  disabled: true  # deprecated 2026-06-22 — Kimi K2 moved to Moonshot PAYG
-  models_url: https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models
-  models_pattern: "^(qwen|wanx)"
-  litellm_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+  # Alibaba MaaS Team Edition Token Plan — covers Qwen models only.
+  # Kimi moved to Moonshot PAYG 2026-06-22 but Qwen remains on this plan.
+  # Key and endpoint are tightly coupled — do NOT use with dashscope-intl (401).
+  models_url: https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/models
+  models_pattern: "^qwen"
+  litellm_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
   litellm_model_prefix: "openai/"
 
 DEEPSEEK_API_KEY:
