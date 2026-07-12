@@ -10,12 +10,15 @@
 #   equivalent_of:    export this var equal to another env var instead of loading from op
 #
 #   models_url:       provider /v1/models endpoint (AI providers only)
-#   models_auth:      bearer (default) | query — how to pass the key
+#   models_auth:      bearer (default) | query | none — how to pass the key
 #   models_auth_param: query param name when models_auth=query (default: key)
 #   models_pattern:   regex to filter model IDs from the response
 #   litellm_base:     API base URL for litellm model_list
 #   litellm_key_env:  env var name for api_key in litellm config (default: same as key)
 #   litellm_model_prefix: litellm model prefix e.g. "openai/" "gemini/" (default: "openai/")
+#   litellm_name_prefix: model_name prefix in litellm config e.g. "lms/" for LM Studio
+#   discover_all:     true = upsert ALL discovered models into litellm config (not just tier aliases)
+#   optional:         true = skip silently if endpoint unreachable (local providers)
 #   ccr_provider:     provider name in ~/.claude-code-router/config.json
 
 # ── Anthropic ─────────────────────────────────────────────────────────────────
@@ -116,6 +119,7 @@ DEEPSEEK_API_KEY:
   models_pattern: "^deepseek-"
   litellm_base: https://api.deepseek.com/anthropic
   litellm_model_prefix: "anthropic/"
+  discover_all: true
   ccr_provider: deepseek
 
 OPENROUTER_API_KEY:
@@ -207,6 +211,10 @@ SAMBANOVA_API_KEY:
   op_item: "SambaNova API Token Dev"
   op_field: "api token"
   op_vault: DevOps
+  models_url: https://api.sambanova.ai/v1/models
+  models_pattern: "^Meta-Llama|^Llama"
+  litellm_model_prefix: "sambanova/"
+  discover_all: true
 
 STEPFUN_API_KEY:
   op_item: "Stepfun API Key Dev"
@@ -217,6 +225,29 @@ REPLICATE_API_KEY:
   op_item: "Replicate API Token Dev"
   op_field: "api token"
   op_vault: DevOps
+
+# ── Local inference (no 1Password — token-less or any-string auth) ───────────
+LM_STUDIO_API_TOKEN:
+  # LM Studio accepts any non-empty string as auth token (localhost only, not validated).
+  # Default "lm-studio" is set in litellm-start.sh — no 1Password entry needed.
+  models_url: http://localhost:1234/v1/models
+  models_auth: none
+  litellm_model_prefix: "openai/"
+  litellm_name_prefix: "lms/"
+  litellm_base: http://localhost:1234/v1
+  optional: true
+  discover_all: true
+
+OLLAMA_BASE_URL:
+  # Ollama local inference — no API key. OLLAMA_BASE_URL overrides the default base URL.
+  # Uses Ollama's OpenAI-compatible /v1/models endpoint (Ollama ≥0.1.24).
+  models_url: http://localhost:11434/v1/models
+  models_auth: none
+  litellm_model_prefix: "ollama/"
+  litellm_name_prefix: "lls/"
+  litellm_base: http://localhost:11434
+  optional: true
+  discover_all: true
 
 # ── Memory & tooling ──────────────────────────────────────────────────────────
 MEM0_API_KEY:
