@@ -14,7 +14,7 @@ CCR_PORT="${CCR_PORT:-3456}"
 KIMI_PORT="${KIMI_CLAUDE_PROXY_PORT:-3457}"
 CLIPROXY_PORT="${CLIPROXYAPI_PORT:-8317}"
 ROUTELLM_PORT="${ROUTELLM_PORT:-6060}"
-AI_QUALITY_MODELS="${AI_QUALITY_MODELS:-qwen-max gpt-5.4-mini gemini-2.5-flash deepseek-v4-pro kimi-k2.6 minimax-m2.7 glm-4.7-flash or-nemotron-super-120b}"
+AI_QUALITY_MODELS="${AI_QUALITY_MODELS:-qwen-max gpt-flash gemini-flash deepseek-v4-pro kimi minimax glm or-nemotron-super-120b}"
 
 port_ready() { nc -z localhost "$1" 2>/dev/null; }
 
