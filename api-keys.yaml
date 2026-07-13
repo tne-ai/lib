@@ -10,7 +10,7 @@
 #   equivalent_of:    export this var equal to another env var instead of loading from op
 #
 #   models_url:       provider /v1/models endpoint (AI providers only)
-#   models_auth:      bearer (default) | query | none — how to pass the key
+#   models_auth:      bearer (default) | query | x-api-key | none — how to pass the key
 #   models_auth_param: query param name when models_auth=query (default: key)
 #   models_pattern:   regex to filter model IDs from the response
 #   litellm_base:     API base URL for litellm model_list
@@ -20,6 +20,23 @@
 #   discover_all:     true = upsert ALL discovered models into litellm config (not just tier aliases)
 #   optional:         true = skip silently if endpoint unreachable (local providers)
 #   ccr_provider:     provider name in ~/.claude-code-router/config.json
+#
+#   tiers:            compute/cost tiers — flash | std | pro | max (omit tiers not offered)
+#     <tier>:
+#       keyword:      substring present in model IDs at this tier (empty = base/default model)
+#       default:      fallback model ID used when /models endpoint is unreachable
+#       litellm_alias: model_name used in litellm config (drives _TIER_* var in litellm-sync.sh)
+#   attributes:       orthogonal capabilities (reasoning, code, vision…) — not a tier
+#     - name:         attribute name
+#       keyword:      substring identifying models with this attribute
+#       default:      fallback model ID
+#       litellm_alias: model_name in litellm config
+#
+#   Tier keyword semantics in litellm-sync.sh:
+#     non-empty keyword → filter /models list to IDs containing keyword (case-insensitive)
+#     empty keyword     → filter by models_pattern, then exclude IDs containing any sibling
+#                         tier keyword; pick lexicographic latest of what remains
+#   Tier names primed from live /models endpoints 2026-07-12 and updated via LiveInput (60d TTL).
 
 # ── Anthropic ─────────────────────────────────────────────────────────────────
 ANTHROPIC_API_KEY_REAL:
@@ -27,7 +44,14 @@ ANTHROPIC_API_KEY_REAL:
   op_vault: DevOps
   disabled_by: ANTHROPIC_MAX
   models_url: https://api.anthropic.com/v1/models
-  models_pattern: "claude-"
+  models_auth: x-api-key            # Anthropic uses x-api-key header, not Bearer
+  models_auth_extra: "anthropic-version: 2023-06-01"
+  models_pattern: "^claude-"
+  litellm_model_prefix: "anthropic/"
+  tiers:
+    flash: { keyword: haiku,  default: claude-haiku-4-5,  litellm_alias: claude-haiku }
+    std:   { keyword: sonnet, default: claude-sonnet-5,   litellm_alias: claude-sonnet }
+    pro:   { keyword: opus,   default: claude-opus-4-8,   litellm_alias: claude-opus }
 
 # ANTHROPIC_API_KEY is NOT loaded from 1Password directly.
 # When LiteLLM is running, make ai-run sets it to LITELLM_MASTER_KEY so Claude Code
@@ -57,7 +81,8 @@ MINIMAX_API_KEY:
   litellm_model_prefix: "anthropic/"
   ccr_provider: minimax
   tiers:
-    standard: { pattern: "^MiniMax-M[0-9]", default: "MiniMax-M2.7", litellm_alias: "minimax" }
+    flash: { keyword: highspeed, default: MiniMax-M2.7-highspeed, litellm_alias: minimax-flash }
+    std:   { keyword: "",        default: MiniMax-M3,             litellm_alias: minimax }
 
 MINIMAX_PLAN_KEY:
   op_item: "MiniMax API Key Dev"
@@ -67,11 +92,15 @@ MINIMAX_PLAN_KEY:
 Z_AI_PLAN_KEY:
   op_item: "Z.ai Plan Key Dev"
   op_vault: DevOps
-  # models_url returns HTTP 200 but body is {code:500,"msg":"404 NOT_FOUND"} — no model list API
-  litellm_base: https://api.z.ai/api/anthropic/v1/messages
-  litellm_key_env: ZHIPUAI_API_KEY
-  litellm_model_prefix: "openai/"
+  models_url: https://api.z.ai/api/anthropic/v1/models
+  models_auth: x-api-key            # Z.ai Anthropic-compat uses x-api-key, not Bearer
+  models_pattern: "^glm-"
+  litellm_base: https://api.z.ai/api/anthropic
+  litellm_model_prefix: "anthropic/"
   ccr_provider: z.ai
+  tiers:
+    flash: { keyword: air,    default: glm-4.5-air, litellm_alias: glm-flash }
+    std:   { keyword: "",     default: glm-5.2,     litellm_alias: glm }
 
 MOONSHOT_API_KEY:
   op_item: "Moonshot API Key Dev"
@@ -80,12 +109,14 @@ MOONSHOT_API_KEY:
   # The Dev key is an international key: api.moonshot.ai returns 200, .cn returns
   # 401. Use .ai everywhere (r-cto-dev162 motivation).
   models_url: https://api.moonshot.ai/v1/models
-  models_pattern: "^kimi-k2"
-  litellm_base: https://api.moonshot.ai/v1
-  litellm_model_prefix: "openai/"
+  models_pattern: "^kimi-k"
+  litellm_base: https://api.moonshot.ai/anthropic
+  litellm_model_prefix: "anthropic/"
   ccr_provider: kimi
   tiers:
-    standard: { pattern: "^kimi-k[0-9]",  default: "kimi-k2.6", litellm_alias: "kimi" }
+    std: { keyword: "", default: kimi-k2.6, litellm_alias: kimi }
+  attributes:
+    - { name: code, keyword: code, default: kimi-k2.7-code, litellm_alias: kimi-code }
 
 QWEN_CODING_API_KEY:
   op_item: "Alibaba Model Studio Coding Plan Dev"
@@ -100,17 +131,17 @@ ALIBABA_PLAN_KEY:
   op_item: "Alibaba Cloud Plan API Key Dev"
   op_field: "api key"
   op_vault: DevOps
-  # Alibaba MaaS Team Edition Token Plan — covers Qwen models only.
+  # Alibaba MaaS Team Edition Token Plan — covers Qwen + many partner models.
   # Kimi moved to Moonshot PAYG 2026-06-22 but Qwen remains on this plan.
   # Key and endpoint are tightly coupled — do NOT use with dashscope-intl (401).
   models_url: https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/models
-  models_pattern: "^qwen"
+  models_pattern: "^qwen[0-9]"
   litellm_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
   litellm_model_prefix: "openai/"
   tiers:
-    plus:  { pattern: "^qwen[0-9].*-plus$",  default: "qwen3.6-plus",  litellm_alias: "qwen-plus" }
-    flash: { pattern: "^qwen[0-9].*-flash$", default: "qwen3.6-flash", litellm_alias: "qwen-flash" }
-    max:   { pattern: "^qwen[0-9].*-max$",   default: "qwen3.7-max",   litellm_alias: "qwen-max" }
+    flash: { keyword: flash, default: qwen3.6-flash, litellm_alias: qwen-flash }
+    std:   { keyword: plus,  default: qwen3.7-plus,  litellm_alias: qwen-plus }
+    pro:   { keyword: max,   default: qwen3.7-max,   litellm_alias: qwen-max }
 
 DEEPSEEK_API_KEY:
   op_item: "deepseek API Key Dev"
@@ -119,8 +150,12 @@ DEEPSEEK_API_KEY:
   models_pattern: "^deepseek-"
   litellm_base: https://api.deepseek.com/anthropic
   litellm_model_prefix: "anthropic/"
-  discover_all: true
   ccr_provider: deepseek
+  tiers:
+    flash: { keyword: flash, default: deepseek-v4-flash, litellm_alias: deepseek-flash }
+    pro:   { keyword: pro,   default: deepseek-v4-pro,   litellm_alias: deepseek }
+  # reasoning is orthogonal to tier — deepseek-v4-pro may include reasoning but
+  # confirm via LiveInput search before splitting into a separate attribute entry
 
 OPENROUTER_API_KEY:
   op_item: "OpenRouter API Key Dev"
@@ -138,9 +173,12 @@ GEMINI_API_KEY:
   models_url: https://generativelanguage.googleapis.com/v1beta/models
   models_auth: query
   models_auth_param: key
-  models_pattern: "^gemini-"
+  models_pattern: "^gemini-[0-9]"
   litellm_model_prefix: "gemini/"
   ccr_provider: gemini
+  tiers:
+    flash: { keyword: flash,    default: gemini-3.5-flash,       litellm_alias: gemini-flash }
+    pro:   { keyword: -pro,     default: gemini-3.1-pro-preview,  litellm_alias: gemini-pro }
 
 GOOGLE_API_KEY:
   op_item: "Google Gemini API Key Dev"
@@ -157,6 +195,17 @@ OPENAI_API_KEY:
   op_item: "OpenAI API Key Dev"
   op_vault: DevOps
   disabled_by: CODEX_CHATGPT  # codex login ChatGPT OAuth overrides API key
+  models_url: https://api.openai.com/v1/models
+  models_pattern: "^gpt-[0-9]"
+  litellm_model_prefix: "openai/"
+  tiers:
+    # Bootstrap defaults from live /models 2026-07-12 — LiveInput search refreshes every 60 days.
+    # OpenAI renames tiers frequently; keywords are best-effort. std uses -chat-latest rolling alias.
+    flash: { keyword: -mini,        default: gpt-5.4-mini,        litellm_alias: gpt-flash }
+    std:   { keyword: chat-latest,  default: gpt-5.5-chat-latest, litellm_alias: gpt-std }
+    pro:   { keyword: -pro,         default: gpt-5.5-pro,         litellm_alias: gpt-pro }
+  attributes:
+    - { name: reasoning, keyword: o3, default: o3, litellm_alias: gpt-reasoning }
 
 OPENCODE_API_KEY:
   op_item: "OpenCode API Key Dev"
