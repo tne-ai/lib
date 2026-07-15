@@ -52,6 +52,7 @@ ANTHROPIC_API_KEY_REAL:
     flash: { keyword: haiku,  default: claude-haiku-4-5,  litellm_alias: claude-haiku }
     std:   { keyword: sonnet, default: claude-sonnet-5,   litellm_alias: claude-sonnet }
     pro:   { keyword: opus,   default: claude-opus-4-8,   litellm_alias: claude-opus }
+    max:   { keyword: fable,  default: claude-fable-5,    litellm_alias: claude-fable }
 
 # ANTHROPIC_API_KEY is NOT loaded from 1Password directly.
 # When LiteLLM is running, make ai-run sets it to LITELLM_MASTER_KEY so Claude Code
