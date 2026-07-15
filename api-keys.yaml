@@ -21,7 +21,7 @@
 #   optional:         true = skip silently if endpoint unreachable (local providers)
 #   ccr_provider:     provider name in ~/.claude-code-router/config.json
 #
-#   tiers:            compute/cost tiers — flash | std | pro | max (omit tiers not offered)
+#   tiers:            compute/cost tiers — flash | std | pro | ultra (omit tiers not offered)
 #     <tier>:
 #       keyword:      substring present in model IDs at this tier (empty = base/default model)
 #       default:      fallback model ID used when /models endpoint is unreachable
@@ -37,6 +37,31 @@
 #     empty keyword     → filter by models_pattern, then exclude IDs containing any sibling
 #                         tier keyword; pick lexicographic latest of what remains
 #   Tier names primed from live /models endpoints 2026-07-12 and updated via LiveInput (60d TTL).
+#
+#   effort_map:       canonical reasoning-effort vocabulary → provider-native string.
+#                      Orthogonal to tiers: tier picks the MODEL, effort tunes how hard that
+#                      model tries on a given request. Callers specify both, e.g. (tier=pro,
+#                      effort=high) — neither has a safe default inferred from the other.
+#                      Canonical levels: low | medium | high | max (4, mirrors the tier ladder).
+#                      litellm forwards effort/reasoning_effort via drop_params:true, so no
+#                      code change is needed to plumb it through — this map is for callers/
+#                      litellm-sync.sh to translate the canonical level to what the provider's
+#                      API actually accepts (providers use different native vocabularies and
+#                      have renamed them before — do not hardcode a provider's native strings
+#                      anywhere outside this map).
+#
+#   Tier fallback (nearest-available resolution): not every provider defines all four tiers
+#   (e.g. Kimi defines only std; DeepSeek defines flash+pro but not std/max). When a caller
+#   requests a tier a provider doesn't define, resolve to the nearest filled tier by walking
+#   the ladder flash < std < pro < ultra:
+#     - requesting ultra (or pro) and unfilled → walk DOWN toward flash, use nearest filled tier
+#     - requesting flash (or std) and unfilled → walk UP toward ultra, use nearest filled tier
+#   i.e. from the requested tier's position, prefer the nearest defined tier below it; if none
+#   exists below, take the nearest defined tier above it. A provider with only `std` therefore
+#   answers every tier request (flash/pro/ultra all resolve to std). Implemented in
+#   litellm-sync.sh's tier resolution (_resolve_provider_tiers) — never hardcode a tier lookup
+#   without going through that fallback. routellm's binary mf router is a separate, narrower
+#   mechanism and must NOT be force-expanded to implement this ladder (see r-cai-* rule).
 
 # ── Anthropic ─────────────────────────────────────────────────────────────────
 ANTHROPIC_API_KEY_REAL:
@@ -52,7 +77,13 @@ ANTHROPIC_API_KEY_REAL:
     flash: { keyword: haiku,  default: claude-haiku-4-5,  litellm_alias: claude-haiku }
     std:   { keyword: sonnet, default: claude-sonnet-5,   litellm_alias: claude-sonnet }
     pro:   { keyword: opus,   default: claude-opus-4-8,   litellm_alias: claude-opus }
-    max:   { keyword: fable,  default: claude-fable-5,    litellm_alias: claude-fable }
+    ultra: { keyword: fable,  default: claude-fable-5,    litellm_alias: claude-fable }
+  effort_map:
+    # Anthropic `effort` param has no low/medium — collapse both canonical low+medium to standard.
+    low: standard
+    medium: standard
+    high: high
+    max: max
 
 # ANTHROPIC_API_KEY is NOT loaded from 1Password directly.
 # When LiteLLM is running, make ai-run sets it to LITELLM_MASTER_KEY so Claude Code
@@ -200,11 +231,18 @@ OPENAI_API_KEY:
   models_pattern: "^gpt-[0-9]"
   litellm_model_prefix: "openai/"
   tiers:
-    # Bootstrap defaults from live /models 2026-07-12 — LiveInput search refreshes every 60 days.
-    # OpenAI renames tiers frequently; keywords are best-effort. std uses -chat-latest rolling alias.
-    flash: { keyword: -mini,        default: gpt-5.4-mini,        litellm_alias: gpt-flash }
-    std:   { keyword: chat-latest,  default: gpt-5.5-chat-latest, litellm_alias: gpt-std }
-    pro:   { keyword: -pro,         default: gpt-5.5-pro,         litellm_alias: gpt-pro }
+    # Bootstrap defaults from live /models 2026-07-15 — LiveInput search refreshes every 60 days.
+    # GPT-5.6 (Sol/Terra/Luna) replaced the 5.5/5.4 ladder GA 2026-07-09. No distinct "max" model
+    # exists — Sol Ultra is a reasoning_effort=max setting on gpt-5.6-sol, not a separate model ID.
+    # ultra tier intentionally omitted here; tier-fallback (see header) resolves ultra→pro (sol).
+    flash: { keyword: luna,  default: gpt-5.6-luna,  litellm_alias: gpt-flash }
+    std:   { keyword: terra, default: gpt-5.6-terra, litellm_alias: gpt-std }
+    pro:   { keyword: sol,   default: gpt-5.6-sol,   litellm_alias: gpt-pro }
+  effort_map:
+    low: low
+    medium: medium
+    high: high
+    max: max   # sol + reasoning_effort=max == "Sol Ultra"; no separate model ID
   attributes:
     - { name: reasoning, keyword: o3, default: o3, litellm_alias: gpt-reasoning }
 
