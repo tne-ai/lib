@@ -73,9 +73,9 @@ MOONSHOT_API_KEY:
   op_item_id: "fs4np24dsdyz5smfrxxwxrodri"
   op_vault: DevOps
   # enabled 2026-06-22 — Kimi K2 moved from Alibaba Coding Plan to Moonshot PAYG
-  models_url: https://api.moonshot.cn/v1/models
+  models_url: https://api.moonshot.ai/v1/models
   models_pattern: "^kimi-k2"
-  litellm_base: https://api.moonshot.cn/v1
+  litellm_base: https://api.moonshot.ai/v1
   litellm_model_prefix: "openai/"
   ccr_provider: kimi
 
