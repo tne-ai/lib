@@ -12,7 +12,7 @@
 # need this so gitlint only runs during commit-msg
 # default_stages: [pre-commit, pre-push]
 # needed by v4.0
-default_stages: [pre-commit, pre-push]
+default_stages: [pre-commit]
 default_language_version:
   python: python3.12
   node: "22.22.0"
@@ -25,9 +25,11 @@ repos:
     hooks:
       # allow up to 2MB files for jupyter notebooks
       - id: check-added-large-files
+        stages: [pre-commit]
         args: ["--maxkb=2048"]
       - id: check-merge-conflict
       - id: check-executables-have-shebangs
+        stages: [pre-commit]
       # exclude third-party files
       # https://github.com/psf/black/issues/395
       # do not run this since we do include.sh from elsewhere
@@ -46,13 +48,17 @@ repos:
       #  exclude: (^_vendor/|^node_modules/)
       # detect-aws-credentials and detect-private-key replaced by gitleaks (150+ patterns)
       - id: end-of-file-fixer
+        stages: [pre-commit]
       - id: forbid-new-submodules
       - id: mixed-line-ending
       # we allow direct commits to main uncomment if you PRs only
       # - id: no-commit-to-branch
       - id: trailing-whitespace
+        stages: [pre-commit]
       - id: check-executables-have-shebangs
+        stages: [pre-commit]
       - id: destroyed-symlinks
+        stages: [pre-commit]
       # include.sh and surround.sh
       - id: check-symlinks
         exclude: (include.sh$|surround.sh$)
@@ -97,6 +103,7 @@ repos:
     rev: v3.12.0-2
     hooks:
       - id: shfmt
+        stages: [pre-commit]
         exclude: (.*\.zsh$|\.zprofile|\.zshrc)
 
   # https://github.com/igorshubovych/markdownlint-cli
