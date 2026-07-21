@@ -188,3 +188,12 @@ read_ips() {
 		fi
 	done <"$file"
 }
+
+# Check whether a TCP port is accepting connections on a host.
+# usage: port_open [host] port   (host defaults to localhost)
+port_open() {
+	local host="${2:+$1}"
+	local port="${2:-$1}"
+	host="${host:-localhost}"
+	nc -z "$host" "$port" 2>/dev/null
+}
