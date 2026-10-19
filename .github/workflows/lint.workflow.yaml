@@ -113,7 +113,7 @@ jobs:
       - name: Install markdownlint-cli
         run: npm install -g markdownlint-cli
       - name: Enable Homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@main
       - name: Install hadolint and shellcheck
         uses: tecolicom/actions-use-homebrew-tools@v1
         with:
