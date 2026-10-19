@@ -85,7 +85,7 @@ jobs:
           node-version: "24"
       # markdownlint-cli2 pre-commit hook self-installs; no npm global needed
       - name: Enable Homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@main
       - name: Install hadolint and shellcheck
         uses: tecolicom/actions-use-homebrew-tools@v1
         with:
