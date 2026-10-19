@@ -116,10 +116,12 @@ MINIMAX_API_KEY:
     flash: { keyword: highspeed, default: MiniMax-M2.7-highspeed, litellm_alias: minimax-flash }
     std:   { keyword: "",        default: MiniMax-M3,             litellm_alias: minimax }
 
+# MiniMax coding-plan key is no longer fetched separately from 1Password —
+# MiniMax now just uses the plain API key for everything (litellm, CCR, etc.).
+# Kept as an alias (not deleted, per r-cai-fleet145-disable-dont-delete) so
+# existing code that still reads MINIMAX_PLAN_KEY keeps working.
 MINIMAX_PLAN_KEY:
-  op_item: "MiniMax API Key Dev"
-  op_field: "coding plan key"
-  op_vault: DevOps
+  equivalent_of: MINIMAX_API_KEY
 
 Z_AI_PLAN_KEY:
   op_item: "Z.ai Plan Key Dev"
