@@ -430,7 +430,7 @@ ai-open-force:
 ## ai-status: health check for all sidecars
 .PHONY: ai-status
 ai-status:
-	$(BIN_DIR)/start-ai.sh --status
+	$(BIN_DIR)/compass.sh --status
 
 ## ai-models: list available models with make invocation examples
 .PHONY: ai-models
@@ -501,12 +501,12 @@ ai-test-quality:
 ##     - temporal running in-memory (no --db-filename)
 ##     - prisma not connected at startup
 ##     - port conflicts between old + new processes
-##   Run after any change to start-ai.sh, temporal-dev, or litellm formulas.
+##   Run after any change to compass.sh, temporal-dev, or litellm formulas.
 .PHONY: ai-test-restart
 ai-test-restart:
 	@echo "==> ai-test-restart: stop → start → infra check"
-	@$(BIN_DIR)/start-ai.sh --stop
-	@$(BIN_DIR)/start-ai.sh
+	@$(BIN_DIR)/compass.sh --stop
+	@$(BIN_DIR)/compass.sh
 	@$(LIB_DIR)/scripts/ai-test.sh infra
 
 ## ai-sync: write-back sync — upsert new models from live provider catalogs into LITELLM_CFG
