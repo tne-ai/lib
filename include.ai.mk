@@ -358,6 +358,7 @@ ai-help:
 		| while IFS= read -r name; do printf '    make ai-run MODEL=%-36s # FREE (lls offline)\n' "$$name"; done; \
 		[ -z "$$(yq '.model_list[].model_name' "$(LITELLM_CFG)" 2>/dev/null | grep -c '^lls')" ] \
 		  && echo "    (lls not running — start with: make lls-start)"; \
+		true; \
 	fi
 	@echo ""
 	@echo "  ── Ollama ───────────────────────────────────────────────────────────────"
