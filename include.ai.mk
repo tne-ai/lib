@@ -163,20 +163,20 @@ LITELLM_VERSION ?= 1.86.2
 ## litellm-install: install or upgrade litellm to the pinned LITELLM_VERSION
 .PHONY: litellm-install
 litellm-install:
-	LITELLM_VERSION=$(LITELLM_VERSION) $(BIN_DIR)/litellm-install.sh
+	LITELLM_VERSION=$(LITELLM_VERSION) $(BIN_DIR)/install-litellm.sh
 
 ## litellm-fix-ui: patch login/index.html hash mismatch (1.85.x packaging bug)
 ## login/index.html ships with stale chunk hashes; overwrite with login.html which is correct.
 .PHONY: litellm-fix-ui
 litellm-fix-ui:
-	LITELLM_VERSION=$(LITELLM_VERSION) $(BIN_DIR)/litellm-install.sh --fix-ui
+	LITELLM_VERSION=$(LITELLM_VERSION) $(BIN_DIR)/install-litellm.sh --fix-ui
 
 
 ## litellm-check-version: verify installed litellm matches LITELLM_VERSION; fix if not
 ## Called automatically by make litellm before startup.
 .PHONY: litellm-check-version
 litellm-check-version:
-	LITELLM_VERSION=$(LITELLM_VERSION) $(BIN_DIR)/litellm-install.sh --check
+	LITELLM_VERSION=$(LITELLM_VERSION) $(BIN_DIR)/install-litellm.sh --check
 
 ## litellm.stop / 4000.stop: kill ALL litellm processes (port kill + pkill sweep for zombies)
 ## WHY bin/litellm not litellm: postgres names its worker processes after the database.
@@ -186,7 +186,7 @@ litellm-check-version:
 ## missed. Matching "bin/litellm" targets only the Python CLI binary, not postgres.
 .PHONY: litellm.stop 4000.stop
 litellm.stop 4000.stop:
-	LITELLM_PORT=$(LITELLM_PORT) $(BIN_DIR)/litellm-stop.sh
+	LITELLM_PORT=$(LITELLM_PORT) $(BIN_DIR)/stop-litellm.sh
 
 ## litellm: start LiteLLM proxy with automatic Prisma client regeneration
 ##
@@ -211,7 +211,7 @@ litellm.stop 4000.stop:
 ## To force regeneration: rm $(PRISMA_STAMP)
 .PHONY: litellm
 litellm: litellm-check-version
-	LITELLM_PORT=$(LITELLM_PORT) LITELLM_CFG=$(LITELLM_CFG) MLFLOW_PORT=$(MLFLOW_PORT) PRISMA_STAMP=$(PRISMA_STAMP) LITELLM_DB_URL=$(LITELLM_DB_URL) $(BIN_DIR)/litellm-start.sh
+	LITELLM_PORT=$(LITELLM_PORT) LITELLM_CFG=$(LITELLM_CFG) MLFLOW_PORT=$(MLFLOW_PORT) PRISMA_STAMP=$(PRISMA_STAMP) LITELLM_DB_URL=$(LITELLM_DB_URL) $(BIN_DIR)/start-litellm.sh
 # ── Harness + model variables ─────────────────────────────────────────────────
 # HARNESS: the AI coding assistant CLI. Swap without changing targets.
 #   make ai                        # claude (default)
@@ -315,7 +315,8 @@ ai-p:
 ## Covers all stack variants: use MODEL= to select provider (codex, routellm, kimi, etc.)
 ## (ai-local, ai-cli, ai-auto merged here — one unified stack)
 .PHONY: ai
-ai: mlflow-start postgres redis mlflow litellm temporal set-gpu-max-memory lls-start ai-open
+# temporal dropped from prereqs (2026-10-19): target disabled above, bin no longer owns Temporal startup (PR #232)
+ai: mlflow-start postgres redis mlflow litellm set-gpu-max-memory lls-start ai-open
 	@$(MAKE) --no-print-directory ai-help
 	@$(MAKE) --no-print-directory ai-warn-bridges
 
@@ -515,21 +516,21 @@ ai-test-restart:
 ##   After sync: restart LiteLLM to activate new entries (make litellm).
 ##   Extend: add ai-sync-<provider> targets and list them as prerequisites here.
 .PHONY: ai-sync ai-sync-cliproxyapi
-## ai-sync: sync provider model names into LITELLM_CFG (delegates to install-litellm-sync.sh)
+## ai-sync: sync provider model names into LITELLM_CFG (delegates to sync-model.sh)
 ai-sync:
-	$(BIN_DIR)/install-litellm-sync.sh $(FLAGS)
+	$(BIN_DIR)/sync-model.sh $(FLAGS)
 
 ## ai-sync-force: bypass 7-day cache and query live provider APIs
 .PHONY: ai-sync-force
 ai-sync-force:
-	$(BIN_DIR)/install-litellm-sync.sh -f $(FLAGS)
+	$(BIN_DIR)/sync-model.sh -f $(FLAGS)
 
 
 ## ai-latest-models: list models from each provider + what is in LITELLM_CFG
-##   Delegates to install-litellm-sync.sh --list
+##   Delegates to sync-model.sh -l
 .PHONY: ai-latest-models
 ai-latest-models:
-	$(BIN_DIR)/install-litellm-sync.sh -l $(FLAGS)
+	$(BIN_DIR)/sync-model.sh -l $(FLAGS)
 
 ## ai-test-ui: playwright smoke test — verify each service UI renders correctly
 ##   Requires: make ai (sidecars up). Saves failure screenshots to /tmp.
@@ -592,24 +593,19 @@ lls-start:
 lls-stop:
 	LLS_PORT=$(LLS_PORT) $(BIN_DIR)/start-lls.sh --stop
 
-## lls-sync: sync lls/* litellm entries + llama-presets.ini from lms ls --json (GGUF only)
-## Setup: open LM Studio → Browse → Staff Picks → download GGUF variants → run make lls-sync
-## Discovers all GGUF LLMs via `lms ls --json`; skips safetensors (llama-server can't load them).
-## lls/<vendor>/<model> → openai/<gguf-basename> in litellm; preset pinned to ctx=100000, kv=q8_0.
-## lls/auto = largest (most capable) GGUF; fallback chain escalates down to smallest.
-## Run after adding/removing models; safe to re-run (idempotent).
+## lls-sync / lms-sync: sync local-provider (LM Studio lms/*, llama-server lls/*)
+##   litellm entries from `lms ls --json`. These used to be separate scripts
+##   (sync-lls.sh / sync-lms.sh); both families are now synced together by
+##   sync-model.sh -L (local-provider scope, no cloud catalog calls). Kept as
+##   two target names since both are documented entry points elsewhere.
 LLS_CTX ?= 100000
 LLS_PRESETS ?= $(HOME)/.config/litellm/llama-presets.ini
 .PHONY: lls-sync
 lls-sync:
-	LITELLM_CFG=$(LITELLM_CFG) LLS_PRESETS=$(LLS_PRESETS) LLS_PORT=$(LLS_PORT) LLS_CTX=$(LLS_CTX) $(BIN_DIR)/sync-lls.sh
-## lms-sync: sync litellm config model_names with lms ls output
-## Removes all lms/* entries and re-adds them as lms/<vendor>/<model> to match lms ls IDs.
-## Also writes local-only fallbacks (smallest → next-smallest) so ai-local never leaks to cloud.
-## Run after installing new models in LM Studio.
+	LITELLM_CFG=$(LITELLM_CFG) LLS_PRESETS=$(LLS_PRESETS) LLS_PORT=$(LLS_PORT) LLS_CTX=$(LLS_CTX) $(BIN_DIR)/sync-model.sh -L
 .PHONY: lms-sync
 lms-sync:
-	LITELLM_CFG=$(LITELLM_CFG) $(BIN_DIR)/sync-lms.sh
+	LITELLM_CFG=$(LITELLM_CFG) $(BIN_DIR)/sync-model.sh -L
 # ── Commented-out stacks ──────────────────────────────────────────────────────
 
 ## temporal: Temporal workflow server at http://localhost:$(TEMPORAL_PORT)
@@ -617,10 +613,13 @@ lms-sync:
 ##   across reboots and brew lifecycle (vanilla brew plist has no flags → in-memory
 ##   mode; launchctl auto-respawns the unflagged process so start_server skips).
 ##   See TNE-CONTEXT/cco/bug-fix-brief-temporal-in-memory-startup.md for full RCA.
-TEMPORAL_PLIST ?= $(TNE_DB_DIR)/temporal/homebrew.mxcl.temporal-tne.plist
-.PHONY: temporal
-temporal:
-	TEMPORAL_PORT=$(TEMPORAL_PORT) TEMPORAL_UI_PORT=$(TEMPORAL_UI_PORT) TEMPORAL_DB=$(TEMPORAL_DB) TEMPORAL_PLIST=$(TEMPORAL_PLIST) TNE_DB_DIR=$(TNE_DB_DIR) TNE_LOG_DIR=$(TNE_LOG_DIR) $(BIN_DIR)/start-temporal.sh
+## DISABLED (2026-10-19, r-cai-fleet145-disable-dont-delete): bin's start-temporal.sh
+##   was deleted in PR #232 ("retire bin's Temporal ownership, defer to tne-plugins").
+##   Target kept commented, not removed, until a tne-plugins replacement lands.
+# TEMPORAL_PLIST ?= $(TNE_DB_DIR)/temporal/homebrew.mxcl.temporal-tne.plist
+# .PHONY: temporal
+# temporal:
+# 	TEMPORAL_PORT=$(TEMPORAL_PORT) TEMPORAL_UI_PORT=$(TEMPORAL_UI_PORT) TEMPORAL_DB=$(TEMPORAL_DB) TEMPORAL_PLIST=$(TEMPORAL_PLIST) TNE_DB_DIR=$(TNE_DB_DIR) TNE_LOG_DIR=$(TNE_LOG_DIR) $(BIN_DIR)/start-temporal.sh
 # ktap is tne-plugin-only — override in project Makefile if needed
 # ## ktap: KTAP knowledge graph viewer at http://localhost:$(KTAP_PORT)
 # .PHONY: ktap
