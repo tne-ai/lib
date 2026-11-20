@@ -14,7 +14,7 @@
 # needed by v4.0
 default_stages: [pre-commit]
 default_language_version:
-  python: python3.12
+  python: python3.13
 # python regex https://www.programiz.com/python-programming/regex
 exclude: (^archive/|^user/|deprecated/)
 repos:
