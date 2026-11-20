@@ -42,7 +42,7 @@ jobs:
     steps:
       - name: Checkout action
         uses: actions/checkout@v5
-        with:
+        # with:
           # token: '{{ secrets.GITHUB_PAT }}'
           # submodules: recursive
       - name: Setup python
@@ -115,7 +115,7 @@ jobs:
     steps:
       - name: Checkout action
         uses: actions/checkout@v5
-        with:
+        # with:
       - name: Install bats
         run: sudo apt-get update && sudo apt-get install -y bats
       - name: Run bats unit tests (guarded — skip if none)
