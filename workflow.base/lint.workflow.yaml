@@ -42,8 +42,7 @@ jobs:
     steps:
       - name: Checkout action
         uses: actions/checkout@v5
-        with:
-          lfs: true
+        # with:
           # token: '{{ secrets.GITHUB_PAT }}'
           # submodules: recursive
       - name: Setup python
@@ -71,7 +70,6 @@ jobs:
       - name: Checkout action
         uses: actions/checkout@v5
         with:
-          lfs: true
           fetch-depth: 0
           # submodules should be tested one at a time
           # submodules: recursive
@@ -84,12 +82,16 @@ jobs:
         with:
           node-version: "24"
       # markdownlint-cli2 pre-commit hook self-installs; no npm global needed
-      - name: Enable Homebrew
-        uses: Homebrew/actions/setup-homebrew@main
-      - name: Install hadolint and shellcheck
-        uses: tecolicom/actions-use-homebrew-tools@v1
-        with:
-          tools: hadolint shellcheck
+      # No Homebrew on runners (r-cai-arch184-no-homebrew-in-gha). shellcheck ships
+      # preinstalled on ubuntu runners; hadolint is a pinned release binary.
+      - name: Install hadolint
+        env:
+          HADOLINT_VERSION: v2.14.0
+        run: |
+          base="https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}"
+          curl -fsSL -o hadolint "${base}/hadolint-linux-x86_64"
+          curl -fsSL "${base}/hadolint-linux-x86_64.sha256" | awk '{print $1"  hadolint"}' | sha256sum -c -
+          sudo install -m 0755 hadolint /usr/local/bin/hadolint
 
       # tj-actions/changed-files gives us the exact file list so pre-commit
       # only lints what changed — faster and avoids the --from-ref shallow-clone issue
@@ -113,8 +115,7 @@ jobs:
     steps:
       - name: Checkout action
         uses: actions/checkout@v5
-        with:
-          lfs: true
+        # with:
       - name: Install bats
         run: sudo apt-get update && sudo apt-get install -y bats
       - name: Run bats unit tests (guarded — skip if none)
