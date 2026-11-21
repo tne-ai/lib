@@ -82,7 +82,7 @@ jobs:
         with:
           node-version: "24"
       # markdownlint-cli2 pre-commit hook self-installs; no npm global needed
-      # No Homebrew on runners (r-cai-arch-no-homebrew-in-gha). shellcheck ships
+      # No Homebrew on runners (r-cai-arch184-no-homebrew-in-gha). shellcheck ships
       # preinstalled on ubuntu runners; hadolint is a pinned release binary.
       - name: Install hadolint
         env:
